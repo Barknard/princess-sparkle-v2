@@ -9,6 +9,8 @@
  * Max 1 animal follower at a time.
  */
 
+import spriteSheets from '../data/SpriteSheetManager.js';
+
 const TILE = 16;
 
 /** Animal types */
@@ -410,16 +412,28 @@ export default class Animal {
 
   /**
    * Draw the animal.
-   * @param {import('../engine/Renderer.js').default} renderer
-   * @param {object} camera
-   * @param {object} sprites
+   *
+   * Supports two calling patterns:
+   *   1. draw(renderer, camera, sprites) — entity-based draw with camera offset
+   *   2. draw(ctx) — direct canvas context draw (already camera-translated)
+   *
+   * @param {import('../engine/Renderer.js').default|CanvasRenderingContext2D} rendererOrCtx
+   * @param {object} [camera]
+   * @param {object} [sprites]
    */
-  draw(renderer, camera, sprites) {
+  draw(rendererOrCtx, camera, sprites) {
     if (!this.active) return;
 
-    const sx = ((this.x - camera.x) * TILE) | 0;
-    const sy = ((this.y - camera.y) * TILE) | 0;
-    const ctx = renderer.ctx;
+    let ctx, sx, sy;
+    if (camera && typeof camera === 'object' && 'x' in camera) {
+      ctx = rendererOrCtx.ctx || rendererOrCtx;
+      sx = ((this.x - camera.x) * TILE) | 0;
+      sy = ((this.y - camera.y) * TILE) | 0;
+    } else {
+      ctx = rendererOrCtx;
+      sx = (this.x * TILE) | 0;
+      sy = (this.y * TILE) | 0;
+    }
 
     let yOffset = 0;
     let scale = this.isBaby ? 0.7 : 1.0;
@@ -449,24 +463,18 @@ export default class Animal {
       yOffset += Math.sin(this.animTimer * 0.008) * 1.5;
     }
 
-    // Draw sprite
-    if (sprites && sprites.draw) {
-      ctx.save();
-      if (scale !== 1) {
-        ctx.translate(sx + 8, sy + 16);
-        ctx.scale(scale, scale);
-        ctx.translate(-8, -16);
-        sprites.draw(ctx, this.spriteName, 0, yOffset | 0, this.animFrame, this.flipX);
-      } else {
-        sprites.draw(ctx, this.spriteName, sx, sy + (yOffset | 0), this.animFrame, this.flipX);
-      }
-      ctx.restore();
+    // Draw sprite using SpriteSheetManager
+    const name = this.spriteName || this.type.toLowerCase();
+    ctx.save();
+    if (scale !== 1) {
+      ctx.translate(sx + 8, sy + 16);
+      ctx.scale(scale, scale);
+      ctx.translate(-8, -16);
+      spriteSheets.draw(ctx, name, 0, yOffset | 0, { flipX: this.flipX, scale: 1 });
     } else {
-      // Placeholder
-      const size = this.isBaby ? 8 : 12;
-      ctx.fillStyle = this._getPlaceholderColor();
-      ctx.fillRect(sx + (8 - size / 2), sy + (16 - size) + (yOffset | 0), size, size);
+      spriteSheets.draw(ctx, name, sx, sy + (yOffset | 0), { flipX: this.flipX });
     }
+    ctx.restore();
   }
 
   /** Placeholder color per type. */

@@ -13,6 +13,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
+import { playVoice, preloadVoices, SCENE_VOICES } from '../data/voiceIndex.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -28,11 +29,11 @@ function easeOutBack(t) {
 // ---- Constants --------------------------------------------------------------
 
 const COMPANIONS = [
-  { id: 'shimmer', name: 'Shimmer', creature: 'Unicorn', glowColor: '#ffb3d9', bodyColor: '#fff0f5', hornColor: '#ffd700', voice: 'voice_shimmer_intro' },
-  { id: 'ember',   name: 'Ember',   creature: 'Baby Dragon', glowColor: '#ffcc80', bodyColor: '#ff6b35', wingColor: '#ff9966', voice: 'voice_ember_intro' },
-  { id: 'petal',   name: 'Petal',   creature: 'Bunny', glowColor: '#b3e6b3', bodyColor: '#f5f5dc', earColor: '#ffb6c1', voice: 'voice_petal_intro' },
-  { id: 'breeze',  name: 'Breeze',  creature: 'Butterfly', glowColor: '#b3d9ff', bodyColor: '#e0f0ff', wingColor: '#87ceeb', voice: 'voice_breeze_intro' },
-  { id: 'pip',     name: 'Pip',     creature: 'Fox Cub', glowColor: '#ffe066', bodyColor: '#ff8c42', tailColor: '#fff5ee', voice: 'voice_pip_intro' },
+  { id: 'shimmer', name: 'Shimmer', creature: 'Unicorn', glowColor: '#ffb3d9', bodyColor: '#fff0f5', hornColor: '#ffd700', voice: 'companion_shimmer_intro_01' },
+  { id: 'ember',   name: 'Ember',   creature: 'Baby Dragon', glowColor: '#ffcc80', bodyColor: '#ff6b35', wingColor: '#ff9966', voice: 'companion_ember_intro_01' },
+  { id: 'petal',   name: 'Petal',   creature: 'Bunny', glowColor: '#b3e6b3', bodyColor: '#f5f5dc', earColor: '#ffb6c1', voice: 'companion_petal_intro_01' },
+  { id: 'breeze',  name: 'Breeze',  creature: 'Butterfly', glowColor: '#b3d9ff', bodyColor: '#e0f0ff', wingColor: '#87ceeb', voice: 'companion_breeze_intro_01' },
+  { id: 'pip',     name: 'Pip',     creature: 'Fox Cub', glowColor: '#ffe066', bodyColor: '#ff8c42', tailColor: '#fff5ee', voice: 'companion_pip_intro_01' },
 ];
 
 // Layout: companions in a gentle arc
@@ -54,13 +55,21 @@ const SHIMMER_PARTICLES = 3;   // sparkle motes per untapped companion
 // Particles
 const MAX_PARTICLES = 40;
 
-// Narrator voice lines
+// Narrator voice lines (IDs match voice-script/audio/voice/ filenames)
 const NARRATOR_LINES = {
   intro1: 'narrator_companion_intro_01',
   intro2: 'narrator_companion_intro_02',
   intro3: 'narrator_companion_intro_03',
-  confirm: 'narrator_companion_confirm',
   confirm2: 'narrator_companion_confirm_02',
+};
+
+// Per-companion confirm lines (keyed by companion id)
+const NARRATOR_CONFIRM = {
+  shimmer: 'narrator_companion_confirm_shimmer',
+  ember:   'narrator_companion_confirm_ember',
+  petal:   'narrator_companion_confirm_petal',
+  breeze:  'narrator_companion_confirm_breeze',
+  pip:     'narrator_companion_confirm_pip',
 };
 
 // ---- CompanionSelectScene ---------------------------------------------------
@@ -176,6 +185,9 @@ export default class CompanionSelectScene {
     for (let i = 0; i < this._particles.length; i++) {
       this._particles[i].active = false;
     }
+
+    // Preload voice lines for this scene
+    preloadVoices(SCENE_VOICES.companionSelect);
 
     // Play narrator intro
     this._playVoice(NARRATOR_LINES.intro1);
@@ -337,7 +349,7 @@ export default class CompanionSelectScene {
 
     // Play companion SFX
     if (this._audioManager) {
-      this._audioManager.play('sfx_companion_select');
+      this._audioManager.playSFX('trailShimmer');
     }
   }
 
@@ -364,11 +376,12 @@ export default class CompanionSelectScene {
     const pos = this._positions[this._confirmedIndex];
     this._emitBurst(pos.x, pos.y, COMPANIONS[this._confirmedIndex].glowColor);
 
-    // Narrator confirm
-    this._playVoice(NARRATOR_LINES.confirm);
+    // Narrator confirm (per-companion line)
+    const companionId = COMPANIONS[this._confirmedIndex].id;
+    this._playVoice(NARRATOR_CONFIRM[companionId] || NARRATOR_LINES.confirm2);
 
     if (this._audioManager) {
-      this._audioManager.play('sfx_companion_chosen');
+      this._audioManager.playSFX('evolution');
     }
   }
 
@@ -758,9 +771,8 @@ export default class CompanionSelectScene {
   // ---- Helpers --------------------------------------------------------------
 
   _playVoice(id) {
-    if (this._audioManager) {
-      this._audioManager.play(id);
-    }
+    // Route voice lines through the voice system (auto-discovers from voice folder)
+    playVoice(id);
   }
 
   _roundRect(ctx, x, y, w, h, r) {

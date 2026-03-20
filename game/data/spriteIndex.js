@@ -19,146 +19,174 @@ import { tryLoadImage } from './assetDiscovery.js';
 
 const SPRITE_INDEX = {
   // === Player ===
+  // Static frame from Kenney Tiny Dungeon tilemap_packed.png
+  // Walk animation from rpg_16x16_8bit.png (character 0, 3 frames x 3 dirs)
   princess: {
-    sheet: 'characters',
-    x: 0, y: 0, w: 48, h: 64,  // 3 frames x 4 directions
-    frames: 3,
+    sheet: 'dungeon',
+    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    x: 48, y: 128, w: 16, h: 16,  // tile_0099: col=3, row=8 in 12-col packed sheet
+    frames: 1,
     frameW: 16,
     frameH: 16,
-    directions: 4,
-    // Direction layout: row 0=down, 1=left, 2=right, 3=up
-    directionRows: { down: 0, left: 1, right: 2, up: 3 }
+    directions: 1,
+    walkSheet: 'rpg8bit',
+    walkSheetPath: './sprites/characters/rpg_16x16_8bit.png',
+    walkFrames: 3,
+    walkDirections: 3, // down, left/right, up
   },
 
-  // === Companions ===
+  // === Companions (from Kenney Tiny Creatures tilemap_packed.png) ===
+  // Tile numbers use 1-based file naming; packed index = tileNum - 1
   unicorn: {
-    sheet: 'characters',
-    x: 0, y: 64, w: 32, h: 16,
-    frames: 2,
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 32, y: 240, w: 16, h: 16,  // tile_0153: idx=152, col=2, row=15 in 10-col sheet
+    frames: 1,
     frameW: 16,
     frameH: 16,
-    directions: 1
+    directions: 1,
+    runSheet: 'unicornRun',
+    runSheetPath: './sprites/creatures/unicorn_running.png',
+    runFrames: 4,
   },
   dragon: {
-    sheet: 'characters',
-    x: 0, y: 80, w: 32, h: 16,
-    frames: 2,
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 0, y: 64, w: 16, h: 16,    // tile_0041: idx=40, col=0, row=4
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   bunny: {
-    sheet: 'characters',
-    x: 0, y: 96, w: 32, h: 16,
-    frames: 2,
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 0, y: 208, w: 16, h: 16,   // tile_0131: idx=130, col=0, row=13
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   butterfly: {
-    sheet: 'characters',
-    x: 0, y: 112, w: 32, h: 16,
-    frames: 2,
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 96, y: 208, w: 16, h: 16,  // tile_0137: idx=136, col=6, row=13
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   fox: {
-    sheet: 'characters',
-    x: 0, y: 128, w: 32, h: 16,
-    frames: 2,
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 32, y: 208, w: 16, h: 16,  // tile_0133: idx=132, col=2, row=13
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
 
-  // === NPCs ===
+  // === NPCs (from Kenney Tiny Dungeon tilemap_packed.png) ===
   npc_grandma: {
-    sheet: 'characters',
-    x: 0, y: 144, w: 32, h: 16,
-    frames: 2,
+    sheet: 'dungeon',
+    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    x: 64, y: 128, w: 16, h: 16,  // tile_0100: col=4, row=8
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   npc_finn: {
-    sheet: 'characters',
-    x: 0, y: 160, w: 32, h: 16,
-    frames: 2,
+    sheet: 'dungeon',
+    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    x: 0, y: 144, w: 16, h: 16,   // tile_0108: col=0, row=9
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   npc_lily: {
-    sheet: 'characters',
-    x: 0, y: 176, w: 32, h: 16,
-    frames: 2,
+    sheet: 'dungeon',
+    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    x: 16, y: 144, w: 16, h: 16,  // tile_0109: col=1, row=9
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   npc_baker: {
-    sheet: 'characters',
-    x: 0, y: 192, w: 32, h: 16,
-    frames: 2,
+    sheet: 'dungeon',
+    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    x: 32, y: 144, w: 16, h: 16,  // tile_0110: col=2, row=9
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
   npc_melody: {
-    sheet: 'characters',
-    x: 0, y: 208, w: 32, h: 16,
-    frames: 2,
+    sheet: 'dungeon',
+    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    x: 80, y: 128, w: 16, h: 16,  // tile_0101: col=5, row=8
+    frames: 1,
     frameW: 16,
     frameH: 16,
     directions: 1
   },
 
-  // === Animals ===
+  // === Animals (from Kenney Tiny Creatures tilemap_packed.png) ===
   cat: {
-    sheet: 'animals',
-    x: 0, y: 0, w: 32, h: 16,
-    frames: 2, frameW: 16, frameH: 16, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 16, y: 208, w: 16, h: 16,  // tile_0132: idx=131, col=1, row=13
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   dog: {
-    sheet: 'animals',
-    x: 0, y: 16, w: 32, h: 16,
-    frames: 2, frameW: 16, frameH: 16, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 128, y: 256, w: 16, h: 16, // tile_0169: idx=168, col=8, row=16
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   bird: {
-    sheet: 'animals',
-    x: 0, y: 32, w: 32, h: 8,
-    frames: 2, frameW: 16, frameH: 8, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 112, y: 208, w: 16, h: 16, // tile_0138: idx=137, col=7, row=13
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   frog: {
-    sheet: 'animals',
-    x: 0, y: 40, w: 32, h: 8,
-    frames: 2, frameW: 16, frameH: 8, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 96, y: 224, w: 16, h: 16,  // tile_0147: idx=146, col=6, row=14
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   duck: {
-    sheet: 'animals',
-    x: 0, y: 48, w: 32, h: 12,
-    frames: 2, frameW: 16, frameH: 12, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 80, y: 224, w: 16, h: 16,  // tile_0146: idx=145, col=5, row=14
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   squirrel: {
-    sheet: 'animals',
-    x: 0, y: 60, w: 32, h: 12,
-    frames: 2, frameW: 16, frameH: 12, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 48, y: 208, w: 16, h: 16,  // tile_0134: idx=133, col=3, row=13
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   rabbit: {
-    sheet: 'animals',
-    x: 0, y: 72, w: 32, h: 12,
-    frames: 2, frameW: 16, frameH: 12, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 0, y: 208, w: 16, h: 16,   // same as bunny (tile_0131)
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   hedgehog: {
-    sheet: 'animals',
-    x: 0, y: 84, w: 32, h: 10,
-    frames: 2, frameW: 16, frameH: 10, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 64, y: 208, w: 16, h: 16,  // tile_0135: idx=134, col=4, row=13
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
   firefly: {
-    sheet: 'animals',
-    x: 0, y: 94, w: 16, h: 4,
-    frames: 2, frameW: 8, frameH: 4, directions: 1
+    sheet: 'creatures',
+    sheetPath: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    x: 128, y: 208, w: 16, h: 16, // tile_0139: idx=138, col=8, row=13
+    frames: 1, frameW: 16, frameH: 16, directions: 1
   },
 
   // === World Objects ===

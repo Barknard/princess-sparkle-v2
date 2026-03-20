@@ -21,6 +21,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
+import { playVoice, preloadVoices, SCENE_VOICES } from '../data/voiceIndex.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -43,10 +44,10 @@ const VILLAGE_GROUND = '#a8d8a0';
 // Rainbow colors (6 bands, no indigo — simple for 4yo)
 const RAINBOW = ['#ff6b6b', '#ffb347', '#ffe066', '#77dd77', '#6baaff', '#b388ff'];
 
-// Rainbow chime SFX IDs (ascending scale)
+// Rainbow chime SFX IDs (ascending scale — mapped to stepping stone notes in sfxIndex)
 const RAINBOW_CHIMES = [
-  'sfx_chime_c', 'sfx_chime_d', 'sfx_chime_e',
-  'sfx_chime_g', 'sfx_chime_a', 'sfx_chime_high_c'
+  'steppingStoneC', 'steppingStoneD', 'steppingStoneE',
+  'steppingStoneF', 'steppingStoneG', 'steppingStoneA'
 ];
 
 // Sparkle config — large, irresistible to touch
@@ -121,6 +122,7 @@ export default class TitleScene {
     // Whether we're in "continue adventure" mode
     this._isContinue = false;
     this._continueTimer = 0;
+    this._continueWelcomePlayed = false;
 
     // Reference to engine systems (set in init)
     this._audioManager = null;
@@ -216,10 +218,14 @@ export default class TitleScene {
     // Check for save data
     this._isContinue = this._hasSaveData();
     this._continueTimer = 0;
+    this._continueWelcomePlayed = false;
+
+    // Preload voice lines for this scene
+    preloadVoices(SCENE_VOICES.title);
 
     // Play opening ambience
     if (this._audioManager) {
-      this._audioManager.play('sfx_wind_chime_soft');
+      this._audioManager.playSFX('crystalTone');
     }
   }
 
@@ -295,7 +301,7 @@ export default class TitleScene {
 
         // Play chime when band starts
         if (localT < dt * 2 && this._audioManager) {
-          this._audioManager.play(RAINBOW_CHIMES[i]);
+          this._audioManager.playSFX(RAINBOW_CHIMES[i]);
         }
       }
     }
@@ -315,7 +321,7 @@ export default class TitleScene {
 
     // Play shimmer SFX at start
     if (this._phaseTimer < dt * 2 && this._audioManager) {
-      this._audioManager.play('sfx_shimmer_appear');
+      this._audioManager.playSFX('trailShimmer');
     }
   }
 
@@ -358,7 +364,7 @@ export default class TitleScene {
       if (this._sparkleDingTimer >= SPARKLE_DING_INTERVAL) {
         this._sparkleDingTimer = 0;
         if (this._audioManager) {
-          this._audioManager.play('sfx_sparkle_ding');
+          this._audioManager.playSFX('crystalTone');
         }
       }
 
@@ -398,6 +404,12 @@ export default class TitleScene {
 
   _updateContinueFlow(dt) {
     this._continueTimer += dt;
+
+    // Play "Welcome back!" narrator voice once, shortly after the scene starts
+    if (!this._continueWelcomePlayed && this._continueTimer >= 0.5) {
+      this._continueWelcomePlayed = true;
+      playVoice('narrator_title_return_01');
+    }
 
     // Quick 3-second intro: sky with rainbow already formed, village visible
     if (this._continueTimer >= CONTINUE_DURATION && !this._transition.active) {
@@ -916,7 +928,7 @@ export default class TitleScene {
 
     // Play pop-chime SFX
     if (this._audioManager) {
-      this._audioManager.play('sfx_pop_chime');
+      this._audioManager.playSFX('crystalTone');
     }
   }
 
@@ -926,13 +938,13 @@ export default class TitleScene {
 
     // Phase-specific triggers
     if (this._phase === 1 && this._audioManager) {
-      this._audioManager.play('sfx_breeze_ambient');
+      this._audioManager.playSFX('treeRustle');
     }
   }
 
   _playNarratorLine(index) {
-    if (this._audioManager && index < this._narratorLines.length) {
-      this._audioManager.play(this._narratorLines[index]);
+    if (index < this._narratorLines.length) {
+      playVoice(this._narratorLines[index]);
     }
   }
 

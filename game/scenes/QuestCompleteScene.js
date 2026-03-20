@@ -14,6 +14,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
+import { playVoice } from '../data/voiceIndex.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -138,7 +139,7 @@ export default class QuestCompleteScene {
 
     // Play completion chime (3-note ascending)
     if (this._audioManager) {
-      this._audioManager.play('sfx_quest_complete');
+      this._audioManager.playSFX('questComplete');
     }
   }
 
@@ -169,7 +170,7 @@ export default class QuestCompleteScene {
         h.alive = true;
         // Play heart earned SFX
         if (this._audioManager) {
-          this._audioManager.play('sfx_heart_earned');
+          this._audioManager.playSFX('heartEarned');
         }
       }
       if (h.alive) {
@@ -186,9 +187,8 @@ export default class QuestCompleteScene {
     // Narrator congratulation (play once after hearts)
     if (!this._narratorPlayed && timerMs > HEART_STAGGER_MS * HEART_COUNT + 800) {
       this._narratorPlayed = true;
-      if (this._audioManager) {
-        this._audioManager.play('narrator_quest_complete');
-      }
+      // Use voice system for narrator lines
+      playVoice('narrator_quest_complete_01');
     }
 
     // Rainbow Bridge piece glow

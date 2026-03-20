@@ -10,6 +10,8 @@
  * Consumes path from MovementSystem step by step.
  */
 
+import spriteSheets from '../data/SpriteSheetManager.js';
+
 /** Player states */
 export const PlayerState = {
   IDLE: 'IDLE',
@@ -325,65 +327,67 @@ export default class Player {
 
   /**
    * Draw the player sprite at the correct screen position.
-   * @param {import('../engine/Renderer.js').default} renderer
-   * @param {object} camera - Camera with x, y in tile coords
-   * @param {object} sprites - Sprite system (game/sprites.js Sprites object)
+   *
+   * Supports two calling patterns:
+   *   1. draw(renderer, camera, sprites) — entity-based draw with camera offset
+   *   2. draw(ctx) — direct canvas context draw (already camera-translated)
+   *
+   * Uses SpriteSheetManager for real pixel art sprites with placeholder fallback.
+   *
+   * @param {import('../engine/Renderer.js').default|CanvasRenderingContext2D} rendererOrCtx
+   * @param {object} [camera] - Camera with x, y in tile coords
+   * @param {object} [sprites] - Legacy sprite system (ignored, uses SpriteSheetManager)
    */
-  draw(renderer, camera, sprites) {
-    const pos = this.screenPos(camera);
-    const ctx = renderer.ctx;
-
-    // Determine sprite frame
-    // Idle: use direction + idle sway frame
-    // Walking: use direction + walk frame
-    // Interacting: same as idle
-    // Celebrating: spin frames
-
-    let spriteName = 'princess';
-    let frame = 0;
-    let flipX = false;
-
-    if (this.state === PlayerState.WALKING) {
-      // Walk frames: 1 = step left, 0 = neutral, could add more
-      frame = this.animFrame % 2; // sprites.js has 2 frames for princess
+  draw(rendererOrCtx, camera, sprites) {
+    // Support both calling conventions
+    let ctx, drawX, drawY;
+    if (camera && typeof camera === 'object' && 'x' in camera) {
+      // Called as draw(renderer, camera, sprites)
+      ctx = rendererOrCtx.ctx || rendererOrCtx;
+      const pos = this.screenPos(camera);
+      drawX = pos.sx;
+      drawY = pos.sy;
     } else {
-      frame = 0; // idle/standing frame
+      // Called as draw(ctx) — world-space, already camera-translated
+      ctx = rendererOrCtx;
+      drawX = (this.x - 8) | 0;
+      drawY = (this.y - 8) | 0;
     }
 
-    // Flip sprite for left-facing direction
-    if (this.direction === Direction.LEFT) {
-      flipX = true;
-    }
+    let flipX = this.direction === Direction.LEFT;
 
     // Tiptoe visual: slightly smaller Y oscillation
     let yOffset = 0;
     if (this.isTiptoeing && this.state === PlayerState.WALKING) {
-      // Exaggerated slow creep: bob up slightly
       yOffset = Math.sin(this.animTimer * 0.01) * -1;
     }
 
     // Idle sway: gentle vertical bob
     if (this.state === PlayerState.IDLE || this.state === PlayerState.INTERACTING) {
-      yOffset = this.animFrame === 1 ? -1 : 0; // 1px sway
+      yOffset = this.animFrame === 1 ? -1 : 0;
     }
 
     // Sneeze visual override
     if (this.sneezeTimer > 0) {
-      // Draw sneeze particles (tiny dots in front of face)
       const sneezeProgress = 1 - (this.sneezeTimer / 1.0);
       if (sneezeProgress > 0.2 && sneezeProgress < 0.6) {
         ctx.fillStyle = '#ffffcc';
         for (let i = 0; i < 3; i++) {
-          const sx = pos.sx + 8 + (sneezeProgress * 12) + i * 3;
-          const sy = pos.sy + 5 + (Math.sin(i * 2) * 2);
+          const sx = drawX + 8 + (sneezeProgress * 12) + i * 3;
+          const sy = drawY + 5 + (Math.sin(i * 2) * 2);
           ctx.fillRect(sx | 0, sy | 0, 1, 1);
         }
       }
     }
 
-    // Draw the princess sprite
-    if (sprites && sprites.draw) {
-      sprites.draw(ctx, spriteName, pos.sx, pos.sy + (yOffset | 0), frame, flipX);
+    // Draw the princess sprite using SpriteSheetManager
+    if (this.state === PlayerState.WALKING && spriteSheets.loaded) {
+      // Walk animation from RPG 8-bit sheet
+      const frame = this.animFrame % 3;
+      spriteSheets.drawWalk(ctx, drawX, drawY + (yOffset | 0), this.direction, frame, flipX);
+    } else {
+      // Static sprite from Kenney dungeon sheet
+      spriteSheets.draw(ctx, 'princess', drawX, drawY + (yOffset | 0), { flipX });
     }
 
     // Splash water drops effect
@@ -391,9 +395,9 @@ export default class Player {
       ctx.fillStyle = '#aaddff';
       const count = 3;
       for (let i = 0; i < count; i++) {
-        const dropX = pos.sx + 4 + (i * 4);
-        const dropY = pos.sy + 2 - ((SPLASH_DURATION - this.splashTimer) * 2);
-        if (dropY > pos.sy - 4) {
+        const dropX = drawX + 4 + (i * 4);
+        const dropY = drawY + 2 - ((SPLASH_DURATION - this.splashTimer) * 2);
+        if (dropY > drawY - 4) {
           ctx.fillRect(dropX | 0, dropY | 0, 1, 2);
         }
       }
@@ -406,8 +410,8 @@ export default class Player {
       for (let i = 0; i < 4; i++) {
         const angle = (i / 4) * Math.PI * 2 + t * 4;
         const r = 10 + t * 3;
-        const sx = pos.sx + 8 + Math.cos(angle) * r;
-        const sy = pos.sy + 8 + Math.sin(angle) * r;
+        const sx = drawX + 8 + Math.cos(angle) * r;
+        const sy = drawY + 8 + Math.sin(angle) * r;
         ctx.fillRect(sx | 0, sy | 0, 2, 2);
       }
     }

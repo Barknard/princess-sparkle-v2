@@ -23,6 +23,7 @@ import DialogueScene from './scenes/DialogueScene.js';
 import QuestCompleteScene from './scenes/QuestCompleteScene.js';
 import WindDownScene from './scenes/WindDownScene.js';
 import sparkleVillage from './levels/level-sparkle-village.js';
+import spriteSheets from './data/SpriteSheetManager.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -135,6 +136,14 @@ async function boot() {
     console.log(`Dungeon tileset loaded: ${dungeonTileset.cols}x${dungeonTileset.rows} tiles`);
   } catch (err) {
     console.warn('Failed to load dungeon tileset:', err);
+  }
+
+  // Load character/creature sprite sheets
+  try {
+    await spriteSheets.load();
+    console.log('Sprite sheets loaded for characters and creatures');
+  } catch (err) {
+    console.warn('Failed to load sprite sheets (using placeholders):', err);
   }
 
   // Pre-load the first level into the TileMap

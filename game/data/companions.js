@@ -18,7 +18,7 @@ const COMPANIONS = {
     trailShape: 'star',
     glowColor: '#ffaaee',
     sillyIdle: 'Horn accidentally shoots tiny rainbow that bonks a bird',
-    sfx: 'sfx_shimmer_trail',
+    sfx: 'trailShimmer',
     // Evolution descriptions
     evolutions: [
       { level: 1, form: 'Baby', description: 'Small unicorn with tiny horn' },
@@ -49,7 +49,7 @@ const COMPANIONS = {
     trailShape: 'circle',
     glowColor: '#ffaa44',
     sillyIdle: 'Tries to breathe fire, only smoke ring comes out',
-    sfx: 'sfx_ember_trail',
+    sfx: 'trailShimmer',
     evolutions: [
       { level: 1, form: 'Baby', description: 'Tiny round dragon with stubby wings' },
       { level: 4, form: 'Young', description: 'Bigger dragon, wings can flap' },
@@ -78,7 +78,7 @@ const COMPANIONS = {
     trailShape: 'flower',
     glowColor: '#aaffaa',
     sillyIdle: 'Ears droop over eyes, bumps into princess gently',
-    sfx: 'sfx_petal_trail',
+    sfx: 'trailShimmer',
     evolutions: [
       { level: 1, form: 'Baby', description: 'Tiny bunny with big floppy ears' },
       { level: 4, form: 'Young', description: 'Bunny with flower behind ear' },
@@ -107,7 +107,7 @@ const COMPANIONS = {
     trailShape: 'circle',
     glowColor: '#aaddff',
     sillyIdle: 'Flies into spiderweb, shakes it off with glitter',
-    sfx: 'sfx_breeze_trail',
+    sfx: 'trailShimmer',
     evolutions: [
       { level: 1, form: 'Baby', description: 'Small butterfly with simple wings' },
       { level: 4, form: 'Young', description: 'Butterfly with patterned wings' },
@@ -136,7 +136,7 @@ const COMPANIONS = {
     trailShape: 'note',
     glowColor: '#ffdd44',
     sillyIdle: 'Chases own tail, catches it, falls over',
-    sfx: 'sfx_pip_trail',
+    sfx: 'trailShimmer',
     evolutions: [
       { level: 1, form: 'Baby', description: 'Tiny fox cub with oversized ears' },
       { level: 4, form: 'Young', description: 'Fox with fluffy tail and bandana' },

@@ -15,6 +15,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
+import { playVoice } from '../data/voiceIndex.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -149,32 +150,27 @@ export default class WindDownScene {
     // Voice timeline
     if (!this._recapPlayed && this._timer >= VOICE_RECAP_TIME) {
       this._recapPlayed = true;
-      if (this._audioManager) {
-        // "Today you helped X friends and found Y hearts!"
-        this._audioManager.play('voice_winddown_recap');
-      }
+      // "Today you helped X friends and found Y hearts!" — voice line
+      playVoice('narrator_winddown_recap');
     }
 
     if (!this._companionPlayed && this._timer >= VOICE_COMPANION_TIME) {
       this._companionPlayed = true;
-      if (this._audioManager) {
-        this._audioManager.play('voice_companion_goodnight');
-      }
+      // Companion goodnight — voice line
+      playVoice('companion_goodnight_shimmer_01');
     }
 
     if (!this._narratorPlayed && this._timer >= VOICE_NARRATOR_TIME) {
       this._narratorPlayed = true;
-      if (this._audioManager) {
-        // "Your friends will be here when you come back!"
-        this._audioManager.play('narrator_winddown_goodbye');
-      }
+      // "Your friends will be here when you come back!" — voice line
+      playVoice('narrator_winddown_goodbye');
     }
 
     // Lullaby crossfade
     if (!this._lullabyCrossfaded && this._timer >= LULLABY_CROSSFADE_TIME) {
       this._lullabyCrossfaded = true;
       if (this._audioManager) {
-        this._audioManager.play('bgm_lullaby');
+        this._audioManager.playBGM('bgm_lullaby');
       }
     }
 

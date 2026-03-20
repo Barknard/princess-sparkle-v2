@@ -14,6 +14,8 @@ import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import HUD from '../ui/HUD.js';
 import QuestIndicatorPool from '../ui/QuestIndicator.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
+import { playVoice } from '../data/voiceIndex.js';
+import spriteSheets from '../data/SpriteSheetManager.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -214,12 +216,19 @@ export default class OverworldScene {
       this._particles[i].active = false;
     }
 
+    // Load real sprite sheets (async, non-blocking — placeholders show until loaded)
+    spriteSheets.load().then(() => {
+      console.log('OverworldScene: Sprite sheets loaded');
+    }).catch(err => {
+      console.warn('OverworldScene: Sprite sheet load error (using placeholders):', err);
+    });
+
     // Load level data (NPCs, interactables, animals) from tileMap / world loader
     this._loadWorldObjects();
 
     // Play morning ambience
     if (this._audioManager) {
-      this._audioManager.play('bgm_village_morning');
+      this._audioManager.playBGM('bgm_village_morning');
     }
   }
 
@@ -322,22 +331,18 @@ export default class OverworldScene {
 
   _onSunsetBegins() {
     if (this._audioManager) {
-      this._audioManager.play('bgm_village_sunset');
+      this._audioManager.playBGM('bgm_village_sunset');
     }
-    // Companion: "The sun is getting sleepy!"
-    if (this._audioManager) {
-      this._audioManager.play('voice_companion_sunset');
-    }
+    // Companion: "The sun is getting sleepy!" — voice line, use voice system
+    playVoice('narrator_sunset_01');
   }
 
   _onEveningBegins() {
     if (this._audioManager) {
-      this._audioManager.play('bgm_village_evening');
+      this._audioManager.playBGM('bgm_village_evening');
     }
-    // Companion: "What a wonderful day!"
-    if (this._audioManager) {
-      this._audioManager.play('voice_companion_evening');
-    }
+    // Companion: "What a wonderful day!" — voice line, use voice system
+    playVoice('narrator_winddown_recap');
   }
 
   // ---- Player ---------------------------------------------------------------
@@ -383,10 +388,17 @@ export default class OverworldScene {
           const speed = 16; // px/s (slow NPC wander)
           npc.x += (dx / dist) * speed * dt;
           npc.y += (dy / dist) * speed * dt;
+          // Flip sprite based on horizontal movement direction
+          if (Math.abs(dx) > Math.abs(dy)) {
+            npc.flipX = dx < 0;
+          }
         } else {
           npc.wanderTarget = null;
         }
       }
+
+      // Advance animation timer for idle bob
+      npc.animTimer = (npc.animTimer || 0) + dt * 1000;
     }
   }
 
@@ -397,9 +409,14 @@ export default class OverworldScene {
       const a = this._animals[i];
       if (!a.active) continue;
 
-      a.animTimer += dt;
+      a.animTimer += dt * 1000;
       a.x += a.vx * dt;
       a.y += a.vy * dt;
+
+      // Track facing direction based on velocity
+      if (Math.abs(a.vx) > 0.1) {
+        a.flipX = a.vx < 0;
+      }
 
       // Simple boundary wrapping
       if (a.x < -16) a.x = LOGICAL_WIDTH + 16;
@@ -434,8 +451,10 @@ export default class OverworldScene {
     this._activeSillyMoment = moments[(Math.random() * moments.length) | 0];
     this._sillyMomentTimer = 0;
 
+    // Play a random silly SFX from the available set
     if (this._audioManager) {
-      this._audioManager.play('sfx_silly_' + this._activeSillyMoment);
+      const sillySfx = ['whoops', 'sneeze', 'bonk'];
+      this._audioManager.playSFX(sillySfx[(Math.random() * sillySfx.length) | 0]);
     }
   }
 
@@ -518,9 +537,8 @@ export default class OverworldScene {
     // After 15 seconds idle: companion gives a voice hint
     if (this._idleTimer >= 15 && !this._hintShown) {
       this._hintShown = true;
-      if (this._audioManager) {
-        this._audioManager.play('voice_companion_hint');
-      }
+      // Use voice system for companion hint line
+      playVoice('companion_village_shimmer_01');
     }
   }
 
@@ -565,7 +583,7 @@ export default class OverworldScene {
 
       // Play a gentle sparkle trail SFX to draw attention
       if (this._audioManager) {
-        this._audioManager.play('sfx_footstep_sparkle');
+        this._audioManager.playSFX('trailShimmer');
       }
     }
   }
@@ -683,10 +701,8 @@ export default class OverworldScene {
         this._sceneManager.pushOverlay('Dialogue', { npcId: npc.id });
       }
     } else {
-      // Ambient NPC line
-      if (this._audioManager) {
-        this._audioManager.play('voice_npc_' + npc.id + '_ambient');
-      }
+      // Ambient NPC line — use voice system for NPC voice lines
+      playVoice('npc_' + npc.id + '_greeting_01');
     }
   }
 
@@ -696,16 +712,32 @@ export default class OverworldScene {
     // Emit particles at object
     this._emitParticles(obj.x + obj.w / 2, obj.y, '#ffd700', 6);
 
-    // Play corresponding SFX
+    // Play corresponding SFX — map object type to actual sfxIndex keys
     if (this._audioManager) {
-      this._audioManager.play('sfx_tap_' + obj.type);
+      const tapSfxMap = {
+        flower: 'flowerTap',
+        water:  'waterPlop',
+        tree:   'treeRustle',
+        mailbox: 'mailbox',
+        mushroom: 'mushroomBoing',
+        crystal: 'crystalTone',
+      };
+      this._audioManager.playSFX(tapSfxMap[obj.type] || 'flowerTap');
     }
   }
 
   _onAnimalTapped(animal) {
-    // Animal reaction
+    // Animal reaction — map animal type to actual sfxIndex keys
     if (this._audioManager) {
-      this._audioManager.play('sfx_animal_' + animal.type);
+      const animalSfxMap = {
+        cat: 'catPurr',
+        dog: 'dogBark',
+        bird: 'birdTweet',
+        frog: 'frogRibbit',
+        duck: 'duckQuack',
+        butterfly: 'trailShimmer',
+      };
+      this._audioManager.playSFX(animalSfxMap[animal.type] || 'birdTweet');
     }
 
     // Small particle burst
@@ -759,6 +791,9 @@ export default class OverworldScene {
       x: npcData.x,
       y: npcData.y,
       sprite: npcData.sprite || null,
+      spriteName: npcData.spriteName || 'npc_grandma',
+      flipX: false,
+      animTimer: Math.random() * 1600,
       hasQuest: npcData.hasQuest || false,
       indicator: null,
       wanderTimer: 2 + Math.random() * 4,
@@ -801,7 +836,7 @@ export default class OverworldScene {
     for (let i = 0; i < this._animals.length; i++) {
       if (!this._animals[i].active) {
         const a = this._animals[i];
-        a.type = animalData.type;
+        a.type = animalData.spriteName || animalData.type.toLowerCase();
         a.x = animalData.x;
         a.y = animalData.y;
         a.vx = (Math.random() - 0.5) * 10;
@@ -809,6 +844,7 @@ export default class OverworldScene {
         a.active = true;
         a.animTimer = 0;
         a.state = 'idle';
+        a.flipX = false;
         return;
       }
     }
@@ -854,12 +890,12 @@ export default class OverworldScene {
 
     // Player
     if (this._player) {
-      this._player.draw(ctx);
+      this._drawPlayer(ctx);
     }
 
     // Companion (with trail)
     if (this._companion) {
-      this._companion.draw(ctx);
+      this._drawCompanion(ctx);
     }
 
     // Interactable highlights
@@ -896,21 +932,147 @@ export default class OverworldScene {
 
   // ---- Draw helpers ---------------------------------------------------------
 
+  _drawPlayer(ctx) {
+    const p = this._player;
+    const px = (p.x - 8) | 0;
+    const py = (p.y - 8) | 0;
+
+    // Idle sway / tiptoe bob
+    let yOffset = 0;
+    if (p.isTiptoeing && p.state === 'WALKING') {
+      yOffset = Math.sin((p.animTimer || 0) * 0.01) * -1;
+    } else if (p.state === 'IDLE' || p.state === 'INTERACTING') {
+      yOffset = (p.animFrame === 1) ? -1 : 0;
+    }
+
+    // Use walk animation if moving, static sprite if idle
+    if (p.state === 'WALKING' && spriteSheets.loaded) {
+      const dir = p.direction || 0;
+      const frame = (p.animFrame || 0) % 3;
+      const flipX = (dir === 1); // left
+      spriteSheets.drawWalk(ctx, px, py + (yOffset | 0), dir, frame, flipX);
+    } else {
+      const flipX = (p.direction === 1);
+      spriteSheets.draw(ctx, 'princess', px, py + (yOffset | 0), { flipX });
+    }
+
+    // Sneeze particles
+    if (p.sneezeTimer > 0) {
+      const sneezeProgress = 1 - (p.sneezeTimer / 1.0);
+      if (sneezeProgress > 0.2 && sneezeProgress < 0.6) {
+        ctx.fillStyle = '#ffffcc';
+        for (let i = 0; i < 3; i++) {
+          const sx = px + 8 + (sneezeProgress * 12) + i * 3;
+          const sy = py + 5 + (Math.sin(i * 2) * 2);
+          ctx.fillRect(sx | 0, sy | 0, 1, 1);
+        }
+      }
+    }
+
+    // Splash water drops
+    if (p.splashTimer > 0) {
+      ctx.fillStyle = '#aaddff';
+      for (let i = 0; i < 3; i++) {
+        const dropX = px + 4 + (i * 4);
+        const dropY = py + 2 - ((3.0 - p.splashTimer) * 2);
+        if (dropY > py - 4) {
+          ctx.fillRect(dropX | 0, dropY | 0, 1, 2);
+        }
+      }
+    }
+
+    // Celebration sparkles
+    if (p.state === 'CELEBRATING') {
+      ctx.fillStyle = '#ffd700';
+      const t = p.celebrateTimer || 0;
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2 + t * 4;
+        const r = 10 + t * 3;
+        const sx = px + 8 + Math.cos(angle) * r;
+        const sy = py + 8 + Math.sin(angle) * r;
+        ctx.fillRect(sx | 0, sy | 0, 2, 2);
+      }
+    }
+  }
+
+  _drawCompanion(ctx) {
+    const c = this._companion;
+    const cx = (c.x - 8) | 0;
+    const cy = (c.y - 8) | 0;
+
+    // Idle bob
+    let yOffset = (c.animFrame === 1) ? -1 : 0;
+    // Silly wobble
+    if (c.sillying) {
+      yOffset += Math.sin((c.sillyTimer || 0) * 6) * 2;
+    }
+
+    const name = c.spriteName || 'unicorn';
+    const flipX = c.flipX || false;
+
+    // For unicorn companion: use running animation if following (moving)
+    if (name === 'unicorn' && c.isFollowing !== false) {
+      const frame = (c.animFrame || 0) % 4;
+      spriteSheets.drawUnicornRun(ctx, cx, cy + (yOffset | 0), frame, flipX);
+    } else {
+      spriteSheets.draw(ctx, name, cx, cy + (yOffset | 0), { flipX });
+    }
+
+    // Care emote bubble
+    if (c.emoteVisible) {
+      const emoteX = cx + 4;
+      const emoteY = cy - 12;
+      const pulse = 1 + Math.sin((c.emoteTimer || 0) * 4) * 0.15;
+      ctx.save();
+      ctx.translate(emoteX, emoteY);
+      ctx.scale(pulse, pulse);
+      switch (c.emoteType) {
+        case 'heart':
+          ctx.fillStyle = '#ff6b8a';
+          ctx.fillRect(-2, -1, 2, 1);
+          ctx.fillRect(1, -1, 2, 1);
+          ctx.fillRect(-3, 0, 7, 1);
+          ctx.fillRect(-2, 1, 5, 1);
+          ctx.fillRect(-1, 2, 3, 1);
+          ctx.fillRect(0, 3, 1, 1);
+          break;
+        case 'sleepy':
+          ctx.fillStyle = '#aabbff';
+          ctx.font = '6px monospace';
+          ctx.fillText('Z', 0, 0);
+          ctx.font = '4px monospace';
+          ctx.fillText('z', 4, -3);
+          break;
+        case 'playful':
+          ctx.fillStyle = '#ffd700';
+          ctx.fillRect(-1, -3, 3, 1);
+          ctx.fillRect(-2, -2, 5, 1);
+          ctx.fillRect(-3, -1, 7, 1);
+          ctx.fillRect(-1, 0, 3, 1);
+          ctx.fillRect(-2, 1, 2, 1);
+          ctx.fillRect(1, 1, 2, 1);
+          break;
+      }
+      ctx.restore();
+    }
+  }
+
   _drawNPCs(ctx) {
     for (let i = 0; i < this._npcs.length; i++) {
       const npc = this._npcs[i];
       const nx = (npc.x - 8) | 0;
       const ny = (npc.y - 8) | 0;
 
-      // Placeholder NPC sprite (16x16)
-      ctx.fillStyle = '#f0d0a0';
-      ctx.fillRect(nx, ny, 16, 16);
-      // Head
-      ctx.fillStyle = '#ffdab9';
-      ctx.fillRect(nx + 3, ny, 10, 8);
-      // Body
-      ctx.fillStyle = '#8899cc';
-      ctx.fillRect(nx + 2, ny + 8, 12, 8);
+      // Idle bob (1px every 800ms)
+      const bobOffset = (npc.animTimer !== undefined)
+        ? ((npc.animTimer | 0) % 1600 < 800 ? 0 : -1)
+        : 0;
+
+      // Determine sprite name from NPC data
+      const spriteName = npc.spriteName || npc.sprite || 'npc_grandma';
+      const flipX = npc.flipX || false;
+
+      spriteSheets.draw(ctx, spriteName, nx, ny + bobOffset, { flipX });
 
       // Update indicator position
       if (npc.indicator) {
@@ -925,41 +1087,26 @@ export default class OverworldScene {
       const a = this._animals[i];
       if (!a.active) continue;
 
-      const ax = (a.x - 4) | 0;
-      const ay = (a.y - 4) | 0;
+      const ax = (a.x - 8) | 0;
+      const ay = (a.y - 8) | 0;
 
-      // Simple animal placeholder (8x8)
-      switch (a.type) {
-        case 'butterfly':
-          ctx.fillStyle = '#ffaacc';
-          ctx.fillRect(ax, ay, 3, 3);
-          ctx.fillRect(ax + 5, ay, 3, 3);
-          ctx.fillStyle = '#6a5acd';
-          ctx.fillRect(ax + 3, ay + 1, 2, 4);
-          break;
-        case 'bird':
-          ctx.fillStyle = '#aa6633';
-          ctx.fillRect(ax, ay, 6, 4);
-          ctx.fillStyle = '#ff9933';
-          ctx.fillRect(ax + 6, ay + 1, 2, 2);
-          break;
-        case 'cat':
-          ctx.fillStyle = '#ff9966';
-          ctx.fillRect(ax, ay, 8, 6);
-          ctx.fillRect(ax + 1, ay - 2, 2, 3);
-          ctx.fillRect(ax + 5, ay - 2, 2, 3);
-          break;
-        case 'frog':
-          ctx.fillStyle = '#66cc66';
-          ctx.fillRect(ax, ay, 6, 4);
-          ctx.fillStyle = '#226622';
-          ctx.fillRect(ax, ay, 2, 2);
-          ctx.fillRect(ax + 4, ay, 2, 2);
-          break;
-        default:
-          ctx.fillStyle = '#cccccc';
-          ctx.fillRect(ax, ay, 6, 6);
-          break;
+      // Idle bob effect (1px up/down at ~400ms)
+      const bobOffset = ((a.animTimer | 0) % 800 < 400) ? 0 : -1;
+
+      // Determine sprite name and flip
+      const spriteName = a.type || 'cat';
+      const flipX = (a.vx < 0) || a.flipX || false;
+
+      spriteSheets.draw(ctx, spriteName, ax, ay + bobOffset, { flipX });
+
+      // Sleep Z's
+      if (a.state === 'sleep') {
+        ctx.fillStyle = '#aabbff';
+        ctx.font = '5px monospace';
+        const zBob = Math.sin((a.animTimer || 0) * 0.003) * 2;
+        ctx.fillText('z', ax + 10, ay - 6 + zBob);
+        ctx.font = '4px monospace';
+        ctx.fillText('z', ax + 13, ay - 10 + zBob);
       }
     }
   }

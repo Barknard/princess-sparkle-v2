@@ -11,6 +11,8 @@
  * Ambient lines (spoken periodically when player is nearby).
  */
 
+import spriteSheets from '../data/SpriteSheetManager.js';
+
 const TILE = 16;
 
 // Wander timing
@@ -280,14 +282,26 @@ export default class NPC {
 
   /**
    * Draw NPC at correct screen position.
-   * @param {import('../engine/Renderer.js').default} renderer
-   * @param {object} camera
-   * @param {object} sprites
+   *
+   * Supports two calling patterns:
+   *   1. draw(renderer, camera, sprites) — entity-based draw with camera offset
+   *   2. draw(ctx) — direct canvas context draw (already camera-translated)
+   *
+   * @param {import('../engine/Renderer.js').default|CanvasRenderingContext2D} rendererOrCtx
+   * @param {object} [camera]
+   * @param {object} [sprites]
    */
-  draw(renderer, camera, sprites) {
-    const sx = ((this.x - camera.x) * TILE) | 0;
-    const sy = ((this.y - camera.y) * TILE) | 0;
-    const ctx = renderer.ctx;
+  draw(rendererOrCtx, camera, sprites) {
+    let ctx, sx, sy;
+    if (camera && typeof camera === 'object' && 'x' in camera) {
+      ctx = rendererOrCtx.ctx || rendererOrCtx;
+      sx = ((this.x - camera.x) * TILE) | 0;
+      sy = ((this.y - camera.y) * TILE) | 0;
+    } else {
+      ctx = rendererOrCtx;
+      sx = (this.x * TILE) | 0;
+      sy = (this.y * TILE) | 0;
+    }
 
     // Silly behavior visual
     let yOffset = 0;
@@ -295,10 +309,8 @@ export default class NPC {
       yOffset = Math.sin(this.sillyTimer * 8) * 2;
     }
 
-    // Draw sprite
-    if (sprites && sprites.draw) {
-      sprites.draw(ctx, this.spriteName, sx, sy + (yOffset | 0), this.animFrame % 2, this.flipX);
-    }
+    // Draw sprite using SpriteSheetManager
+    spriteSheets.draw(ctx, this.spriteName, sx, sy + (yOffset | 0), { flipX: this.flipX });
 
     // Draw quest indicator ("!" star)
     if (this.hasQuest) {

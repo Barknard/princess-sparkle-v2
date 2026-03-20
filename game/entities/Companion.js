@@ -11,6 +11,8 @@
  * Subclasses override: getParticleConfig(), getSillyIdleBehavior(), companion-specific SFX.
  */
 
+import spriteSheets from '../data/SpriteSheetManager.js';
+
 const TILE = 16;
 
 // Follow behaviour
@@ -337,32 +339,50 @@ export default class Companion {
 
   /**
    * Draw the companion at the correct screen position.
-   * @param {import('../engine/Renderer.js').default} renderer
-   * @param {object} camera
-   * @param {object} sprites - Sprite system
+   *
+   * Supports two calling patterns:
+   *   1. draw(renderer, camera, sprites) — entity-based draw with camera offset
+   *   2. draw(ctx) — direct canvas context draw (already camera-translated)
+   *
+   * @param {import('../engine/Renderer.js').default|CanvasRenderingContext2D} rendererOrCtx
+   * @param {object} [camera]
+   * @param {object} [sprites]
    */
-  draw(renderer, camera, sprites) {
-    const pos = this.screenPos(camera);
-    const ctx = renderer.ctx;
+  draw(rendererOrCtx, camera, sprites) {
+    let ctx, drawX, drawY;
+    if (camera && typeof camera === 'object' && 'x' in camera) {
+      ctx = rendererOrCtx.ctx || rendererOrCtx;
+      const pos = this.screenPos(camera);
+      drawX = pos.sx;
+      drawY = pos.sy;
+    } else {
+      ctx = rendererOrCtx;
+      drawX = (this.x * TILE) | 0;
+      drawY = (this.y * TILE) | 0;
+    }
 
     // Gentle bob for idle animation
     let yOffset = this.animFrame === 1 ? -BOB_AMOUNT : 0;
 
     // Silly idle visual override
     if (this.sillying) {
-      // Wobble effect
       yOffset += Math.sin(this.sillyTimer * 6) * 2;
     }
 
-    // Draw companion sprite
-    if (sprites && sprites.draw) {
-      const frame = this.animFrame % 2;
-      sprites.draw(ctx, this.spriteName, pos.sx, pos.sy + (yOffset | 0), frame, this.flipX);
+    // Draw companion sprite using SpriteSheetManager
+    const name = this.spriteName || 'unicorn';
+
+    // Use unicorn running animation if applicable
+    if (name === 'unicorn') {
+      const frame = this.animFrame % 4;
+      spriteSheets.drawUnicornRun(ctx, drawX, drawY + (yOffset | 0), frame, this.flipX);
+    } else {
+      spriteSheets.draw(ctx, name, drawX, drawY + (yOffset | 0), { flipX: this.flipX });
     }
 
     // Draw care emote if visible
     if (this.emoteVisible) {
-      this._drawEmote(ctx, pos.sx, pos.sy);
+      this._drawEmote(ctx, drawX, drawY);
     }
   }
 

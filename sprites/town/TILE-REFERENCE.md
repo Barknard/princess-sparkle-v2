@@ -1,256 +1,231 @@
-# Kenney Tiny Town - Tile ID Visual Reference
+# Kenney Tiny Town — Tile ID Reference
 
-**Tileset**: `tilemap_packed.png`
-**Dimensions**: 192x176 pixels
-**Grid**: 12 columns x 11 rows of 16x16 tiles = 132 tiles total
-**Tile ID formula**: `row * 12 + col`
-
----
-
-## Row 0 (IDs 0-11)
-| ID | Visual | Description |
-|----|--------|-------------|
-| 0 | Star | Yellow star/sparkle |
-| 1 | Grass | Light green grass (plain) |
-| 2 | Grass+ | Grass with tiny flowers |
-| 3 | Path edge | Grass-to-dirt transition, top |
-| 4 | Tree TL | Green round tree canopy top-left |
-| 5 | Tree TR | Green round tree canopy top-right |
-| 6 | Tree sm | Green round tree (full small, 1 tile) |
-| 7 | Autumn TL | Orange/autumn tree canopy top-left |
-| 8 | Autumn TR | Orange/autumn tree canopy top-right |
-| 9 | Autumn sm | Orange tree (full small, 1 tile) |
-| 10 | Pine top | Tall pine tree top |
-| 11 | Tree var | Another tree variant top |
-
-## Row 1 (IDs 12-23)
-| ID | Visual | Description |
-|----|--------|-------------|
-| 12 | Trunk L | Green tree trunk-left |
-| 13 | Trunk R | Green tree trunk-right |
-| 14 | Bush | Green bush/shrub |
-| 15 | DkTree TL | Dark green tree canopy top-left |
-| 16 | DkTree TR | Dark green tree canopy top-right |
-| 17 | DkBush | Dark green bush |
-| 18 | OTrunk L | Orange tree trunk-left |
-| 19 | OTrunk R | Orange tree trunk-right |
-| 20 | OBush | Orange bush |
-| 21 | PineTrunk | Pine tree trunk |
-| 22 | Trunk var | Tree trunk variant |
-| 23 | Stump | Dead tree/stump |
-
-## Row 2 (IDs 24-35) - PATH TILES
-| ID | Visual | Description |
-|----|--------|-------------|
-| 24 | Path | Dirt/path center (plain) |
-| 25 | Path-T | Path with grass edge on top |
-| 26 | Path-R | Path with grass edge on right |
-| 27 | Corner TR | Path corner top-right (grass inside) |
-| 28 | Path-B | Path with grass edge on bottom |
-| 29 | Corner BR | Path corner bottom-right |
-| 30 | T-Right | Path T-junction (right side) |
-| 31 | Cross | Path crossroads |
-| 32 | Path-L | Path with grass edge on left |
-| 33 | Corner TL | Path corner top-left |
-| 34 | T-Top | Path T-junction (top) |
-| 35 | T-Left | Path T-junction (left side) |
-
-## Row 3 (IDs 36-47)
-| ID | Visual | Description |
-|----|--------|-------------|
-| 36 | Corner BL | Path corner bottom-left |
-| 37 | T-Bottom | Path T-junction (bottom) |
-| 38 | Water TL | Water edge top-left |
-| 39 | Water T | Water edge top |
-| 40 | Water TR | Water edge top-right |
-| 41 | DkGrass | Dark grass/shadow |
-| 42 | Lt Dirt | Lighter dirt |
-| 43 | Grass var | Grass variant |
-| 44 | Dirt var | Dirt variant |
-| 45-47 | Terrain | More terrain variants |
-
-## Row 4 (IDs 48-59) - FENCES
-| ID | Visual | Description |
-|----|--------|-------------|
-| 48 | Fence H | Fence horizontal |
-| 49 | Fence V | Fence vertical |
-| 50 | Fence TL | Fence corner top-left |
-| 51 | Fence TR | Fence corner top-right |
-| 52 | Fence BL | Fence corner bottom-left |
-| 53 | Fence BR | Fence corner bottom-right |
-| 54 | Gate | Fence gate/opening |
-| 55 | Sign | Sign post |
-| 56 | DirSign | Directional sign |
-| 57-59 | Fence+ | More fence/sign variants |
-
-## Row 5 (IDs 60-71) - ROOFS
-| ID | Visual | Description |
-|----|--------|-------------|
-| 60 | BrRoof L | Brown roof top-left |
-| 61 | BrRoof M | Brown roof top-center |
-| 62 | BrRoof R | Brown roof top-right |
-| 63 | BrRoof eL | Brown roof left edge |
-| 64 | BrRoof eM | Brown roof center fill |
-| 65 | BrRoof eR | Brown roof right edge |
-| 66 | Chimney | Chimney |
-| 67 | RdRoof L | Red/dark roof top-left |
-| 68 | RdRoof M | Red roof top-center |
-| 69 | RdRoof R | Red roof top-right |
-| 70 | RdRoof eL | Red roof left edge |
-| 71 | RdRoof eR | Red roof right edge |
-
-## Row 6 (IDs 72-83) - WALLS
-| ID | Visual | Description |
-|----|--------|-------------|
-| 72 | Wood L | Wood wall left |
-| 73 | Wood C | Wood wall center |
-| 74 | Wood R | Wood wall right |
-| 75 | WoodDoor | Wood door (brown) |
-| 76 | WoodWin | Wood window |
-| 77 | Wall var | Wall variant |
-| 78 | Stone L | Stone wall left |
-| 79 | Stone C | Stone wall center |
-| 80 | Stone R | Stone wall right |
-| 81 | StoneDoor | Stone door |
-| 82 | StoneWin | Stone window |
-| 83 | Wall var | Wall variant |
-
-## Row 7 (IDs 84-95) - CASTLE/ARCHITECTURE
-| ID | Visual | Description |
-|----|--------|-------------|
-| 84-87 | Castle | Grey/castle wall pieces |
-| 88 | Arch TL | Arch/gate top-left |
-| 89 | Arch TC | Arch top-center |
-| 90 | Arch TR | Arch top-right |
-| 91-95 | Arch+ | More architecture pieces |
-
-## Row 8 (IDs 96-107) - OBJECTS & NPCs
-| ID | Visual | Description |
-|----|--------|-------------|
-| 96 | Well | Well |
-| 97 | Barrel | Barrel |
-| 98 | Crate | Crate/box |
-| 99 | Fountain | Fountain |
-| 100 | Market | Market stall |
-| 101 | Anvil | Anvil/workbench |
-| 102 | NPC 1 | Character/NPC sprite 1 |
-| 103 | NPC 2 | Character/NPC sprite 2 |
-| 104 | NPC blue | Character blue |
-| 105 | NPC var | Character variant |
-| 106 | Bench | Bench |
-| 107 | Lamp | Lamp post |
-
-## Row 9 (IDs 108-119) - WATER & FLOWERS
-| ID | Visual | Description |
-|----|--------|-------------|
-| 108 | Water | Water full tile |
-| 109 | Water L | Water edge left |
-| 110 | Water R | Water edge right |
-| 111 | Water BL | Water edge bottom-left |
-| 112 | Water B | Water edge bottom |
-| 113 | Water BR | Water edge bottom-right |
-| 114 | Bridge H | Bridge horizontal |
-| 115 | Bridge V | Bridge vertical |
-| 116 | FlowerR | Flowers red |
-| 117 | FlowerY | Flowers yellow |
-| 118 | FlowerB | Flowers blue |
-| 119 | Rock | Small rock/stone |
-
-## Row 10 (IDs 120-131) - DECORATIONS
-| ID | Visual | Description |
-|----|--------|-------------|
-| 120 | Mushroom | Mushroom |
-| 121 | Pumpkin | Pumpkin |
-| 122 | Hay | Hay bale |
-| 123 | Campfire | Campfire |
-| 124 | Tombstone | Tombstone |
-| 125 | Chest | Chest |
-| 126 | Boat | Boat |
-| 127 | Dock | Dock piece |
-| 128 | Tools | Tools |
-| 129 | Wheelbarrow | Wheelbarrow |
-| 130 | Cart | Cart |
-| 131 | Flag | Flag |
+Tileset: `tilemap_packed.png` (192x176 pixels)
+Layout: **12 columns x 11 rows** of 16x16 tiles = **132 tiles total**
+Tile ID formula: `row * 12 + col` (row-major, zero-indexed)
 
 ---
 
-## BUILDING PATTERNS
+## Row 0 (IDs 0-11): Tree Canopies & Bushes
 
-### House (3 wide x 2 tall)
-```
-Roof:   60, 61, 62      (brown roof L, M, R)
-Walls:  72, 75, 74      (wall L, DOOR, wall R)
-```
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 0  | 0   | Large green circle (left half) | Tree canopy top-left |
+| 1  | 1   | Large green circle (right half) | Tree canopy top-right |
+| 2  | 2   | Green with yellow dots | Flowering tree canopy |
+| 3  | 3   | Orange/autumn tree top | Autumn tree canopy |
+| 4  | 4   | Dark green triangle | Evergreen/pine tree top |
+| 5  | 5   | Light green round | Small tree canopy |
+| 6  | 6   | Round green bush | Bush (large) |
+| 7  | 7   | Small dark green dome | Bush (small) |
+| 8  | 8   | Green with brown base | Tree trunk with leaves (left) |
+| 9  | 9   | Orange with brown base | Autumn tree trunk |
+| 10 | 10  | Dark shape with eyes | Penguin / dark creature |
+| 11 | 11  | Orange flame shape | Fire / torch flame |
 
-### House with windows (4 wide x 2 tall)
-```
-Roof:   60, 61, 61, 62
-Walls:  76, 73, 75, 74   (window, wall, door, wall R)
-```
+## Row 1 (IDs 12-23): Tree Trunks & Plants
 
-### Stone house (3 wide x 2 tall)
-```
-Roof:   67, 68, 69      (red roof L, M, R)
-Walls:  78, 81, 80      (stone L, stone DOOR, stone R)
-```
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 12 | 0   | Brown trunk, green leaves left | Tree bottom-left (trunk+leaves) |
+| 13 | 1   | Brown trunk, green leaves right | Tree bottom-right (trunk+leaves) |
+| 14 | 2   | Light orange/peach block | Sand/dirt block |
+| 15 | 3   | Orange flower/torch | Warm decorative light |
+| 16 | 4   | Green tree with trunk | Small complete tree |
+| 17 | 5   | Green with pink spot | Fruit tree / flowering plant |
+| 18 | 6   | Green fern/leaf | Small plant (fern) |
+| 19 | 7   | Purple flowers on green | Small flower bush |
+| 20 | 8   | Cactus (left) | Cactus left half |
+| 21 | 9   | Cactus (right) | Cactus right half |
+| 22 | 10  | Small dark plant | Dark shrub |
+| 23 | 11  | Orange-brown shape | Autumn bush |
 
-### Fence enclosure
-```
-50, 48, 48, 51          (corner TL, horiz, horiz, corner TR)
-49,  _,  _, 49          (vert, open, open, vert)
-52, 48, 54, 53          (corner BL, horiz, GATE, corner BR)
-```
+## Row 2 (IDs 24-35): Trunks, Fences, Terrain
 
-### Pond (4 wide x 3 tall)
-```
-38, 39, 39, 40          (water TL, top, top, TR)
-109, 108, 108, 110      (water L, full, full, R)
-111, 112, 112, 113      (water BL, bottom, bottom, BR)
-```
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 24 | 0   | Brown square (light) | Tree trunk / wood block left |
+| 25 | 1   | Brown square (darker) | Tree trunk / wood block right |
+| 26 | 2   | Gray-brown block | Stone/dirt block |
+| 27 | 3   | White picket section | Fence section (alt) |
+| 28 | 4   | Green oval | Small bush / hedge |
+| 29 | 5   | Red dots on green | Red flowers / berry bush |
+| 30 | 6   | Brown-gray block | Dirt/path edge |
+| 31 | 7   | Light brown block | Sand block |
+| 32 | 8   | Gray stone block | Stone wall |
+| 33 | 9   | Dark gray block | Dark stone |
+| 34 | 10  | Blue-gray block | Slate/stone variant |
+| 35 | 11  | Dark brown block | Dark wood |
 
-### Path that turns (with grass borders)
-```
- G, 33, 25, 27,  G     (grass, corner TL, top edge, corner TR, grass)
- G, 32, 24, 26,  G     (grass, left edge, center, right edge, grass)
- G, 36, 28, 29,  G     (grass, corner BL, bottom edge, corner BR, grass)
-```
+## Row 3 (IDs 36-47): Ground Tiles & Terrain
 
-### Tree with depth (2 layers)
-```
-Objects layer:     12, 13    (trunk left, trunk right)
-Foreground layer:   4,  5    (canopy left, canopy right — drawn OVER entities)
-```
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 36 | 0   | Light tan/sand | Sand / light dirt ground |
+| 37 | 1   | Green | **GRASS (plain)** -- primary ground tile |
+| 38 | 2   | Lighter green | **GRASS variant** -- secondary ground tile |
+| 39 | 3   | Tan/dirt | Dirt path edge (left/top) |
+| 40 | 4   | Tan/dirt (center) | **DIRT PATH center** -- main walkway |
+| 41 | 5   | Tan/dirt (edge) | Dirt path edge (right/bottom) |
+| 42 | 6   | Tan/dirt (vertical) | Dirt path vertical edge |
+| 43 | 7   | Green with white dots | **GRASS with flowers** -- decorative ground |
+| 44 | 8   | Gray cobble | Cobblestone ground |
+| 45 | 9   | Darker cobble | Cobblestone variant |
+| 46 | 10  | Light gray | Stone floor |
+| 47 | 11  | Dark gray | Dark stone floor |
+
+## Row 4 (IDs 48-59): Stone Walls & Blue Roofs
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 48 | 0   | Blue-gray block | Stone wall (blue tint) |
+| 49 | 1   | Stone with window | Stone wall with window |
+| 50 | 2   | Stone block plain | Stone wall mid |
+| 51 | 3   | Blue-gray roof left | Blue roof left slope |
+| 52 | 4   | Red brick pattern | Brick wall / blue roof mid |
+| 53 | 5   | Red-orange block | Brick wall / blue roof right |
+| 54 | 6   | Light blue block | Light stone |
+| 55 | 7   | Blue roof peak | Blue roof peak / chimney |
+| 56 | 8   | Gray arch top | Arch/doorway top |
+| 57 | 9   | Gray arch mid | Arch/doorway mid |
+| 58 | 10  | Dark gray block | Dark stone wall |
+| 59 | 11  | Very dark block | Shadow / void |
+
+## Row 5 (IDs 60-71): Red Roofs & Building Elements
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 60 | 0   | Orange-red block | Brick wall left |
+| 61 | 1   | Red brick | Brick wall center |
+| 62 | 2   | Red-orange block | Brick wall right |
+| 63 | 3   | **Red roof left slope** | Roof left (red/orange) |
+| 64 | 4   | **Red roof middle** | Roof mid tile |
+| 65 | 5   | **Red roof right slope** | Roof right (red/orange) |
+| 66 | 6   | Dark red block | Dark brick |
+| 67 | 7   | **Red roof peak** | Roof peak / chimney cap |
+| 68 | 8   | Gray stone arch | Building arch |
+| 69 | 9   | Blue character | NPC / character sprite |
+| 70 | 10  | Small figure | Character variant |
+| 71 | 11  | Dark block | Dark wall |
+
+## Row 6 (IDs 72-83): Wood Walls & Doors
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 72 | 0   | **Wood wall (left edge)** | Brown wood plank wall |
+| 73 | 1   | **Wood wall (plain)** | Wood wall mid section |
+| 74 | 2   | **Wood door** | Brown door (dark center) |
+| 75 | 3   | **Wood wall + window** | Wall with window opening |
+| 76 | 4   | Blue/gray wall | Stone-blue wall section |
+| 77 | 5   | Light panel | Light wood/stone panel |
+| 78 | 6   | Dark panel | Dark wood panel |
+| 79 | 7   | Gray panel | Gray wall section |
+| 80 | 8   | Dark arch | Dark archway |
+| 81 | 9   | Stone wall | Gray stone wall |
+| 82 | 10  | Dark stone | Dark stone wall |
+| 83 | 11  | Very dark | Shadow tile |
+
+## Row 7 (IDs 84-95): Dark Walls, Furniture, Decorations
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 84 | 0   | **Dark stone wall left** | Dungeon/dark building wall |
+| 85 | 1   | **Dark stone wall mid** | Dark wall section |
+| 86 | 2   | **Dark stone door** | Dark building door |
+| 87 | 3   | **Dark stone + window** | Dark wall with window |
+| 88 | 4   | Dark interior | Dark room interior |
+| 89 | 5   | Red interior | Carpet / warm interior |
+| 90 | 6   | Dark block | Dark furniture |
+| 91 | 7   | Dark brown shape | Bookshelf / cabinet |
+| 92 | 8   | **Well top** | Well with peaked roof |
+| 93 | 9   | **Lantern** | Orange/warm light (lantern/mailbox) |
+| 94 | 10  | Small object | Key / small item |
+| 95 | 11  | Shiny object | Coin / gem |
+
+## Row 8 (IDs 96-107): Fences, Benches, Furniture
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 96 | 0   | **White fence left** | Picket fence left end |
+| 97 | 1   | **White fence mid** | Picket fence section |
+| 98 | 2   | **White fence right** | Picket fence right end |
+| 99 | 3   | Blue/white fence | Fence variant |
+| 100| 4   | Blue fence section | Fence variant mid |
+| 101| 5   | Blue fence end | Fence variant right |
+| 102| 6   | Small object | Decoration |
+| 103| 7   | Small round | Ball / small item |
+| 104| 8   | **Well base** | Blue bucket / well bottom |
+| 105| 9   | **Bench** | Dark wood bench |
+| 106| 10  | **Stone/crate** | Rock or supply crate |
+| 107| 11  | **Barrel** | Brown wooden barrel |
+
+## Row 9 (IDs 108-119): Water Edges, Lamps, Signs
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 108| 0   | **Fence post** | Vertical fence post |
+| 109| 1   | **Water top-left** | Water edge (NW corner) |
+| 110| 2   | **Water top** | Water edge (north) |
+| 111| 3   | **Water top-right** | Water edge (NE corner) |
+| 112| 4   | **Water bottom** | Water edge (south) |
+| 113| 5   | **Water bottom-right** | Water edge (SE corner) |
+| 114| 6   | Blue block | Deep water variant |
+| 115| 7   | Light blue | Shallow water |
+| 116| 8   | **Sign/lamp post** | Wooden post with sign/light |
+| 117| 9   | Cross/plus | Signpost / cross marker |
+| 118| 10  | Arrow sign | Directional sign |
+| 119| 11  | Small sign | Small sign post |
+
+## Row 10 (IDs 120-131): Water Body, Special Objects
+
+| ID | Col | Visual | Description |
+|----|-----|--------|-------------|
+| 120| 0   | **Water bottom-left** | Water edge (SW corner) |
+| 121| 1   | **Water mid-left** | Water edge (west) |
+| 122| 2   | **Water center** | Deep water (center body) |
+| 123| 3   | **Water mid-right** | Water edge (east) |
+| 124| 4   | Blue/dark | Water dark variant |
+| 125| 5   | Blue ripple | Water ripple / fish |
+| 126| 6   | Stone blue | Stone underwater |
+| 127| 7   | Dark blue | Deep water dark |
+| 128| 8   | Chest closed | Treasure chest (closed) |
+| 129| 9   | Chest open | Treasure chest (open) |
+| 130| 10  | Heart | Heart pickup |
+| 131| 11  | Star | Star pickup |
 
 ---
 
-## PATH CONNECTION RULES
+## Quick Reference: Most-Used Tiles
 
-Path edges face the direction of the grass (not the path):
-- **25** (PT): grass is on TOP of the path tile
-- **26** (PR): grass is on the RIGHT
-- **28** (PB): grass is on the BOTTOM
-- **32** (PL): grass is on the LEFT
+### Ground (fill every cell)
+- `37` -- Grass (primary)
+- `38` -- Grass (variant, for visual variety)
+- `43` -- Grass with flowers
+- `40` -- Dirt path center
+- `39, 41, 42` -- Dirt path edges
 
-Corners are where two edges meet:
-- **33** (CTL): grass on top AND left (path goes right and down)
-- **27** (CTR): grass on top AND right (path goes left and down)
-- **36** (CBL): grass on bottom AND left (path goes right and up)
-- **29** (CBR): grass on bottom AND right (path goes left and up)
+### Buildings
+- `63-65, 67` -- Red/orange roof (left, mid, right, peak)
+- `72-75` -- Wood walls (left, mid, door, window)
+- `84-87` -- Dark stone walls (left, mid, door, window)
+- `96-98` -- White picket fence (left, mid, right)
 
-T-junctions:
-- **34** (TJT): path splits upward (three-way, opening on top)
-- **37** (TJB): path splits downward
-- **30** (TJR): path splits rightward
-- **35** (TJL): path splits leftward
+### Trees (2x2 with depth)
+- Object layer: `12, 13` (trunk+leaves bottom)
+- Foreground layer: `0, 1` (canopy top -- drawn OVER entities!)
+- Variants: `2` (flowering), `4` (evergreen)
 
-Crossroads:
-- **31** (PX): four-way intersection
+### Water (3x3 pond)
+- Top: `109, 110, 111`
+- Mid: `121, 122, 123`
+- Bottom: `120, 112, 113`
 
----
-
-## LAYER SYSTEM
-
-1. **Ground layer**: Always fully filled. Grass (1, 2) and path tiles (24-37). Every cell has a tile.
-2. **Objects layer**: Buildings, trees (trunks), fences, furniture, water. Use -1 for empty cells.
-3. **Collision layer**: 0 = walkable, 1 = blocked. Buildings, tree trunks, fences (not gates), water, wells, fountains block.
-4. **Foreground layer**: Tree canopies only. Drawn OVER entities so player walks "under" trees. Use -1 for empty.
+### Decorations
+- `92` -- Well top, `104` -- Well base
+- `105` -- Bench
+- `116` -- Sign/lamp post
+- `93` -- Lantern/mailbox
+- `107` -- Barrel
+- `106` -- Stone/crate
+- `18, 19` -- Small plants/flowers (objects layer)
+- `6, 7` -- Bushes

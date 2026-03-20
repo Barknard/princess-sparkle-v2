@@ -43,21 +43,23 @@ export function loadVoice(id) {
     const audio = new Audio();
     audio.preload = 'auto';
 
-    audio.addEventListener('canplaythrough', function onLoad() {
+    function onLoad() {
       audio.removeEventListener('canplaythrough', onLoad);
-      audio.removeEventListener('error', onError);
+      audio.removeEventListener('error', onErr);
       _cache[id] = audio;
       _audioElements[id] = audio;
       resolve(audio);
-    }, { once: true });
+    }
 
-    audio.addEventListener('error', function onError() {
+    function onErr() {
       audio.removeEventListener('canplaythrough', onLoad);
-      audio.removeEventListener('error', onError);
-      // File doesn't exist — cache as null so we don't try again
+      audio.removeEventListener('error', onErr);
       _cache[id] = null;
       resolve(null);
-    }, { once: true });
+    }
+
+    audio.addEventListener('canplaythrough', onLoad, { once: true });
+    audio.addEventListener('error', onErr, { once: true });
 
     audio.src = getVoicePath(id);
     audio.load();

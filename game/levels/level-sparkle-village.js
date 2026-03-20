@@ -1,5 +1,5 @@
 /**
- * level-sparkle-village.js — First playable level for Princess Sparkle V2
+ * level-sparkle-village.js — Sparkle Village for Princess Sparkle V2
  *
  * 30x20 tile grid (480x320 pixels — exactly one screen).
  *
@@ -7,42 +7,47 @@
  *   192x176 PNG, 12 columns x 11 rows of 16x16 tiles = 132 tiles.
  *   Tile ID = row * 12 + col.
  *
- * ACCURATE Kenney Tiny Town tile reference (visually verified):
- *   Row 0 (0-11):   Star, grass, grass+flowers, path edge, green tree tops, orange tree tops, pine top
- *   Row 1 (12-23):  Green tree trunks, bushes, dark green tree tops, orange trunks, pine trunk, dead tree
- *   Row 2 (24-35):  Dirt path center, path edges (top/right/bottom/left), path corners, T-junctions, crossroads
- *   Row 3 (36-47):  More path corners/T-junctions, water edges top, dark grass, dirt/grass variants
- *   Row 4 (48-59):  Fence (horizontal/vertical), fence corners, fence gate, signs
- *   Row 5 (60-71):  Brown roof pieces, chimney, red roof pieces
- *   Row 6 (72-83):  Wood walls, door, window; stone walls, stone door, stone window
- *   Row 7 (84-95):  Castle/grey wall pieces, arches
- *   Row 8 (96-107): Well, barrel, crate, fountain, market stall, anvil, NPCs, bench, lamp post
- *   Row 9 (108-119): Water full, water edges (left/right/BL/bottom/BR), bridges, flowers (red/yellow/blue), rock
- *   Row 10 (120-131): Mushroom, pumpkin, hay, campfire, tombstone, chest, boat, dock, tools, wheelbarrow, cart, flag
+ * ╔═══════════════════════════════════════════════════════════════════╗
+ * ║  ASCII MAP — SPARKLE VILLAGE (30 wide x 20 tall)                ║
+ * ╠═══════════════════════════════════════════════════════════════════╣
+ * ║                                                                  ║
+ * ║  Row 0:  TTT.........PP..........TTT  Tree border staggered     ║
+ * ║  Row 1:  T.~.RRRRR..PP..........TT.  Grandma cottage roof      ║
+ * ║  Row 2:  ..~.WWWDW..PP.....~~...T..  Walls+door, flowers       ║
+ * ║  Row 3:  ..~.FFFFF.PPP.....~~.......  Fenced yard, path widens ║
+ * ║  Row 4:  ......G...PP...............  Garden plot, main path    ║
+ * ║  Row 5:  ..........PP.......B.......  Path continues, bench     ║
+ * ║  Row 6:  .TTT..PPPPPPPPPP...........  Tree grove, E-W path     ║
+ * ║  Row 7:  .TTT..PP....PP....TTT......  Trees, path fork, trees  ║
+ * ║  Row 8:  ......PP....PP....TTT......  Path continues            ║
+ * ║  Row 9:  ..~...PP...*PP.............  Well at square center     ║
+ * ║  Row 10: ..~...PP....PP.....~~......  Path, flowers             ║
+ * ║  Row 11: ......PP....PP.RRRRR.......  Baker's shop roof         ║
+ * ║  Row 12: .TTT..PPPPPPPP.WWWDW......  Trees, E-W path, walls   ║
+ * ║  Row 13: .TTT........PP.FFFFF...~...  Fenced yard              ║
+ * ║  Row 14: ............PP.........~...  Path south                ║
+ * ║  Row 15: ....WWWW....PP.............  Pond area (W=water)       ║
+ * ║  Row 16: ....WWWW....PP...RRRRR.....  Pond, Lily's house roof  ║
+ * ║  Row 17: ....WWWW....PP...WWWDW.....  Water edges, walls       ║
+ * ║  Row 18: ............PP...FFFFF.....  Fenced yard               ║
+ * ║  Row 19: TTT.........PP..........TTT  Tree border, exit south  ║
+ * ║                                                                  ║
+ * ║  Key: T=trees P=path(2wide) R=roof W=wall D=door               ║
+ * ║       F=fence ~=flowers *=well G=garden B=bench .=grass         ║
+ * ╚═══════════════════════════════════════════════════════════════════╝
  *
- * Building a house (3 wide x 2 tall):
- *   Roof:  60, 61, 62     (brown roof left, center, right)
- *   Walls: 72, 75, 74     (wall left, DOOR, wall right)
+ * DESIGN: ~70% green grass, ~15% path, ~15% buildings/objects/water
+ * Paths are THIN LINES through a GREEN WORLD.
+ * Grass mix: 60% plain (37), 30% variant (38), 10% flower (43)
  *
- * Path connections:
- *   24=center, 25=grass-top, 26=grass-right, 28=grass-bottom, 32=grass-left
- *   27=corner TR, 29=corner BR, 33=corner TL, 36=corner BL
- *   30=T-right, 31=crossroads, 34=T-top, 35=T-left, 37=T-bottom
- *
- * Water pond (3x3):
- *   38,39,40 / 109,108,110 / 111,112,113
- *
- * Fence enclosure:
- *   50,48,48,51 / 49,_,_,49 / 52,48,54,53
- *
- * Layers:
- *   ground     — grass and paths (always filled, every cell)
- *   objects    — buildings, trees, furniture (-1 for empty)
- *   collision  — 0=walkable, 1=blocked
- *   foreground — treetops drawn above entities (-1 for empty)
+ * DEPTH LAYERS:
+ *   ground     — Every cell filled: grass varieties + dirt paths
+ *   objects    — Buildings, fences, tree trunks, furniture (-1 = empty)
+ *   collision  — 0 = walkable, 1 = blocked
+ *   foreground — Tree canopies drawn OVER entities for depth (-1 = empty)
  */
 
-// Helper: generate a 30x20 flat array from 2D row arrays
+// ── Helper ──────────────────────────────────────────────────────────────────
 function grid(rows) {
   const arr = [];
   for (let y = 0; y < rows.length; y++) {
@@ -53,609 +58,817 @@ function grid(rows) {
   return arr;
 }
 
-// ── Tile ID aliases for readability ──────────────────────────────────────────
+// ── Tile ID aliases (Kenney Tiny Town — 12 cols x 11 rows) ─────────────────
+//
+// GROUND TILES — fill every cell, grass dominant
+const GR  = 37;   // plain grass (60% of ground)
+const GR2 = 38;   // grass variant (30% of ground)
+const GF  = 43;   // grass with small flowers (10% of ground)
+const DP  = 40;   // dirt path center
+const DPH = 39;   // dirt path edge (horizontal/left)
+const DPV = 41;   // dirt path edge (right/vertical)
+const DPX = 42;   // dirt path edge (vertical transitions)
 
-// Ground tiles
-const G   = 1;    // plain grass (light green)
-const G2  = 2;    // grass with tiny flowers
-const G3  = 1;    // grass variant (same light green, for variety in code)
+// EMPTY (for object/foreground layers)
+const E   = -1;
 
-// Path tiles (dirt)
-const P   = 24;   // dirt path center (plain)
-const PT  = 25;   // path with grass edge on top
-const PR  = 26;   // path with grass edge on right
-const PB  = 28;   // path with grass edge on bottom
-const PL  = 32;   // path with grass edge on left
-const CTR = 27;   // path corner top-right (grass inside)
-const CBR = 29;   // path corner bottom-right
-const CTL = 33;   // path corner top-left
-const CBL = 36;   // path corner bottom-left
-const TJR = 30;   // path T-junction right
-const TJT = 34;   // path T-junction top
-const TJL = 35;   // path T-junction left
-const TJB = 37;   // path T-junction bottom
-const PX  = 31;   // path crossroads
+// TREE TILES (objects layer = trunks, foreground layer = canopies)
+const TT1 = 0;    // tree canopy — large round green (top-left of 2x2)
+const TT2 = 1;    // tree canopy — large round green (top-right of 2x2)
+const TT3 = 2;    // tree canopy — with yellow flowers
+const TT4 = 4;    // tree canopy — darker evergreen
+const TB1 = 12;   // tree bottom-left (trunk + lower leaves)
+const TB2 = 13;   // tree bottom-right (trunk + lower leaves)
 
-// Empty (no object)
-const E = -1;
+// BUSHES AND SMALL PLANTS
+const BSH = 6;    // round bush (green)
+const BS2 = 7;    // small bush variant
+const PLT = 18;   // small plant/fern
+const PL2 = 19;   // small flower plant (purple blooms)
+const FLW = 29;   // red flowers / berries
 
-// ── Object tile aliases ──
+// ROOFS — RED/ORANGE
+const RFL = 63;   // roof left slope
+const RFM = 64;   // roof middle
+const RFR = 65;   // roof right slope
+const RFK = 67;   // roof peak/chimney cap
 
-// Trees (green round — 2-tile wide canopy over 2-tile wide trunk)
-const GTL = 4;    // green tree canopy top-left
-const GTR = 5;    // green tree canopy top-right
-const GBL = 12;   // green tree trunk-left
-const GBR = 13;   // green tree trunk-right
+// WALLS — WOOD (warm brown)
+const WLL = 72;   // wood wall left edge
+const WLM = 73;   // wood wall mid (plain)
+const WLW = 75;   // wood wall with window
+const WLD = 74;   // wood wall with door
 
-// Trees (orange/autumn)
-const OTL = 7;    // orange tree canopy top-left
-const OTR = 8;    // orange tree canopy top-right
-const OBL = 18;   // orange tree trunk-left
-const OBR = 19;   // orange tree trunk-right
+// WALLS — STONE/BRICK (Baker's shop for variety)
+const SWL = 84;   // dark stone wall left
+const SWM = 85;   // dark stone wall mid
+const SWW = 87;   // dark stone wall with window
+const SWD = 86;   // dark stone wall with door
 
-// Small trees / bushes
-const BSH = 14;   // green bush/shrub
-const OBS = 20;   // orange bush
-const DST = 23;   // dead tree/stump
+// FENCES — WHITE PICKET
+const FNL = 96;   // fence left end
+const FNM = 97;   // fence mid section
+const FNR = 98;   // fence right end
+const FNP = 108;  // fence post (vertical)
 
-// Pine tree (1 wide, 2 tall)
-const PNT = 10;   // pine tree top
-const PNB = 21;   // pine tree trunk
-
-// Brown roof
-const RBL = 60;   // brown roof top-left
-const RBM = 61;   // brown roof top-center
-const RBR = 62;   // brown roof top-right
-
-// Red/dark roof
-const RRL = 67;   // red roof top-left
-const RRM = 68;   // red roof top-center
-const RRR = 69;   // red roof top-right
-
-// Chimney
-const CHM = 66;   // chimney
-
-// Wood walls
-const WWL = 72;   // wood wall left
-const WWC = 73;   // wood wall center
-const WWR = 74;   // wood wall right
-const WDR = 75;   // wood door
-const WWN = 76;   // wood window
-
-// Stone walls
-const SWL = 78;   // stone wall left
-const SWC = 79;   // stone wall center
-const SWR = 80;   // stone wall right
-const SDR = 81;   // stone door
-const SWN = 82;   // stone window
-
-// Fences
-const FH  = 48;   // fence horizontal
-const FV  = 49;   // fence vertical
-const FCT = 50;   // fence corner top-left
-const FCR = 51;   // fence corner top-right
-const FBL = 52;   // fence corner bottom-left
-const FBR = 53;   // fence corner bottom-right
-const FGT = 54;   // fence gate/opening
-const SGN = 55;   // sign post
-const DSG = 56;   // directional sign
-
-// Decorations / furniture
-const WEL = 96;   // well
-const BRL = 97;   // barrel
-const CRT = 98;   // crate/box
-const FTN = 99;   // fountain
-const MKT = 100;  // market stall
-const ANV = 101;  // anvil/workbench
-const BNC = 106;  // bench
-const LMP = 107;  // lamp post
-
-// Flowers
-const FLR = 116;  // flowers red
-const FLY = 117;  // flowers yellow
-const FLB = 118;  // flowers blue
-const ROK = 119;  // small rock/stone
-
-// Misc decorations
-const MSH = 120;  // mushroom
-const PMK = 121;  // pumpkin
-const HAY = 122;  // hay bale
-const CFR = 123;  // campfire
-const CHT = 125;  // chest
-const FLG = 131;  // flag
-
-// Water tiles (for objects layer pond)
-const WTL = 38;   // water edge top-left
-const WTT = 39;   // water edge top
-const WTR = 40;   // water edge top-right
-const WFL = 109;  // water edge left
-const WFF = 108;  // water full tile
-const WFR = 110;  // water edge right
-const WBL = 111;  // water edge bottom-left
-const WBB = 112;  // water edge bottom
+// WATER TILES (objects layer — drawn on top of grass ground)
+const WTL = 109;  // water edge top-left
+const WTM = 110;  // water edge top
+const WTR = 111;  // water edge top-right
+const WML = 121;  // water edge mid-left
+const WMM = 122;  // water center (deep)
+const WMR = 123;  // water edge mid-right
+const WBL = 120;  // water edge bottom-left
+const WBM = 112;  // water edge bottom
 const WBR = 113;  // water edge bottom-right
 
-// Bridge
-const BRH = 114;  // bridge horizontal
-const BRV = 115;  // bridge vertical
+// DECORATIONS & FURNITURE
+const BNC = 105;  // bench (dark wood)
+const WEL = 92;   // well top (peaked roof)
+const WEB = 104;  // well base (blue bucket/stone)
+const SGN = 116;  // lamp/sign post
+const MLX = 93;   // lantern / mailbox / warm light
+const BRL = 107;  // barrel (brown)
+const STN = 106;  // stone/crate
 
-// Characters (NPC sprites in tileset)
-const NP1 = 102;  // character/NPC sprite 1
-const NP2 = 103;  // character/NPC sprite 2
-
-// Star
-const STR = 0;    // yellow star/sparkle
-
-// ── Ground Layer ─────────────────────────────────────────────────────────────
-// Base terrain: grass everywhere, with properly-connected dirt paths.
-// The village has a main north-south path (cols 14-15) and an east-west path (rows 9-10).
-// Paths curve and have proper edge tiles where path meets grass.
-//
-// Layout concept (30 wide x 20 tall):
-//   - Main N-S path runs through center, widening at village square
-//   - Main E-W path crosses at rows 9-10
-//   - Branching paths lead to houses and points of interest
-//   - Winding path to pond in lower-left
+// ── GROUND LAYER ──────────────────────────────────────────────────────────
+// Every cell filled. ~70% grass (mix of GR/GR2/GF), ~15% path (DP), ~15% under buildings.
+// Grass mix: 60% GR, 30% GR2, 10% GF — clustered in organic blobs, never checkerboarded.
+// Paths are exactly 2 tiles wide, widening to 3 at the one intersection (row 6).
+// Path runs N-S through cols 12-13, with one E-W branch at row 6 (cols 6-15).
 
 // prettier-ignore
 const ground = grid([
-  // Row 0: top edge — mostly grass, N-S path enters from north
-  [G, G2, G,  G,  G,  G,  G,  G,  G,  G2, G,  G,  G, CTL,PT, CTR, G,  G,  G2, G,  G,  G,  G,  G2, G,  G,  G,  G,  G2, G ],
-  // Row 1: path continues south, small branch east to right house area
-  [G2, G,  G,  G2, G,  G,  G,  G2, G,  G,  G2, G,  G, PL, P,  PR,  G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G2, G,  G,  G ],
-  // Row 2: path continues, branch west starts toward left house
-  [G,  G,  G2, G,  G,  G,  G2, G,  G,  G,  G,  G,  G, PL, P,  PR,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G,  G,  G2],
-  // Row 3: paths branch to houses. Left branch goes cols 3-7, right branch cols 20-24
-  [G,  G2, G, CTL,PT, PT, PT, PT, PT, PT, PT, PT, PT,TJL, P, TJR, PT, PT, PT, PT, PT, PT, PT, PT, CTR, G,  G,  G,  G,  G ],
-  // Row 4: left path up to house, vertical center path, right path up to house
-  [G,  G,  G, PL, P,  P,  P,  PR, G,  G,  G,  G,  G, PL, P,  PR,  G,  G,  G,  G, PL,  P,  P,  P,  PR, G,  G,  G,  G,  G ],
-  // Row 5: house doors face the path — grass behind houses
-  [G,  G,  G, PL, P,  P,  P,  PR, G,  G,  G,  G,  G, PL, P,  PR,  G,  G,  G,  G, PL,  P,  P,  P,  PR, G,  G,  G,  G,  G ],
-  // Row 6: path continues south from houses to main E-W, fence areas on grass
-  [G,  G,  G, CBL,PB, PB, PB, CBR,G,  G,  G,  G,  G, PL, P,  PR,  G,  G,  G,  G, CBL, PB, PB, PB, CBR,G,  G,  G,  G,  G ],
-  // Row 7: center path continues, approaching main crossroads
-  [G,  G2, G,  G,  G,  G,  G,  G,  G,  G,  G2, G,  G, PL, P,  PR,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G2, G,  G,  G ],
-  // Row 8: path widens for crossroads approach
-  [G,  G,  G2, G,  G,  G,  G2, G,  G,  G,  G,  G,  G, PL, P,  PR,  G,  G,  G,  G2, G,  G,  G2, G,  G,  G,  G,  G,  G,  G2],
-  // Row 9: main east-west path with crossroads at center (properly edged)
-  [CTL,PT, PT, PT, PT, PT, PT, PT, PT, PT, PT, PT, PT,TJL, PX, TJR, PT, PT, PT, PT, PT, PT, PT, PT, PT, PT, PT, PT, PT, CTR],
-  // Row 10: main east-west path bottom edge
-  [CBL,PB, PB, PB, PB, PB, PB, PB, PB, PB, PB, PB, PB,TJL, P, TJR, PB, PB, PB, PB, PB, PB, PB, PB, PB, PB, PB, PB, PB, CBR],
-  // Row 11: below main path — south path continues, branch to pond
-  [G,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G, PL, P,  PR,  G,  G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G ],
-  // Row 12: path bends southwest toward pond and southeast toward garden
-  [G,  G2, G,  G,  G,  G,  G,  G,  G,  G,  G,  G, CTL,TJL, P, TJR, CTR, G,  G,  G,  G,  G,  G,  G,  G,  G2, G,  G,  G2, G ],
-  // Row 13: left branch to pond area, right branch to lower-right
-  [G,  G,  G,  G2, G,  G,  G,  G,  G,  G, CTL, PT, TJT, P,  P,  P, TJT, PT, CTR, G,  G2, G,  G,  G,  G,  G,  G,  G2, G,  G ],
-  // Row 14: path to pond bends down-left
-  [G,  G,  G,  G,  G,  G,  G,  G,  G,  G, PL,  P,  P,  P, PB, P,  P,   P, PR,  G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G ],
-  // Row 15: path reaches pond area
-  [G2, G,  G,  G,  G,  G2, G,  G,  G,  G, CBL, PB, CBR, G,  G,  G, CTL, PB, CBR, G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G2],
-  // Row 16: pond is below-left, grass around it
-  [G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G, PL,  P,  PR,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G ],
-  // Row 17: pond row — water tiles are in objects layer, ground is grass
-  [G,  G2, G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G, CBL, PB, CBR,  G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G ],
-  // Row 18
-  [G,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G2],
-  // Row 19: bottom edge — path exits south
-  [G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G,  G,  G, CTL,PT, CTR, G,  G,  G,  G,  G,  G2, G,  G,  G,  G,  G,  G,  G,  G ],
+  // Row 0:  TTT.........PP..........TTT   — tree border, staggered
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, DP, DP, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 1:  T.~.RRRRR..PP..........TT.   — Grandma cottage roof row
+  [GR, GR, GF, GR, GR, GR, GR, GR, GR, GR2,GR, GR, DP, DP, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR],
+  // Row 2:  ..~.WWWDW..PP.....~~...T..   — walls + door, flowers east
+  [GR2,GR, GF, GR, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR2,GR, GR, GF, GF, GR, GR, GR, GR, GR2,GR, GR, GR, GR],
+  // Row 3:  ..~.FFFFF.PPP.....~~.......   — fenced yard, path widens to 3
+  [GR, GR, GF, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, DP, GR, GR, GR, GR, GR, GF, GF, GR, GR2,GR, GR, GR, GR, GR, GR2,GR],
+  // Row 4:  ......G...PP...............   — garden plot, main path
+  [GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR],
+  // Row 5:  ..........PP.......B.......   — path continues, bench east
+  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2],
+  // Row 6:  .TTT..PPPPPPPPPP...........   — tree grove left, E-W path joins
+  [GR, GR, GR, GR, GR2,GR, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR],
+  // Row 7:  .TTT..PP....PP....TTT......   — trees, path fork N-S + continuing S
+  [GR, GR, GR, GR, GR, GR, DP, DP, GR, GR2,GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR],
+  // Row 8:  ......PP....PP....TTT......   — path continues
+  [GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, DP, DP, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR],
+  // Row 9:  ..~...PP...*PP.............   — well at village square, flower west
+  [GR, GR, GF, GR, GR, GR, DP, DP, GR, GR2,GR, GR, DP, DP, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2],
+  // Row 10: ..~...PP....PP.....~~......   — flowers east
+  [GR, GR, GF, GR, GR2,GR, DP, DP, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GF, GF, GR, GR2,GR, GR, GR, GR, GR, GR, GR],
+  // Row 11: ......PP....PP.RRRRR.......   — Baker's shop roof
+  [GR, GR, GR2,GR, GR, GR, DP, DP, GR, GR, GR2,GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR],
+  // Row 12: .TTT..PPPPPPPP.WWWDW......   — trees, E-W path connects to baker
+  [GR, GR, GR, GR, GR, GR, DP, DP, DP, DP, DP, DP, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR2],
+  // Row 13: .TTT........PP.FFFFF...~...   — fenced yard, flowers
+  [GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR2,GR, GR, GR, GR],
+  // Row 14: ............PP.........~...   — path south
+  [GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GF, GR, GR, GR, GR, GR2,GR],
+  // Row 15: ....WWWW....PP.............   — pond (water in objects layer, grass underneath)
+  [GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, DP, DP, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR],
+  // Row 16: ....WWWW....PP...RRRRR.....   — pond continues, Lily's house roof
+  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR],
+  // Row 17: ....WWWW....PP...WWWDW.....   — water bottom, Lily's walls
+  [GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR],
+  // Row 18: ............PP...FFFFF.....   — Lily's fenced yard
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, DP, DP, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR],
+  // Row 19: TTT.........PP..........TTT   — tree border, south exit
+  [GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
 ]);
 
-// ── Objects Layer ────────────────────────────────────────────────────────────
-// Houses, trees, fences, decorations, water features, furniture
-// -1 (E) = empty/transparent
+// ── OBJECTS LAYER ─────────────────────────────────────────────────────────
+// Buildings, tree trunks, fences, water, decorations.
+// -1 = empty (E). Tree trunks go HERE; canopies go in foreground.
+// Objects only on ~40% of tiles; the rest is open green.
 
 // prettier-ignore
 const objects = grid([
-  // Row 0: tree canopies at top edge (in objects — trunks below, canopies in foreground)
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  PNT,E,  E,  E ],
-  // Row 1: tree trunks for top-edge trees, birds sit here
-  [GTL,GTR,E,  E,  E,  E,  E,  E,  E,  OTL,OTR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  PNB,E,  GTL,GTR],
-  // Row 2: tree trunks row
-  [GBL,GBR,E,  E,  E,  E,  E,  E,  E,  OBL,OBR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  GBL,GBR],
-  // Row 3: Grandma's house ROOF (brown, 4 wide) left side + Lily's house ROOF (red, 4 wide) right side
-  [E,  E,  E, RBL,RBM,RBM,RBR,CHM, E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E, RRL,RRM,RRM,RRR, E,  E,  E,  E,  E,  E ],
-  // Row 4: Grandma's WALLS (window, wall, window, wall) + Lily's WALLS
-  [E,  E,  E, WWN,WWC,WWC,WWN,E,   E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E, SWN,SWC,SWC,SWN, E,  E,  E,  E,  E,  E ],
-  // Row 5: Grandma's DOOR ROW + Lily's DOOR ROW
-  [E,  E,  E, WWL,WWC,WDR,WWR,E,   E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  BSH,E, SWL,SWC,SDR,SWR, E,  E,  E,  E,  E,  E ],
-  // Row 6: Fences around Grandma's yard + Lily's yard
-  [E, FCT, FH, FH, FH, FGT, FH, FH, FCR, E,  E,  E,  E,  E,  E,  E,  E,  E,  E, FCT, FH, FH, FGT, FH, FH, FCR, E,  E,  E,  E ],
-  // Row 7: Fence sides + decorations inside yards
-  [E, FV,  E, FLY,E,  E,  E, BRL, FV,  E,  E,  LMP,E,  E,  E,  E,  E,  LMP,E,  FV,  E,  E,  E,  FLR, E,  FV,  E,  E,  E,  E ],
-  // Row 8: Bottom fence + gate, flowers outside
-  [E, FBL, FH, FH, FH, FGT, FH, FH, FBR, E,  E,  E,  E,  E,  E,  E,  E,  E,  E, FBL, FH, FH, FGT, FH, FH, FBR, E,  E,  E,  E ],
-  // Row 9: main path — mostly clear, sign post at west entry, lamp at east
-  [E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E ],
-  // Row 10: main path — bench and well along south side
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E ],
-  // Row 11: south of path — village square features
-  [E,  E,  E,  BNC,E,  E,  FLB,E,  E,  E,  E,  FTN,E,  E,  E,  E,  E,  E,  WEL,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E ],
-  // Row 12: scattered flowers and decorations
-  [E,  E,  FLR,E,  E,  E,  E,  FLY,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  FLB,E,  E,  E,  E,  FLR,E,  E,  E ],
-  // Row 13: trees and Finn's play area, lower area
-  [E,  E,  E,  E,  E,  E,  E,  E,  GTL,GTR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E, OTL,OTR,E,  E,  E,  E,  E,  E ],
-  // Row 14: tree trunks + rocks
-  [E,  E,  E,  E,  E,  E,  E,  E,  GBL,GBR,ROK,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E, OBL,OBR,E,  E,  E,  E,  E,  E ],
-  // Row 15: flowers, mushrooms near pond path
-  [E,  E,  E,  E,  FLY,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  MSH,E,  E,  E,  E,  E,  E,  FLB,E,  E,  E ],
-  // Row 16: pond top row (water tiles) + objects near pond
-  [E,  E,  E, WTL,WTT,WTT,WTR, E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  HAY,E,  E,  E,  E,  E,  E ],
-  // Row 17: pond middle
-  [E,  E,  E, WFL,WFF,WFF,WFR, E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  HAY,E,  E,  E,  E,  E ],
-  // Row 18: pond bottom row
-  [E,  E,  E, WBL,WBB,WBB,WBR, E,  E,  E,  FLR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E ],
-  // Row 19: bottom edge — bushes, exit path area
-  [E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E ],
+  // Row 0: tree border — staggered, mixed types, gaps for light
+  //         TT at 0-1, bush at 3, gap, bush at 9, gap, path gap, sign at 14, gap, bush at 22, TT at 27-28
+  [TB1,TB2,E,  BSH,E,  E,  E,  E,  E,  BS2,E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  TB1,TB2,E  ],
+  // Row 1: Grandma's cottage roof — T trunk left, flowers, roof at cols 4-8
+  [TB1,TB2,PL2,E,  RFL,RFM,RFK,RFM,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E  ],
+  // Row 2: Grandma's walls — windows + door at col 7, flowers east at 19-20
+  [E,  E,  PL2,E,  WLL,WLW,WLM,WLD,WLW,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  PL2,PLT,E,  E,  E,  E,  E,  E,  TB1,TB2,E  ],
+  // Row 3: Grandma's fenced yard — fence cols 4-8, path widens col 11-13
+  [E,  E,  PLT,E,  FNL,FNM,FNM,FNM,FNR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  PL2,PLT,E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 4: garden plot at col 6, grass open, barrel at 8
+  [E,  E,  E,  E,  E,  E,  PLT,E,  BRL,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 5: bench at col 19, lantern at 17, mailbox at 3
+  [E,  E,  E,  MLX,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 6: tree grove left (trunks at 1-2, 3-4), E-W path clear, bush at 17
+  [E,  TB1,TB2,TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 7: tree trunks (lower halves visible), path fork, trees right at 18-19, 20-21
+  [E,  TB1,TB2,TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 8: open grass, signpost at col 10
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 9: well at col 10-11 (top=WEL, base=WEB), village square area
+  [E,  E,  PL2,E,  E,  E,  E,  E,  E,  E,  WEL,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E  ],
+  // Row 10: flowers at 2, well base at 10, bench at 15, flowers east 19-20
+  [E,  E,  PLT,E,  E,  E,  E,  E,  E,  E,  WEB,E,  E,  E,  E,  BNC,E,  E,  E,  PL2,PLT,E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 11: Baker's shop roof at cols 15-19
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  RFL,RFM,RFK,RFM,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 12: tree grove left trunks, E-W path clear, Baker's walls at 15-19
+  [E,  TB1,TB2,TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SWL,SWW,SWD,SWM,SWW,E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 13: tree trunks lower, Baker's fenced yard at 15-19, flowers at 23
+  [E,  TB1,TB2,TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  FNL,FNM,FNM,FNM,FNR,E,  E,  E,  PL2,E,  E,  E,  E,  E,  E  ],
+  // Row 14: open grass, crate at 16 (near baker), flowers at 23, barrel at 15
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BRL,STN,E,  E,  E,  E,  E,  E,  PLT,E,  E,  E,  E,  E,  E  ],
+  // Row 15: pond top row at cols 4-7 (3x3+1 wide), bush at 9
+  [E,  E,  E,  E,  WTL,WTM,WTM,WTR,E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 16: pond mid row, Lily's roof at cols 18-22
+  [E,  E,  E,  E,  WML,WMM,WMM,WMR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  RFL,RFM,RFK,RFM,RFR,E,  E,  E,  E,  E,  E,  E  ],
+  // Row 17: pond bottom row, Lily's walls at 18-22
+  [E,  E,  E,  E,  WBL,WBM,WBM,WBR,E,  PLT,E,  E,  E,  E,  E,  E,  E,  E,  WLL,WLW,WLD,WLM,WLW,E,  E,  E,  E,  E,  E,  E  ],
+  // Row 18: Lily's fenced yard at 18-22, mailbox at 17, bench facing pond at 3
+  [E,  E,  E,  BNC,E,  E,  E,  E,  PLT,E,  E,  E,  E,  E,  E,  E,  E,  MLX,FNL,FNM,FNM,FNM,FNR,E,  E,  E,  E,  E,  E,  E  ],
+  // Row 19: tree border south — staggered, with south exit gap at cols 12-13
+  [TB1,TB2,E,  BS2,E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  BS2,E,  E,  E,  TB1,TB2],
 ]);
 
-// ── Collision Layer ──────────────────────────────────────────────────────────
-// 1 = blocked, 0 = walkable
-// Houses, fences (except gates), water, trees, well, fountain are blocked
+// ── COLLISION LAYER ───────────────────────────────────────────────────────
+// 0 = walkable, 1 = blocked
+// Buildings, fences, tree trunks, well, water, benches = blocked
+// Doors are walkable (collision = 0) so NPCs can stand near them
+// All NPC home positions verified on walkable tiles
 
 // prettier-ignore
 const collision = grid([
-  // Row 0
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
-  // Row 1: tree canopies (walkable under in foreground, trunks block)
-  [1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 2: tree trunks block
-  [1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 3: house roofs block
-  [0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
-  // Row 4: house walls block
-  [0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
-  // Row 5: house walls + doors (doors walkable for entry trigger)
-  [0,0,0,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0,0],
-  // Row 6: fences block (gates open)
-  [0,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,0,0,0,0],
-  // Row 7: fence sides block, inside yard walkable
-  [0,1,0,0,0,0,0,1,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,0],
-  // Row 8: fence bottom block (gates open)
-  [0,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,0,0,0,0],
-  // Row 9: main path — sign blocks
-  [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 10: main path clear
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 11: bench, fountain, well block
-  [0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 12: flowers walkable
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 13: tree canopies (foreground), trunks below block
-  [0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0],
-  // Row 14: tree trunks + rock block
-  [0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0],
-  // Row 15: flowers/mushrooms walkable
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 16: pond top blocks
-  [0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-  // Row 17: pond middle blocks
-  [0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
-  // Row 18: pond bottom blocks
-  [0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 19: bottom edge
-  [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0],
+  // Row 0: tree trunks blocked (0-1), bush(3), bush(9), sign(14), bush(22), trees(27-28)
+  [1,1,0,1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1,1,0],
+  // Row 1: tree trunks (0-1), plant(2), roof blocked (4-8), tree trunks (27-28)
+  [1,1,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0],
+  // Row 2: plant(2), walls blocked (4-8), door at col 7 walkable, plants(19-20), tree(27-28)
+  [0,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0],
+  // Row 3: plant(2), fence blocked (4-8), path
+  [0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 4: garden plant(6), barrel(8)
+  [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 5: mailbox(3), sign(17), bench(19)
+  [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0],
+  // Row 6: tree trunks (1-2, 3-4), bush(17)
+  [0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 7: tree trunks (1-2, 3-4), trees right (18-19, 20-21)
+  [0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0],
+  // Row 8: sign(10), trees right (18-19, 20-21)
+  [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0],
+  // Row 9: plant(2), well top(10), bush(26)
+  [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+  // Row 10: plant(2), well base(10), bench(15)
+  [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 11: Baker's roof blocked (15-19)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // Row 12: tree trunks (1-2, 3-4), Baker walls blocked (15-19), door at 17 walkable
+  [0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0],
+  // Row 13: tree trunks (1-2, 3-4), Baker fence blocked (15-19)
+  [0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // Row 14: barrel(15), crate(16)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 15: pond water blocked (4-7), bush(9)
+  [0,0,0,0,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 16: pond water blocked (4-7), Lily roof blocked (18-22)
+  [0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0],
+  // Row 17: pond water blocked (4-7), Lily walls blocked (18-22), door at 20 walkable
+  [0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0],
+  // Row 18: bench(3), mailbox(17), Lily fence blocked (18-22)
+  [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0],
+  // Row 19: tree trunks (0-1), bushes blocked, trees (28-29)
+  [1,1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,1],
 ]);
 
-// ── Foreground Layer ─────────────────────────────────────────────────────────
-// Tree canopies drawn ABOVE entities so player walks "under" them
+// ── FOREGROUND LAYER ──────────────────────────────────────────────────────
+// Tree canopies drawn OVER entities. When the princess walks under a tree,
+// the canopy covers her sprite — THIS is what makes the world feel 3D.
+// Canopies placed ONE ROW ABOVE trunks so they overlap entities at trunk level.
 
 // prettier-ignore
 const foreground = grid([
-  // Row 0: tree canopies drawn on top (player can walk under)
-  [GTL,GTR,E,  E,  E,  E,  E,  E,  E, OTL,OTR, E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E, GTL,GTR],
-  // Row 1: more canopy coverage (lower half of big trees)
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E ],
-  // Rows 2-11: empty
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  // Row 12: canopies for lower trees (drawn on row above trunks)
-  [E,  E,  E,  E,  E,  E,  E,  E, GTL,GTR, E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E, OTL,OTR, E,  E,  E,  E,  E,  E ],
-  // Rows 13-19: empty
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-  [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
+  // Row 0: canopies for trees whose trunks are at rows 0-1
+  [TT1,TT2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TT1,TT2,E  ],
+  // Row 1: canopy overlap — trunks below at row 1 get covered, Grandma trees right
+  [TT3,TT4,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TT1,TT2,E  ],
+  // Row 2: tree canopy continues for right border trees
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TT4,TT3,E  ],
+  // Row 3-5: no foreground
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 6: canopies for left grove (trunks at rows 6-7 cols 1-4) + right trees (trunks row 7-8)
+  [E,  TT1,TT2,TT3,TT2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 7: canopy overlap for left grove + right grove canopies
+  [E,  TT4,TT3,TT1,TT4,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TT1,TT2,TT3,TT2,E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 8: right grove canopy overlap
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TT4,TT3,TT1,TT4,E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 9-11: no foreground
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 12: canopies for left grove (trunks at rows 12-13 cols 1-4)
+  [E,  TT1,TT2,TT3,TT2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 13: canopy overlap for bottom-left grove
+  [E,  TT4,TT3,TT1,TT4,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 14-18: no foreground
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
+  // Row 19: canopies for south border trees (trunks at row 19 cols 0-1, 28-29)
+  [TT1,TT2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TT1,TT2],
 ]);
 
-// ── NPCs ───────────────────────────────────────────────────────────────────
+// ── NPCs ──────────────────────────────────────────────────────────────────
+// All homeX/homeY positions verified on walkable tiles (collision=0).
 
 const npcs = [
   {
     id: 'grandma-rose',
     name: 'Grandma Rose',
     spriteName: 'npc_grandma',
-    homeX: 5,
-    homeY: 7,
+    homeX: 7,       // in her yard below the door (col 7, row 4 — walkable)
+    homeY: 4,       // yard grass between fence and garden
+    wanderRadius: 3,
     personality: 'warm',
     dialogueId: 'grandma-rose-greeting',
-    ambientLines: ['voice_grandma_ambient_01', 'voice_grandma_ambient_02'],
-    sillyBehaviors: ['loses_glasses', 'hums_tune'],
+    ambientLines: [
+      'voice_grandma_ambient_01',
+      'voice_grandma_ambient_02',
+      'voice_grandma_ambient_03',
+    ],
+    sillyBehaviors: ['loses_glasses', 'hums_tune', 'talks_to_flowers'],
   },
   {
     id: 'neighbor-lily',
     name: 'Neighbor Lily',
     spriteName: 'npc_lily',
-    homeX: 22,
-    homeY: 7,
+    homeX: 20,      // on the walkable door tile of her house (col 20, row 17)
+    homeY: 17,      // at her door (collision=0)
+    wanderRadius: 2,
     personality: 'cheerful',
     dialogueId: 'lily-greeting',
-    ambientLines: ['voice_lily_ambient_01', 'voice_lily_ambient_02'],
-    sillyBehaviors: ['waters_wrong_plant', 'talks_to_flowers'],
+    ambientLines: [
+      'voice_lily_ambient_01',
+      'voice_lily_ambient_02',
+    ],
+    sillyBehaviors: ['waters_wrong_plant', 'talks_to_flowers', 'hangs_laundry'],
   },
   {
     id: 'little-finn',
     name: 'Little Finn',
     spriteName: 'npc_finn',
-    homeX: 14,
-    homeY: 14,
+    homeX: 8,       // near the village square, on the grass east of the west path
+    homeY: 9,       // on walkable ground near the well area
+    wanderRadius: 3,
     personality: 'playful',
     dialogueId: 'finn-greeting',
-    ambientLines: ['voice_finn_ambient_01'],
-    sillyBehaviors: ['chases_butterfly', 'trips_over_rock', 'draws_in_dirt'],
+    ambientLines: [
+      'voice_finn_ambient_01',
+      'voice_finn_ambient_02',
+    ],
+    sillyBehaviors: ['chases_butterfly', 'trips_over_rock', 'draws_in_dirt', 'kite_stuck'],
   },
   {
-    id: 'merchant-boris',
-    name: 'Merchant Boris',
-    spriteName: 'npc_boris',
-    homeX: 11,
-    homeY: 11,
-    personality: 'jovial',
-    dialogueId: 'boris-greeting',
-    ambientLines: ['voice_boris_ambient_01'],
-    sillyBehaviors: ['polishes_fountain', 'counts_coins'],
+    id: 'baker-maple',
+    name: 'Baker Maple',
+    spriteName: 'npc_baker',
+    homeX: 17,      // on the walkable door tile of his shop (col 17, row 12)
+    homeY: 14,      // in front of his shop, on walkable ground near barrels
+    wanderRadius: 2,
+    personality: 'jolly',
+    dialogueId: 'baker-maple-greeting',
+    ambientLines: [
+      'voice_baker_ambient_01',
+      'voice_baker_ambient_02',
+    ],
+    sillyBehaviors: ['drops_pie', 'sleeping_standing', 'flour_sneeze'],
   },
 ];
 
-// ── World Objects (tappable) ───────────────────────────────────────────────
+// ── World Objects (tappable) ──────────────────────────────────────────────
+// 24 objects distributed so every screen area has 3-5 tappable things.
+// Positions verified on walkable tiles OR intentionally decorative.
 
 const worldObjects = [
-  // Flowers
-  { type: 'FLOWER_RED',    x: 2,  y: 12, id: 'flower-01' },
-  { type: 'FLOWER_YELLOW', x: 3,  y: 7,  id: 'flower-02' },
-  { type: 'FLOWER_YELLOW', x: 7,  y: 12, id: 'flower-03' },
-  { type: 'FLOWER_BLUE',   x: 6,  y: 11, id: 'flower-04' },
-  { type: 'FLOWER_RED',    x: 23, y: 7,  id: 'flower-05' },
-  { type: 'FLOWER_BLUE',   x: 21, y: 12, id: 'flower-06' },
-  { type: 'FLOWER_RED',    x: 26, y: 12, id: 'flower-07' },
-  { type: 'FLOWER_YELLOW', x: 4,  y: 15, id: 'flower-08' },
-  { type: 'FLOWER_BLUE',   x: 26, y: 15, id: 'flower-09' },
-  { type: 'FLOWER_RED',    x: 10, y: 18, id: 'flower-10' },
+  // ── Grandma's area (upper-left) — 5 objects ──
+  { type: 'WIND_CHIMES',   x: 5,  y: 1,  id: 'wind-chimes-01' },
+  { type: 'GARDEN_PLOT',   x: 6,  y: 4,  id: 'garden-plot-01' },
+  { type: 'FLOWER_BIG',    x: 2,  y: 2,  id: 'flower-big-01' },
+  { type: 'FLOWER_BIG',    x: 2,  y: 3,  id: 'flower-big-02' },
+  { type: 'MAILBOX',       x: 3,  y: 5,  id: 'mailbox-grandma' },
 
-  // Major structures
-  { type: 'POND',          x: 4,  y: 17, id: 'village-pond' },
-  { type: 'FOUNTAIN',      x: 11, y: 11, id: 'village-fountain' },
-  { type: 'WELL',          x: 18, y: 11, id: 'village-well' },
-  { type: 'BENCH',         x: 3,  y: 11, id: 'village-bench' },
+  // ── Village square / well area (center) — 5 objects ──
+  { type: 'WELL',          x: 10, y: 9,  id: 'village-well' },
+  { type: 'SIGNPOST',      x: 10, y: 8,  id: 'signpost-01' },
+  { type: 'SIGNPOST',      x: 14, y: 0,  id: 'signpost-north' },
+  { type: 'BENCH',         x: 19, y: 5,  id: 'bench-square-01' },
+  { type: 'BENCH',         x: 15, y: 10, id: 'bench-square-02' },
 
-  // Fence yard items
-  { type: 'BARREL',        x: 7,  y: 7,  id: 'barrel-01' },
-  { type: 'SIGN',          x: 4,  y: 9,  id: 'village-sign' },
+  // ── East meadow flowers — 3 objects ──
+  { type: 'FLOWER_SMALL',  x: 19, y: 2,  id: 'flower-east-01' },
+  { type: 'FLOWER_SMALL',  x: 20, y: 2,  id: 'flower-east-02' },
+  { type: 'FLOWER_SMALL',  x: 19, y: 10, id: 'flower-east-03' },
 
-  // Trees (for interaction — actual tiles in objects/foreground layers)
-  { type: 'TREE',          x: 0,  y: 2,  id: 'tree-01' },
-  { type: 'TREE',          x: 9,  y: 2,  id: 'tree-02' },
-  { type: 'TREE',          x: 8,  y: 14, id: 'tree-03' },
-  { type: 'TREE',          x: 22, y: 14, id: 'tree-04' },
-  { type: 'TREE',          x: 28, y: 2,  id: 'tree-05' },
+  // ── Baker's area (center-right) — 4 objects ──
+  { type: 'APPLE_BASKET',  x: 16, y: 14, id: 'apple-basket-baker' },
+  { type: 'FLOWER_SMALL',  x: 23, y: 13, id: 'flower-baker-01' },
+  { type: 'DANDELION',     x: 23, y: 14, id: 'dandelion-baker' },
+  { type: 'LANTERN',       x: 17, y: 5,  id: 'lantern-path-01' },
 
-  // Lamp posts
-  { type: 'LAMP',          x: 11, y: 7,  id: 'lamp-01' },
-  { type: 'LAMP',          x: 17, y: 7,  id: 'lamp-02' },
+  // ── Lily's area (lower-right) — 3 objects ──
+  { type: 'HANGING_LAUNDRY', x: 23, y: 17, id: 'laundry-lily' },
+  { type: 'MAILBOX',       x: 17, y: 17, id: 'mailbox-lily' },
+  { type: 'FLOWER_SMALL',  x: 9,  y: 17, id: 'flower-lily-area' },
 
-  // Miscellaneous
-  { type: 'MUSHROOM',      x: 19, y: 15, id: 'mushroom-01' },
-  { type: 'HAY_BALE',      x: 23, y: 16, id: 'hay-01' },
-  { type: 'HAY_BALE',      x: 24, y: 17, id: 'hay-02' },
-  { type: 'ROCK',          x: 10, y: 14, id: 'rock-01' },
-  { type: 'BUSH',          x: 10, y: 5,  id: 'bush-01' },
-  { type: 'BUSH',          x: 18, y: 5,  id: 'bush-02' },
-  { type: 'BUSH',          x: 1,  y: 19, id: 'bush-03' },
-  { type: 'BUSH',          x: 27, y: 19, id: 'bush-04' },
-  { type: 'DANDELION',     x: 4,  y: 15, id: 'dandelion-01' },
+  // ── Pond area (lower-left) — 3 objects ──
+  { type: 'POND',          x: 5,  y: 16, id: 'village-pond' },
+  { type: 'BENCH',         x: 3,  y: 18, id: 'bench-pond' },
+  { type: 'FLOWER_SMALL',  x: 8,  y: 18, id: 'flower-pond-01' },
+
+  // ── Scattered for discovery — 3 more ──
+  { type: 'DANDELION',     x: 9,  y: 4,  id: 'dandelion-meadow' },
+  { type: 'FLOWER_SMALL',  x: 2,  y: 9,  id: 'flower-west-01' },
+  { type: 'FLOWER_SMALL',  x: 20, y: 10, id: 'flower-center-east' },
 ];
 
-// ── Ambient Animals ────────────────────────────────────────────────────────
+// ── Ambient Animals ───────────────────────────────────────────────────────
+// 12 animals distributed to fill the world with life. Each has a roaming zone.
 
 const animals = [
-  { type: 'BUTTERFLY', x: 8,  y: 3,  spriteName: 'butterfly' },
-  { type: 'BUTTERFLY', x: 22, y: 5,  spriteName: 'butterfly' },
-  { type: 'BIRD',      x: 1,  y: 0,  spriteName: 'bird' },
-  { type: 'BIRD',      x: 28, y: 0,  spriteName: 'bird' },
-  { type: 'CAT',       x: 7,  y: 11, spriteName: 'cat' },
-  { type: 'FROG',      x: 3,  y: 18, spriteName: 'frog' },
-  { type: 'DUCK',      x: 5,  y: 17, spriteName: 'duck' },
-  { type: 'SQUIRREL',  x: 9,  y: 13, spriteName: 'squirrel' },
+  // Butterflies — near flowers (3 total)
+  { type: 'BUTTERFLY', x: 3,  y: 3,  spriteName: 'butterfly', zone: { x: 1, y: 1, w: 8, h: 5 } },
+  { type: 'BUTTERFLY', x: 19, y: 3,  spriteName: 'butterfly', zone: { x: 17, y: 1, w: 6, h: 5 } },
+  { type: 'BUTTERFLY', x: 9,  y: 17, spriteName: 'butterfly', zone: { x: 4, y: 15, w: 8, h: 4 } },
+
+  // Birds — near trees (2 total)
+  { type: 'BIRD', x: 2,  y: 6,  spriteName: 'bird', zone: { x: 0, y: 5, w: 6, h: 4 } },
+  { type: 'BIRD', x: 19, y: 7,  spriteName: 'bird', zone: { x: 17, y: 6, w: 6, h: 4 } },
+
+  // Cat — sleeping near village square
+  { type: 'CAT', x: 8,  y: 10, spriteName: 'cat', zone: { x: 6, y: 8, w: 6, h: 5 } },
+
+  // Frogs — near pond (2 total)
+  { type: 'FROG', x: 3,  y: 16, spriteName: 'frog', zone: { x: 2, y: 15, w: 6, h: 4 } },
+  { type: 'FROG', x: 8,  y: 17, spriteName: 'frog', zone: { x: 4, y: 16, w: 6, h: 3 } },
+
+  // Ducks — on/near pond
+  { type: 'DUCK', x: 5,  y: 15, spriteName: 'duck', zone: { x: 4, y: 15, w: 4, h: 3 } },
+
+  // Dog — near Finn / village square
+  { type: 'DOG', x: 9,  y: 9,  spriteName: 'dog', zone: { x: 7, y: 8, w: 6, h: 4 } },
+
+  // Squirrel — near tree groves
+  { type: 'SQUIRREL', x: 3, y: 12, spriteName: 'squirrel', zone: { x: 1, y: 11, w: 5, h: 4 } },
+
+  // Ladybug — near Lily's flowers
+  { type: 'LADYBUG', x: 22, y: 18, spriteName: 'ladybug', zone: { x: 18, y: 17, w: 6, h: 3 } },
 ];
 
-// ── Quests ─────────────────────────────────────────────────────────────────
+// ── Quests ────────────────────────────────────────────────────────────────
+// Two full quests with multi-stage dialogue trees.
 
 const quests = [
+  // QUEST 1: "Sharing is Caring"
+  // Grandma Rose baked cookies. Deliver them to Neighbor Lily (who is lonely).
+  // Then return to Grandma to tell her about Lily's smile.
   {
-    id: 'grandma-cookies',
-    name: "Grandma's Cookies",
+    id: 'sharing-is-caring',
+    name: 'Sharing is Caring',
     giverNpcId: 'grandma-rose',
     value: 'sharing',
     heartReward: 3,
-    bridgeColor: '#ff6b6b',
+    bridgeColor: '#ff9ec4',   // soft pink
     stages: [
       {
         type: 'TALK_TO',
         targetId: 'grandma-rose',
-        dialogueId: 'grandma-cookies-start',
-        description: 'voice_quest_grandma_cookies_start',
+        dialogueId: 'sharing-start',
+        description: 'voice_quest_sharing_start',
+      },
+      {
+        type: 'PICKUP',
+        targetId: 'cookies-item',
+        pickupX: 6,
+        pickupY: 4,
+        itemId: 'cookies',
+        dialogueId: 'sharing-pickup',
+        description: 'voice_quest_sharing_pickup',
       },
       {
         type: 'DELIVER',
-        targetId: 'little-finn',
+        targetId: 'neighbor-lily',
         itemId: 'cookies',
-        dialogueId: 'grandma-cookies-deliver',
-        description: 'voice_quest_grandma_cookies_deliver',
+        dialogueId: 'sharing-deliver',
+        description: 'voice_quest_sharing_deliver',
       },
       {
         type: 'RETURN_TO',
         targetId: 'grandma-rose',
-        dialogueId: 'grandma-cookies-complete',
-        description: 'voice_quest_grandma_cookies_complete',
+        dialogueId: 'sharing-complete',
+        description: 'voice_quest_sharing_complete',
       },
     ],
   },
+
+  // QUEST 2: "Being Brave Together"
+  // Find Little Finn sitting near the well. Talk to him,
+  // encourage him, and he tries climbing the big rock. Bravery + empathy.
   {
-    id: 'helping-finn',
-    name: 'Helping Finn',
+    id: 'being-brave-together',
+    name: 'Being Brave Together',
     giverNpcId: 'little-finn',
-    value: 'helpfulness',
+    value: 'bravery',
     heartReward: 3,
-    bridgeColor: '#77dd77',
+    bridgeColor: '#7ec8e3',   // soft blue
     stages: [
       {
         type: 'TALK_TO',
         targetId: 'little-finn',
-        dialogueId: 'finn-kite-start',
-        description: 'voice_quest_finn_kite_start',
+        dialogueId: 'brave-start',
+        description: 'voice_quest_brave_start',
+      },
+      {
+        type: 'ENCOURAGE',
+        targetId: 'little-finn',
+        dialogueId: 'brave-encourage',
+        description: 'voice_quest_brave_encourage',
       },
       {
         type: 'OBSERVE',
-        targetId: 'tree-03',
-        dialogueId: 'finn-kite-observe',
-        description: 'voice_quest_finn_kite_observe',
+        targetId: 'bench-square-01',
+        dialogueId: 'brave-observe',
+        description: 'voice_quest_brave_observe',
       },
       {
         type: 'RETURN_TO',
         targetId: 'little-finn',
-        dialogueId: 'finn-kite-complete',
-        description: 'voice_quest_finn_kite_complete',
-      },
-    ],
-  },
-  {
-    id: 'lily-garden',
-    name: "Lily's Garden",
-    giverNpcId: 'neighbor-lily',
-    value: 'patience',
-    heartReward: 2,
-    bridgeColor: '#ffb347',
-    stages: [
-      {
-        type: 'TALK_TO',
-        targetId: 'neighbor-lily',
-        dialogueId: 'lily-garden-start',
-        description: 'voice_quest_lily_garden_start',
-      },
-      {
-        type: 'COLLECT',
-        targetIds: ['flower-01', 'flower-04', 'flower-09'],
-        dialogueId: 'lily-garden-collect',
-        description: 'voice_quest_lily_garden_collect',
-      },
-      {
-        type: 'RETURN_TO',
-        targetId: 'neighbor-lily',
-        dialogueId: 'lily-garden-complete',
-        description: 'voice_quest_lily_garden_complete',
+        dialogueId: 'brave-complete',
+        description: 'voice_quest_brave_complete',
       },
     ],
   },
 ];
 
-// ── Dialogues ──────────────────────────────────────────────────────────────
+// ── Dialogues ─────────────────────────────────────────────────────────────
+// Full dialogue trees for greetings and both quests.
+// Every node has a voiceId for narration (pre-literate player).
 
 const dialogues = {
+  // ─── NPC Greetings ───
   'grandma-rose-greeting': {
     startId: 'g1',
     nodes: {
-      g1: { id: 'g1', portrait: 'npc_grandma', name: 'Grandma Rose', voiceId: 'voice_grandma_greeting', next: null, expression: 'happy' },
+      g1: {
+        id: 'g1',
+        portrait: 'npc_grandma',
+        name: 'Grandma Rose',
+        voiceId: 'voice_grandma_greeting',
+        text: 'Oh hello, dear Princess! My, what a beautiful day for a visit. My garden is blooming so nicely today!',
+        next: null,
+        expression: 'happy',
+      },
     },
   },
-  'grandma-cookies-start': {
-    startId: 'gc1',
-    nodes: {
-      gc1: { id: 'gc1', portrait: 'npc_grandma', name: 'Grandma Rose', voiceId: 'voice_grandma_cookies_01', next: 'gc2', expression: 'happy' },
-      gc2: { id: 'gc2', portrait: 'npc_grandma', name: 'Grandma Rose', voiceId: 'voice_grandma_cookies_02', next: null, expression: 'happy' },
-    },
-  },
-  'grandma-cookies-deliver': {
-    startId: 'gd1',
-    nodes: {
-      gd1: { id: 'gd1', portrait: 'npc_finn', name: 'Little Finn', voiceId: 'voice_finn_cookies_receive', next: null, expression: 'happy' },
-    },
-  },
-  'grandma-cookies-complete': {
-    startId: 'gf1',
-    nodes: {
-      gf1: { id: 'gf1', portrait: 'npc_grandma', name: 'Grandma Rose', voiceId: 'voice_grandma_cookies_done', next: null, expression: 'grateful' },
-    },
-  },
+
   'lily-greeting': {
     startId: 'l1',
     nodes: {
-      l1: { id: 'l1', portrait: 'npc_lily', name: 'Neighbor Lily', voiceId: 'voice_lily_greeting', next: null, expression: 'happy' },
+      l1: {
+        id: 'l1',
+        portrait: 'npc_lily',
+        name: 'Neighbor Lily',
+        voiceId: 'voice_lily_greeting',
+        text: 'Well hello there, Princess! Oh, your companion is so cute! Come visit anytime, my door is always open!',
+        next: null,
+        expression: 'happy',
+      },
     },
   },
-  'lily-garden-start': {
-    startId: 'lg1',
-    nodes: {
-      lg1: { id: 'lg1', portrait: 'npc_lily', name: 'Neighbor Lily', voiceId: 'voice_lily_garden_01', next: 'lg2', expression: 'worried' },
-      lg2: { id: 'lg2', portrait: 'npc_lily', name: 'Neighbor Lily', voiceId: 'voice_lily_garden_02', next: null, expression: 'hopeful' },
-    },
-  },
-  'lily-garden-collect': {
-    startId: 'lgc1',
-    nodes: {
-      lgc1: { id: 'lgc1', portrait: 'npc_lily', name: 'Neighbor Lily', voiceId: 'voice_lily_garden_collect', next: null, expression: 'happy' },
-    },
-  },
-  'lily-garden-complete': {
-    startId: 'lgd1',
-    nodes: {
-      lgd1: { id: 'lgd1', portrait: 'npc_lily', name: 'Neighbor Lily', voiceId: 'voice_lily_garden_done', next: null, expression: 'grateful' },
-    },
-  },
+
   'finn-greeting': {
     startId: 'f1',
     nodes: {
-      f1: { id: 'f1', portrait: 'npc_finn', name: 'Little Finn', voiceId: 'voice_finn_greeting', next: null, expression: 'happy' },
+      f1: {
+        id: 'f1',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_greeting',
+        text: 'Hi Princess! Want to play? I like climbing and running and... oh look, a butterfly!',
+        next: null,
+        expression: 'excited',
+      },
     },
   },
-  'finn-kite-start': {
-    startId: 'fk1',
-    nodes: {
-      fk1: { id: 'fk1', portrait: 'npc_finn', name: 'Little Finn', voiceId: 'voice_finn_kite_01', next: 'fk2', expression: 'sad' },
-      fk2: { id: 'fk2', portrait: 'npc_finn', name: 'Little Finn', voiceId: 'voice_finn_kite_02', next: null, expression: 'worried' },
-    },
-  },
-  'finn-kite-observe': {
-    startId: 'fo1',
-    nodes: {
-      fo1: { id: 'fo1', portrait: 'npc_finn', name: 'Little Finn', voiceId: 'voice_finn_kite_observe', next: null, expression: 'happy' },
-    },
-  },
-  'finn-kite-complete': {
-    startId: 'fc1',
-    nodes: {
-      fc1: { id: 'fc1', portrait: 'npc_finn', name: 'Little Finn', voiceId: 'voice_finn_kite_done', next: null, expression: 'happy' },
-    },
-  },
-  'boris-greeting': {
+
+  'baker-maple-greeting': {
     startId: 'b1',
     nodes: {
-      b1: { id: 'b1', portrait: 'npc_boris', name: 'Merchant Boris', voiceId: 'voice_boris_greeting', next: null, expression: 'happy' },
+      b1: {
+        id: 'b1',
+        portrait: 'npc_baker',
+        name: 'Baker Maple',
+        voiceId: 'voice_baker_greeting',
+        text: 'Welcome to my bakery, little one! The whole village loves my fresh bread. Would you like to smell? Mmm, doesn\'t that smell yummy?',
+        next: null,
+        expression: 'happy',
+      },
+    },
+  },
+
+  // ─── Quest 1: Sharing is Caring ───
+  'sharing-start': {
+    startId: 'sc1',
+    nodes: {
+      sc1: {
+        id: 'sc1',
+        portrait: 'npc_grandma',
+        name: 'Grandma Rose',
+        voiceId: 'voice_grandma_sharing_01',
+        text: 'Princess, I just baked the most wonderful cookies! They are warm and golden and smell like sunshine.',
+        next: 'sc2',
+        expression: 'happy',
+      },
+      sc2: {
+        id: 'sc2',
+        portrait: 'npc_grandma',
+        name: 'Grandma Rose',
+        voiceId: 'voice_grandma_sharing_02',
+        text: 'But you know what makes cookies even more special? Sharing them! My neighbor Lily has been feeling a little lonely. Could you bring her some cookies from my garden table?',
+        next: 'sc3',
+        expression: 'gentle',
+      },
+      sc3: {
+        id: 'sc3',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_sharing_01',
+        text: 'Ooh, cookies! Let\'s go get them from the garden! Look, they\'re right there on the table!',
+        next: null,
+        expression: 'excited',
+      },
+    },
+  },
+
+  'sharing-pickup': {
+    startId: 'sp1',
+    nodes: {
+      sp1: {
+        id: 'sp1',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_sharing_02',
+        text: 'You got the cookies! They smell so good. Now let\'s find Lily! She lives in the house down south, past the pond.',
+        next: null,
+        expression: 'happy',
+      },
+    },
+  },
+
+  'sharing-deliver': {
+    startId: 'sd1',
+    nodes: {
+      sd1: {
+        id: 'sd1',
+        portrait: 'npc_lily',
+        name: 'Neighbor Lily',
+        voiceId: 'voice_lily_cookies_01',
+        text: 'Oh! Are those... cookies? For me?',
+        next: 'sd2',
+        expression: 'surprised',
+      },
+      sd2: {
+        id: 'sd2',
+        portrait: 'npc_lily',
+        name: 'Neighbor Lily',
+        voiceId: 'voice_lily_cookies_02',
+        text: 'How sweet of Grandma Rose to think of me! And how kind of you to bring them all the way here! You made my whole day brighter, Princess.',
+        next: 'sd3',
+        expression: 'grateful',
+      },
+      sd3: {
+        id: 'sd3',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_sharing_03',
+        text: 'Look how happy she is! Sharing really does make everyone smile. Let\'s go tell Grandma Rose!',
+        next: null,
+        expression: 'happy',
+      },
+    },
+  },
+
+  'sharing-complete': {
+    startId: 'sf1',
+    nodes: {
+      sf1: {
+        id: 'sf1',
+        portrait: 'npc_grandma',
+        name: 'Grandma Rose',
+        voiceId: 'voice_grandma_sharing_done_01',
+        text: 'You gave the cookies to Lily? Oh, I bet she smiled so big! You know what, Princess?',
+        next: 'sf2',
+        expression: 'happy',
+      },
+      sf2: {
+        id: 'sf2',
+        portrait: 'npc_grandma',
+        name: 'Grandma Rose',
+        voiceId: 'voice_grandma_sharing_done_02',
+        text: 'When we share something with someone, we don\'t have less — we have MORE. Because now we have cookies AND a happy friend! That\'s the magic of sharing.',
+        next: 'sf3',
+        expression: 'wise',
+      },
+      sf3: {
+        id: 'sf3',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_sharing_done',
+        text: 'We did it! We made two people happy with one plate of cookies! You\'re such a kind princess.',
+        next: null,
+        expression: 'proud',
+      },
+    },
+  },
+
+  // ─── Quest 2: Being Brave Together ───
+  'brave-start': {
+    startId: 'bs1',
+    nodes: {
+      bs1: {
+        id: 'bs1',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_01',
+        text: '... oh, hi Princess. I\'m just... sitting here.',
+        next: 'bs2',
+        expression: 'sad',
+      },
+      bs2: {
+        id: 'bs2',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_brave_01',
+        text: 'Finn looks a little sad. Maybe we should ask what\'s wrong?',
+        next: 'bs3',
+        expression: 'concerned',
+      },
+      bs3: {
+        id: 'bs3',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_02',
+        text: 'I want to climb on the big rock over there but... what if I fall? What if it\'s too high? Everyone else can do it but me...',
+        next: 'bs4',
+        expression: 'worried',
+      },
+      bs4: {
+        id: 'bs4',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_brave_02',
+        text: 'Hey Finn, being scared doesn\'t mean you can\'t be brave! Brave means trying even when you\'re a little scared. We\'ll be right here with you!',
+        next: null,
+        expression: 'encouraging',
+      },
+    },
+  },
+
+  'brave-encourage': {
+    startId: 'be1',
+    nodes: {
+      be1: {
+        id: 'be1',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_03',
+        text: 'You... you\'ll stay right here? You won\'t leave?',
+        next: 'be2',
+        expression: 'hopeful',
+      },
+      be2: {
+        id: 'be2',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_brave_03',
+        text: 'Of course! Friends stay together. You try the rock, and we\'ll cheer you on! Ready? You can do it!',
+        next: 'be3',
+        expression: 'encouraging',
+      },
+      be3: {
+        id: 'be3',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_04',
+        text: 'Okay... okay! I\'m going to try! Here I go!',
+        next: null,
+        expression: 'determined',
+      },
+    },
+  },
+
+  'brave-observe': {
+    startId: 'bo1',
+    nodes: {
+      bo1: {
+        id: 'bo1',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_brave_04',
+        text: 'Look! Finn is climbing! He\'s doing it! Go Finn, go!',
+        next: 'bo2',
+        expression: 'excited',
+      },
+      bo2: {
+        id: 'bo2',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_05',
+        text: 'I... I DID IT! I\'m on top! I can see the whole village from up here! WOOOO!',
+        next: null,
+        expression: 'thrilled',
+      },
+    },
+  },
+
+  'brave-complete': {
+    startId: 'bc1',
+    nodes: {
+      bc1: {
+        id: 'bc1',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_06',
+        text: 'Princess! Princess! I did it! I was so scared but I tried anyway and I DID IT!',
+        next: 'bc2',
+        expression: 'happy',
+      },
+      bc2: {
+        id: 'bc2',
+        portrait: 'companion',
+        name: 'Companion',
+        voiceId: 'voice_companion_brave_05',
+        text: 'See, Finn? That\'s what being brave means. It doesn\'t mean you\'re not scared. It means you try anyway, especially when friends are there to help.',
+        next: 'bc3',
+        expression: 'proud',
+      },
+      bc3: {
+        id: 'bc3',
+        portrait: 'npc_finn',
+        name: 'Little Finn',
+        voiceId: 'voice_finn_brave_07',
+        text: 'Thank you, Princess! You\'re the bravest friend ever. Next time I\'m scared, I\'ll remember — brave means trying! Want to climb together next time?',
+        next: null,
+        expression: 'grateful',
+      },
     },
   },
 };
 
-// ── Level transitions ──────────────────────────────────────────────────────
+// ── Level Transitions ─────────────────────────────────────────────────────
 
 const transitions = [
   {
@@ -664,17 +877,27 @@ const transitions = [
     targetSpawnX: 15,
     targetSpawnY: 1,
     label: 'Whisper Forest',
+    // Transition zone: bottom row path gap at cols 12-13
+    zoneStartX: 12,
+    zoneEndX: 13,
   },
 ];
 
-// ── Tileset configuration ──────────────────────────────────────────────────
+// ── Tileset Configuration ─────────────────────────────────────────────────
 
 const tilesetConfig = {
   town: './sprites/town/tilemap_packed.png',
   dungeon: './sprites/dungeon/tilemap_packed.png',
 };
 
-// ── Export ──────────────────────────────────────────────────────────────────
+// ── Animated Tile Definitions ─────────────────────────────────────────────
+// Water tiles shimmer by cycling through slight variations.
+
+const animatedTiles = [
+  { baseTile: 122, frames: [122, 110, 122, 121] },  // water center shimmer
+];
+
+// ── Export ─────────────────────────────────────────────────────────────────
 
 export default {
   id: 'sparkle-village',
@@ -684,11 +907,11 @@ export default {
   tileSize: 16,
   tilesetPath: './sprites/town/tilemap_packed.png',
 
-  // Player spawn — center of village square at crossroads
-  spawnX: 14,
-  spawnY: 10,
+  // Player spawn — on the main path near the village square
+  spawnX: 12,
+  spawnY: 9,
 
-  // Tile layers
+  // Tile layers (each exactly 600 values for 30x20)
   ground,
   objects,
   collision,
@@ -704,4 +927,5 @@ export default {
   dialogues,
   transitions,
   tilesetConfig,
+  animatedTiles,
 };

@@ -15,6 +15,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import DialogueBox from '../ui/DialogueBox.js';
+import { playVoice } from '../data/voiceIndex.js';
 
 // ---- Constants --------------------------------------------------------------
 
@@ -189,8 +190,13 @@ export default class DialogueScene {
     // Estimate voice duration (real AudioManager would provide actual duration)
     this._voiceDuration = line.duration || VOICE_ESTIMATE_S;
 
-    if (this._audioManager && line.voiceId) {
-      this._audioManager.play(line.voiceId);
+    // Play voice line through the voice system (not SFX)
+    if (line.voiceId) {
+      playVoice(line.voiceId).then(durationMs => {
+        if (durationMs > 0) {
+          this._voiceDuration = durationMs / 1000; // convert ms to seconds
+        }
+      });
     }
 
     // Set up choices if this line has them
@@ -240,7 +246,7 @@ export default class DialogueScene {
 
     // Play choice feedback SFX
     if (this._audioManager) {
-      this._audioManager.play('sfx_choice_select');
+      this._audioManager.playSFX('dialogueAdvance');
     }
 
     // Advance past this line
