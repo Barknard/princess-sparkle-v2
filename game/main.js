@@ -14,12 +14,15 @@ import AssetLoader from './engine/AssetLoader.js';
 import Camera from './engine/Camera.js';
 import SaveManager from './engine/SaveManager.js';
 import TransitionOverlay from './engine/TransitionOverlay.js';
+import TileSet from './world/TileSet.js';
+import TileMap from './world/TileMap.js';
 import TitleScene from './scenes/TitleScene.js';
 import CompanionSelectScene from './scenes/CompanionSelectScene.js';
 import OverworldScene from './scenes/OverworldScene.js';
 import DialogueScene from './scenes/DialogueScene.js';
 import QuestCompleteScene from './scenes/QuestCompleteScene.js';
 import WindDownScene from './scenes/WindDownScene.js';
+import sparkleVillage from './levels/level-sparkle-village.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -41,6 +44,15 @@ const transitionOverlay = new TransitionOverlay();
 const sceneManager = new SceneManager(transitionOverlay);
 const inputManager = new InputManager(canvas, renderer);
 const gameLoop = new GameLoop();
+
+// ── Tileset and TileMap (Kenney Tiny Town) ────────────────────────────────
+
+const townTileset = new TileSet(16);
+const dungeonTileset = new TileSet(16);
+const tileMap = new TileMap();
+
+// Define water animation (tile 122 cycles through nearby water tiles)
+townTileset.defineAnimation(122, [122, 110, 122, 109]);
 
 // ── iOS audio unlock on first tap ──────────────────────────────────────────
 
@@ -64,7 +76,10 @@ const game = {
   sceneManager,
   inputManager,
   gameLoop,
-  transitionOverlay
+  transitionOverlay,
+  townTileset,
+  dungeonTileset,
+  tileMap
 };
 
 // Make accessible for debugging in dev console
@@ -77,6 +92,9 @@ if (typeof window !== 'undefined') {
 function update(dt) {
   // Process input events first
   inputManager.processEvents();
+
+  // Update animated tiles
+  tileMap.update(dt);
 
   // Update the active scene stack
   sceneManager.update(dt);
@@ -100,11 +118,38 @@ sceneManager.register('Dialogue', () => new DialogueScene());
 sceneManager.register('QuestComplete', () => new QuestCompleteScene());
 sceneManager.register('WindDown', () => new WindDownScene());
 
-// ── Start with TitleScene ──────────────────────────────────────────────────
+// ── Load Kenney tilesets and start ────────────────────────────────────────
 
-const titleScene = new TitleScene();
-titleScene.init(game);
-sceneManager.push(titleScene);
-gameLoop.start(update, draw);
+async function boot() {
+  try {
+    // Load the Kenney Tiny Town tileset PNG
+    await townTileset.load('./sprites/town/tilemap_packed.png');
+    console.log(`Town tileset loaded: ${townTileset.cols}x${townTileset.rows} tiles`);
+  } catch (err) {
+    console.warn('Failed to load town tileset, game will use fallback:', err);
+  }
+
+  try {
+    // Load the dungeon tileset for cave/indoor areas
+    await dungeonTileset.load('./sprites/dungeon/tilemap_packed.png');
+    console.log(`Dungeon tileset loaded: ${dungeonTileset.cols}x${dungeonTileset.rows} tiles`);
+  } catch (err) {
+    console.warn('Failed to load dungeon tileset:', err);
+  }
+
+  // Pre-load the first level into the TileMap
+  if (townTileset.loaded) {
+    tileMap.loadLevel(sparkleVillage, townTileset);
+    console.log(`Level "${sparkleVillage.name}" loaded: ${sparkleVillage.width}x${sparkleVillage.height}`);
+  }
+
+  // Start with TitleScene
+  const titleScene = new TitleScene();
+  titleScene.init(game);
+  sceneManager.push(titleScene);
+  gameLoop.start(update, draw);
+}
+
+boot();
 
 export default game;

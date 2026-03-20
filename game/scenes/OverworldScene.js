@@ -162,7 +162,7 @@ export default class OverworldScene {
     this._inputManager = systems.inputManager || null;
     this._assetLoader = systems.assetLoader || null;
 
-    // External systems can be wired after init
+    // Wire up tilemap from game systems (loaded in main.js with Kenney tileset)
     this._tileMap = systems.tileMap || null;
     this._player = systems.player || null;
     this._companion = systems.companion || null;
