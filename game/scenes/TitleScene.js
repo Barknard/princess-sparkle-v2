@@ -590,14 +590,14 @@ export default class TitleScene {
       this._drawNarratorBox(ctx);
     }
 
-    // ---- Phase 6: Large pulsing sparkle prompt ------------------------------
-    if (this._phase === 6 && this._sparkleActive && !this._sparkleTapped) {
-      this._drawLargeSparkle(ctx);
-    }
-
     // ---- Burst particles ----------------------------------------------------
     if (this._burstActive) {
       this._drawParticles(ctx);
+    }
+
+    // ---- Phase 6: Large pulsing sparkle prompt (drawn LAST so it's on top) --
+    if (this._phase === 6 && this._sparkleActive && !this._sparkleTapped) {
+      this._drawLargeSparkle(ctx);
     }
   }
 
@@ -734,9 +734,10 @@ export default class TitleScene {
     const totalBandStep = bandWidth + bandGap;
     const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
     // Place arc center high enough that the full arc is visible in the upper sky
-    const arcCenterY = (LOGICAL_HEIGHT * 0.78) | 0;
-    // Radius spans full width: arc feet at left and right edges
-    const outerRadius = (LOGICAL_WIDTH * 0.52) | 0;
+    // Arc center below the screen so the arc curves UP into the visible viewport
+    const arcCenterY = (LOGICAL_HEIGHT * 1.1) | 0;
+    // Smaller radius so the full arch fits on screen (peak in upper third of sky)
+    const outerRadius = (LOGICAL_WIDTH * 0.4) | 0;
 
     ctx.save();
 
@@ -796,8 +797,8 @@ export default class TitleScene {
     const bandGap = 1;
     const totalBandStep = bandWidth + bandGap;
     const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
-    const arcCenterY = (LOGICAL_HEIGHT * 0.78) | 0;
-    const outerRadius = (LOGICAL_WIDTH * 0.52) | 0;
+    const arcCenterY = (LOGICAL_HEIGHT * 1.1) | 0;
+    const outerRadius = (LOGICAL_WIDTH * 0.4) | 0;
     const r = outerRadius - bandIndex * totalBandStep;
 
     // Position at the leading edge of the arc
@@ -1128,8 +1129,8 @@ export default class TitleScene {
   _drawLargeSparkle(ctx) {
     const cx = (LOGICAL_WIDTH / 2) | 0;
     const bobY = Math.sin(this._sparkleTimer * SPARKLE_BOB_SPEED) * SPARKLE_BOB_AMOUNT;
-    // Position sparkle in the upper sky area so it's visible above the village
-    const cy = ((LOGICAL_HEIGHT * 0.3) + bobY) | 0;
+    // Position sparkle at screen center for maximum visibility
+    const cy = ((LOGICAL_HEIGHT / 2) + bobY) | 0;
     const pulse = Math.sin(this._sparkleTimer * Math.PI * 2 / SPARKLE_PULSE_CYCLE) * 0.5 + 0.5;
     const scale = SPARKLE_MIN_SCALE + (SPARKLE_MAX_SCALE - SPARKLE_MIN_SCALE) * pulse;
     const size = SPARKLE_VISUAL_SIZE * scale;
@@ -1273,8 +1274,8 @@ export default class TitleScene {
     this._burstActive = true;
     this._burstTimer = 0;
 
-    // Emit rainbow burst at sparkle's visual position (upper sky)
-    this._emitBurst(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT * 0.3);
+    // Emit rainbow burst at sparkle's visual position (screen center)
+    this._emitBurst(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
 
     // Play pop-chime SFX
     if (this._audioManager) {

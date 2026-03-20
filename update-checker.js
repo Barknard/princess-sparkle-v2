@@ -48,24 +48,24 @@
     banner.innerHTML = `
       <div style="
         position: fixed;
-        bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%);
+        top: 4px;
+        right: 8px;
         background: linear-gradient(135deg, #ffb6ff, #ffd166);
         color: #231942;
-        padding: 14px 24px;
+        padding: 6px 14px;
         border-radius: 999px;
         font-family: system-ui, sans-serif;
-        font-size: 16px;
-        font-weight: 700;
-        box-shadow: 0 8px 24px rgba(255,182,255,0.4);
+        font-size: 11px;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(255,182,255,0.3);
         z-index: 999999;
         cursor: pointer;
         opacity: 0;
-        transition: opacity 800ms ease-in-out, transform 800ms ease-in-out;
+        transition: opacity 800ms ease-in-out;
         text-align: center;
+        pointer-events: auto;
       " onclick="window.location.reload()">
-        New adventure ready! Tap here~
+        ✨ Update ready
       </div>
     `;
     document.body.appendChild(banner);
@@ -76,12 +76,14 @@
       inner.style.opacity = '1';
     });
 
-    // Auto-reload after 30 seconds if she doesn't tap
-    // (only if not mid-interaction)
+    // Auto-dismiss after 5 seconds (non-intrusive)
     setTimeout(() => {
-      if (document.getElementById('update-banner')) {
-        window.location.reload();
+      const el = document.getElementById('update-banner');
+      if (el) {
+        const inner = el.firstElementChild;
+        if (inner) inner.style.opacity = '0';
+        setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 800);
       }
-    }, 30000);
+    }, 5000);
   }
 })();

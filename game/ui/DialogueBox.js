@@ -14,16 +14,16 @@ import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 
 // ---- Layout constants (logical pixels) --------------------------------------
 
-const BOX_MARGIN_X = 16;
-const BOX_MARGIN_BOTTOM = 12;
-const BOX_HEIGHT = 72;
+const BOX_MARGIN_X = 12;
+const BOX_MARGIN_BOTTOM = 6;
+const BOX_HEIGHT = 52;              // max ~16% of 320px screen (was 72 = 22%)
 const BOX_Y = LOGICAL_HEIGHT - BOX_HEIGHT - BOX_MARGIN_BOTTOM;
 const BOX_X = BOX_MARGIN_X;
 const BOX_W = LOGICAL_WIDTH - BOX_MARGIN_X * 2;
-const CORNER_RADIUS = 10;
+const CORNER_RADIUS = 8;
 
-const PORTRAIT_SIZE = 48;           // 48x48 minimum — prominent speaker face
-const PORTRAIT_PAD = 8;
+const PORTRAIT_SIZE = 36;           // smaller portrait to fit reduced box
+const PORTRAIT_PAD = 6;
 const PORTRAIT_X = BOX_X + PORTRAIT_PAD;
 const PORTRAIT_Y = BOX_Y + (BOX_HEIGHT - PORTRAIT_SIZE) / 2;
 
@@ -40,8 +40,8 @@ const GLOW_CYCLE_S = 1.2; // seconds per full pulse cycle
 const FADE_MS = 400;
 
 // Colors
-const BG_TOP = 'rgba(255, 240, 250, 0.92)';
-const BG_BOTTOM = 'rgba(245, 220, 240, 0.92)';
+const BG_TOP = 'rgba(255, 240, 250, 0.78)';
+const BG_BOTTOM = 'rgba(245, 220, 240, 0.78)';
 const BORDER_COLOR = 'rgba(200, 150, 180, 0.6)';
 const GLOW_COLOR_R = 255;
 const GLOW_COLOR_G = 200;

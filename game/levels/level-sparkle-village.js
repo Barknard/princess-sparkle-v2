@@ -156,46 +156,46 @@ const MLX = 55;   // mailbox (signpost variant)
 
 // prettier-ignore
 const ground = grid([
-  // Row 0: tree border top
-  [GR, GR2,GR, GF, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GF, GR],
-  // Row 1: Grandma's roof area
-  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, DP, DP, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR],
+  // Row 0: tree border top — path top-edge at cols 14-15
+  [GR, GR2,GR, GF, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GF, GR],
+  // Row 1: Grandma's roof area — path edges
+  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR],
   // Row 2: Grandma's walls
-  [GF, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, DP, DP, GR, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR],
+  [GF, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR],
   // Row 3: Grandma's fenced yard
-  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR2],
+  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR2],
   // Row 4: garden area, path continues
-  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GF],
-  // Row 5: mailbox, path widens to 3 at plaza
-  [GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, DP, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
-  // Row 6: E-W path branch
-  [GR, GR, GR, GR2,GR, GR, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR],
-  // Row 7: path fork, trees east
-  [GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
+  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GF],
+  // Row 5: mailbox, path widens to 3 at plaza — top-left corner, center, top-right corner
+  [GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, CTL,DP, CTR,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
+  // Row 6: E-W path branch — top edge for E-W, full dirt at intersection
+  [GR, GR, GR, GR2,GR, GR, DPT,DPT,DPT,DPT,DPT,DPT,DPT,DPT,DP, DP, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR],
+  // Row 7: path fork — bottom edge for E-W, path edges for N-S
+  [GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
   // Row 8: signpost area
-  [GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR],
+  [GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR],
   // Row 9: well, village square — flowers west
-  [GR, GF, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, DP, DP, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2],
+  [GR, GF, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR2],
   // Row 10: well base, flowers east
-  [GR, GF, GR2,GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR, GR],
-  // Row 11: Baker's roof
-  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
-  // Row 12: E-W path to baker, baker walls
-  [GR, GR, GR, GR, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR],
-  // Row 13: baker fenced yard
-  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR2,GR, GR, GR],
+  [GR, GF, GR2,GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR, GR],
+  // Row 11: Baker's roof — top corner for upcoming E-W path
+  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR],
+  // Row 12: E-W path to baker — top edge for E-W, full dirt at intersection
+  [GR, GR, GR, GR, DPT,DPT,DPT,DPT,DPT,DPT,DPT,DPT,DPT,DPT,DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR],
+  // Row 13: baker fenced yard — bottom edge for E-W cleared, path edges for N-S
+  [GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR2,GR, GR, GR],
   // Row 14: barrel/crate near baker
-  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR],
+  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GF, GR2,GR, GR, GR, GR, GR, GR],
   // Row 15: pond top row
-  [GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR],
+  [GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR],
   // Row 16: pond mid, Lily's roof
-  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR],
+  [GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, GR],
   // Row 17: pond bottom, Lily's walls
-  [GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR, GR, GR, GR],
+  [GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR, GR, GR, GR],
   // Row 18: bench at pond, Lily's fenced yard
-  [GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR],
+  [GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR],
   // Row 19: tree border south, exit gap at 14-15
-  [GR, GR, GR2,GF, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, DP, DP, GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR],
+  [GR, GR, GR2,GF, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR, DPL,DPR,GR, GR, GR, GR, GR, GR, GR, GR, GR, GR, GF, GR, GR, GR],
 ]);
 
 // ── OBJECTS LAYER ─────────────────────────────────────────────────────────
