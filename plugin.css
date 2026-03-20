@@ -1,0 +1,807 @@
+/* ====== Base ====== */
+:root{
+  --purple:#a54dff;
+  --yellow:#f7b84b;
+  --dark:#0b0b0b;
+  --cardW: 140px;
+  --slotH: 200px;
+  --g: 16px;
+  --fogZ: 900;
+  --handZ: 9999;
+}
+
+/* --- Custom cursors and touch hint --- */
+
+@media (pointer:coarse){
+  .drag-hint{
+    position:absolute; right:6px; top:6px; width:18px; height:18px;
+    opacity:.7; pointer-events:none; filter: drop-shadow(0 1px 0 #0008);
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'><path d='M3 12h18M12 3v18' stroke='%23bbb' stroke-width='2'/><circle cx='12' cy='12' r='3' fill='%23bbb'/></svg>") center/contain no-repeat;
+    display:none;
+  }
+  .card.show-hint .drag-hint{ display:block; }
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0;background:#0b0b0b url('images/timeline-bg.png') center / cover fixed no-repeat;color:#eee;font-family:system-ui,ui-sans-serif,Segoe UI,Roboto,Helvetica,Arial}
+
+#topbar{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:8px 12px;position:sticky;top:0;background:linear-gradient(#0b0b0bd9,#0b0b0b55);backdrop-filter:blur(3px);z-index:5}
+#progressWrap{display:flex;align-items:center;gap:10px;flex:1}
+#progressBar{flex:1;height:8px;border-radius:8px;background:#2b2b2b;overflow:hidden}
+#progressFill{height:100%;width:0;background:var(--purple)}
+#progressText{white-space:nowrap;font-size:12px;opacity:.9}
+/* Parent-mode extras group */
+#parentExtrasWrap{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  /* place between the duration slider and the Parent toggle */
+  order: 3;
+}
+#parentExtrasWrap.hidden{ display:none; }
+
+/* push the main Parent toggle to the end now */
+#parentToggle{ order: 4; }
+
+/* pill look to match #parentToggle */
+#parentExtrasWrap .pill{
+  border:0;
+  border-radius:22px;
+  padding:6px 12px;
+  background:#222;
+  color:#eee;
+  cursor:pointer;
+}
+#parentExtrasWrap .pill[aria-pressed="true"]{
+  background:#125c2e;
+  color:#eaffea;
+}
+#parentExtrasWrap .pill:hover{ outline:1px solid #444; }
+
+#parentToggle{border:0;border-radius:22px;padding:6px 12px;background:#222;color:#eee;cursor:pointer}
+#parentToggle:hover{outline:1px solid #444}
+#durationWrap{display:flex;align-items:center;gap:8px;white-space:nowrap}
+#durationWrap.hidden{display:none}
+#durationRange{accent-color:var(--purple)}
+/* Make the timeline a clipping context for wide clouds */
+#timelineSection, #timeline {
+  position: relative;     /* you already set this in JS, safe to repeat */
+  overflow-x: clip;       /* prevents horizontal scrollbar */
+  overflow-y: visible;    /* keep vertical “spill” if you like it */
+}
+
+/* Parent-mode controls (cookie-min slider) */
+#cookieMinWrap{
+  display:flex; align-items:center; gap:10px;
+  padding:6px 12px; margin:8px 0 0;
+  background:#1a1420; border:1px solid #3a2e44; border-radius:10px;
+}
+#cookieMinWrap.hidden{ display:none; }
+#cookieMinWrap label{ font-weight:600; font-size:14px; }
+#cookieMinWrap input[type="range"]{ width:180px; }
+#cookieMinWrap span{ opacity:.9; }
+
+
+#app{padding:12px clamp(10px,4vw,28px) 40px}
+
+.timeline{display:flex;gap:18px;justify-content:center;min-height:var(--slotH);padding:10px 6px;margin-bottom:10px; padding-inline-end: calc(clamp(10px, 3vw, 28px) + var(--edgeBleed));
+}
+.slot {position: relative;
+  flex: 1 1 auto;       /* flexible width */
+  max-width: none;      /* no hard cap */
+  height: var(--slotH);
+  border: 2px dashed #8885;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  transition: box-shadow .12s ease;
+}
+.slot .plus{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-weight:700;color:#fff8}
+.slot.marquee{box-shadow:0 0 24px 6px #f7b84b55,inset 0 0 0 2px #f7b84b;animation:marq 1.2s ease-in-out infinite alternate;border-color:#f7b84b}
+@keyframes marq{to{box-shadow:0 0 10px 2px #f7b84b99,inset 0 0 0 2px #f7b84b}}
+
+.card{
+  width: 100%;
+  height: calc(var(--slotH) - 20px);
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+/* Book frame */
+/* --- Icon (book frame) scaling */
+.card .icon{
+  /* bring the frame back — adjust filename if yours differs */
+  background: url('images/card-bg.PNG') center / contain no-repeat;
+  /* keep proportions and prevent collapse */
+  width: clamp(84px, 9vw, 120px);
+  aspect-ratio: 4 / 5;
+  max-height: 100%;
+  position: relative;
+}
+/* FA icon layered above the frame, below badges/labels */
+.card-icon {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  
+  /* Dynamic scaling */
+  font-size: min(35px, 8vw);  /* shrinks/grows with window size, max 42px */
+  
+  width: 1em;   /* scale relative to font-size */
+  height: 1em;  /* ensures proportional square */
+  
+  color: #111;
+  text-shadow: 0 1px 0 #fff8;
+  z-index: 1;
+}
+
+.card .label {
+  position:absolute;
+  bottom:16px;
+  left:50%;
+  transform:translateX(-50%);
+  max-width: calc(100% - 14px);
+  white-space: normal;        /* allow wrapping */
+  word-break: break-word;     /* break long words if needed */
+  overflow: visible;          /* don’t clip the text */
+  text-overflow: unset;       /* remove ellipsis behavior */
+  text-align: center;
+  z-index:2;
+}
+
+
+.card .remove{position:absolute;top:-4px;right:6px;width:22px;height:22px;border-radius:50%;background:#000c;color:#fff;border:1px solid #fff8;display:none;align-items:center;justify-content:center;font-weight:900;cursor:pointer;z-index:3}
+.card:hover .remove, .card:focus-within .remove, .card.selected .remove{display:flex}
+
+.shelf{
+  margin-top:10px;
+  position:relative;
+  padding-top:80px;
+  z-index:0;
+}
+.shelf::before{ /* plank */
+  z-index:-1;
+  content:"";
+  position:absolute;left:0;right:0;top:0;height:400px;
+  background:url('images/shelf-bg.png') center/100% 100% no-repeat;
+  pointer-events:none;
+}
+.shelfRow{display:grid;
+  grid-auto-rows: var(--slotH);
+  gap: 16px;
+  justify-content:stretch;
+  align-items:start;}
+.shelf .card{background:transparent; position:relative; z-index:1;}
+.shelf\1
+#direction{margin:10px 0 14px;text-align:center;opacity:.9}
+
+.go{display:block;margin:0 auto;padding:16px 26px;border-radius:16px;border:0;background:linear-gradient(180deg,#6b5533,#5b4729);box-shadow:0 6px 20px #0007;color:#f2e3c7;cursor:not-allowed;font-size:20px;opacity:.65}
+.go.ready{cursor:pointer;opacity:1;position:relative}
+.go.ready::after{
+  content:"";position:absolute;inset:-8px;border-radius:18px;box-shadow:0 0 24px #f7b84b66;opacity:.8;animation:btnpulse 1.8s ease-in-out infinite;
+}
+@keyframes btnpulse{50%{box-shadow:0 0 38px #f7b84baa}}
+
+.fog{
+  position:absolute;
+  left:-10%;
+  right:-10%;
+  top:-20%;      /* more above */
+  bottom:-20%;   /* more below */
+  pointer-events:none;
+  z-index:var(--fogZ);
+  overflow:visible;
+  background:none;
+}
+
+.fog .p{position:absolute;border-radius:50%;filter:blur(4px);opacity:.6;box-shadow:inset 0 0 8px #0005,0 4px 12px #0007;background:rgba(255,255,255,.2)}
+
+.hidden{display:none}
+
+/* hand */
+.hand{position:fixed;width:64px;height:64px;background:url('images/hand-bg.png') center/contain no-repeat;z-index:2147483647;transform:translateZ(0);pointer-events:none;opacity:.98;transition:opacity .4s ease}
+.hand.closed{background-image:url('images/grabbed-hand-bg.png')}
+
+/* demo ghost */
+.card[style*="position:fixed"]{z-index:995;}
+.ghost-demo{position:fixed;z-index:9998;pointer-events:none;filter:grayscale(.05) brightness(1.08);}
+
+/* ===== Cookie bank ===== */
+#cookieBankSection{
+  margin-top:26px;
+  border-radius:14px;
+  background:linear-gradient(180deg,#2a211a,#17120f);
+  box-shadow:0 6px 18px #0006, inset 0 1px 0 #fff2, inset 0 -1px 0 #0009;
+  padding:8px 10px 14px;
+}
+#cookieHeader{display:flex;align-items:center;justify-content:space-between;font-weight:700;opacity:.9;gap:12px}
+#cookiePile{position:relative;min-height:100px;border-radius:12px;background:linear-gradient(180deg,#1b1511,#0f0c0a);margin-top:6px;overflow:hidden}
+.cookieToken{
+  position:absolute;width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(#ffe5b3,#d3a763);
+  box-shadow:inset 0 1px 0 #fff8, 0 2px 6px #0009;
+  border:1px solid #7b5b2a;
+  cursor:grab;
+}
+.cookieToken:active{cursor:grabbing;}
+
+/* cookie badge on cards */
+.cookieBadge{
+  position:absolute;
+  top:0px;
+  right:-22px;
+  left:auto;
+  display:flex;align-items:center;gap:6px;
+  background:#2b1e13;border:1px solid #6b4a25;border-radius:16px;padding:2px 8px;
+  box-shadow:0 2px 10px #0008;
+  font-size:12px;
+  z-index:3; /* above FA icon & label, under remove button */
+}
+.cookieBadge .dot{width:12px;height:12px;border-radius:50%;background:radial-gradient(#ffe5b3,#d3a763);border:1px solid #7b5b2a}
+.cookieBadge .count{font-weight:700}
+.cookieBadge .minus{
+  width:20px;height:20px;border-radius:10px;border:1px solid #8a6a3b;background:#1a130d;color:#eee;
+  display:none;align-items:center;justify-content:center;line-height:1;cursor:pointer;
+}
+.cookieBadge.showMinus .minus{display:flex}
+
+/* Only show slider in parent mode (we toggle .hidden on #durationWrap in JS) */
+
+/* highlight when a card accepts a cookie token */
+.cookieReady{outline:2px solid #facc15;outline-offset:-2px}
+
+/* =============== Open-slot marquee =============== */
+.slot{ position: relative; }
+
+/* Make multi-open-slot focus unmissable */
+.slot.open.focus {
+  border-color: #f7b84b;
+  box-shadow:
+    0 0 0 3px rgba(247,184,75,.55) inset,
+    0 0 22px rgba(247,184,75,.35);
+}
+
+/* Stronger marquee ring while focused */
+.slot.open.pulse::after {
+  inset: 2px;                 /* tighter ring for thicker appearance */
+  opacity: .95;
+  animation:
+    slotMarqueeSpin 1.2s linear infinite,
+    slotPulse 1.6s ease-in-out infinite;
+}
+
+/* Add a brighter inner glow to distinguish from idle open state */
+.slot.open.focus::before {
+  box-shadow:
+    0 0 0 3px rgba(245,131,1,.35) inset,
+    0 0 28px rgba(245,131,1,.40) inset;
+}
+
+.slot.open.pulse {
+  animation: slotPulseScale 1.6s ease-in-out infinite;
+}
+
+/* Keyframes for pulsing opacity/ring and a subtle scale */
+@keyframes slotPulse {
+  0%, 100% { opacity: .65; }
+  50%      { opacity: .98; }
+}
+@keyframes slotPulseScale {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.02); }
+}
+
+/* Reduced motion: slow the ring, keep the glow */
+@media (prefers-reduced-motion: reduce){}
+
+@keyframes slotMarqueeSpin{ to{ --marq-angle: 360deg; } }
+
+/* Make sure the shelf itself doesn't produce a horizontal scrollbar */
+#shelf{ overflow-x: clip; }
+@supports not (overflow-x: clip){
+  #shelf{ overflow-x: hidden; }
+}
+
+/* --- Cookie art knobs --- */
+:root{
+  --cookieImg: image-set(
+    url('images/my-cookie.png') 1x
+  );
+  --cookieTokenSize: 56px;   /* bank token size (diameter) */
+  --cookieDotSize: 25px;     /* tiny badge dot on cards */
+  --edgeBleed: 48px;
+}
+
+/* Bank tokens use your PNG */
+.cookieToken{
+  width: var(--cookieTokenSize);
+  height: var(--cookieTokenSize);
+  border-radius: 50%;              /* keep round hit area; your PNG can be any shape */
+  background: var(--cookieImg) center/contain no-repeat;
+  box-shadow: 0 2px 6px #0009;     /* optional depth */
+  border: 0;                       /* remove the bronze ring from the CSS coin */
+}
+
+/* Card badge dot uses your PNG */
+.cookieBadge .dot{
+  width: var(--cookieDotSize);
+  height: var(--cookieDotSize);
+  border-radius: 50%;
+  background: var(--cookieImg) center/contain no-repeat;
+  border: 0;                       /* remove old ring */
+}
+
+/* Force wand during any drag */
+.card.dragging, body.dragging{
+  cursor: var(--wand-cursor), move !important;
+}
+
+/* === UX IMPROVEMENTS (affordance, contrast, feedback) === */
+
+/* Parent toggle: right-aligned short-travel slider inside pill */
+#parentToggle{
+  /* tune these to your taste */
+  --trackW: 48px;      /* track width */
+  --knob: 22px;        /* knob diameter */
+  --inset: 2px;        /* knob padding inside track */
+  --trackRight: 8px;   /* distance from pill's right edge */
+
+  padding: 6px calc(var(--trackW) + var(--trackRight) + 14px) 6px 14px;
+  white-space: nowrap;
+  line-height: 1;
+  min-height: 32px;
+  position: relative;
+}
+
+/* Draw the track on the right */
+#parentToggle::before{
+  content:"";
+  position:absolute; top:50%; right: var(--trackRight);
+  width: var(--trackW); height: calc(var(--knob) + var(--inset) * 2);
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: #2d2d2d;
+  box-shadow: inset 0 0 0 1px #3d3d3d, 0 1px 2px #0006;
+  transition: background .2s ease, box-shadow .2s ease;
+  pointer-events:none;
+}
+
+/* Knob stays inside the track */
+#parentToggle::after{
+  content:"";
+  position:absolute; top:50%;
+  right: calc(var(--trackRight) + var(--trackW) - var(--knob) - var(--inset)); /* OFF: left side of track */
+  width: var(--knob); height: var(--knob); transform: translateY(-50%);
+  border-radius:50%;
+  background: linear-gradient(180deg,#f1f1f1,#bdbdbd);
+  box-shadow: 0 1px 2px #0007, inset 0 1px 0 #fff8;
+  transition: right .2s ease, background .2s ease;
+  pointer-events:none;
+}
+
+/* ON: knob to the right, track recolor */
+#parentToggle[aria-pressed="true"]::after{
+  right: calc(var(--trackRight) + var(--inset));
+  background: linear-gradient(180deg,#d7ffd7,#9fe59f);
+}
+#parentToggle[aria-pressed="true"]::before{
+  background: #125c2e;
+  box-shadow: inset 0 0 0 1px #0f4b26, 0 1px 2px #0006;
+}
+
+/* Instruction prominence */
+#direction{
+  color:#f2e6d2;
+  font-size:18px;
+  text-shadow:0 1px 0 #000;
+}
+#direction::before{
+  content:"✨ ";
+  margin-right:4px;
+  opacity:.9;
+}
+
+/* Card affordance: hover/focus highlight + subtle breathing on shelf cards */
+.card{
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.card:hover, .card:focus{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0,0,0,.35);
+  filter: brightness(1.02);
+}
+.shelf .card{
+  animation: breathe 3.2s ease-in-out infinite;
+}
+@keyframes breathe{
+  50%{ transform: translateY(-1px); }
+}
+
+/* Optional small grab-handle (top-left dots) */
+.card::before{
+  content:"";
+  position:absolute; left:8px; top:8px; width:18px; height:6px;
+  border-radius:3px;
+  background: repeating-linear-gradient(90deg,#7d7d7d 0 3px, transparent 3px 6px);
+  opacity:.35;
+  pointer-events:none;
+}
+
+/* Improve label contrast */
+.card .label{
+  font-size:14px;
+  color:#fafafa;
+  background:#000c;
+  text-shadow:0 1px 0 #000;
+}
+
+/* Intensify slot readiness + transitions */
+.slot{
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.slot.hot{  box-shadow: 0 0 0 2px rgba(247,184,75,.35) inset,
+              0 0 20px rgba(247,184,75,.25);
+}
+.slot.open::before{
+  content:"";
+  position:absolute;
+  inset:8px;
+  border-radius:12px;
+  box-shadow:
+    0 0 0 2px rgba(245,131,1,.16) inset,
+    0 0 24px rgba(245,131,1,.16) inset;
+  pointer-events:none;
+}
+
+/* Cookie badge clarity: size, spacing, typography */
+.cookieBadge{
+  gap:8px;
+  padding:3px 10px;
+  font-size:13px;
+}
+.cookieBadge .count{
+  font-weight:800;
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 #000;
+}
+/* Make minus button a touch larger for accuracy */
+.cookieBadge .minus{
+  width:22px; height:22px;
+}
+
+/* Dim background behind interactive zones (reduce visual competition) */
+#timelineSection::before,
+#shelfSection::before{
+  content:"";
+  position:absolute; left:0; right:0; top:0; bottom:0;
+  border-radius:18px;
+  background:rgba(0,0,0,.18);
+  pointer-events:none;
+}
+#timelineSection, #shelfSection{
+  position:relative;
+}
+
+/* WCAG contrast for shelf labels at small sizes */
+.shelf .card .label{
+  background:#000e;
+  color:#fff;
+}
+
+/* Reduced motion respects */
+@media (prefers-reduced-motion: reduce){
+  .shelf .card{ animation:none; }
+}
+
+/* --- Surgical fix: topbar layout + instruction placement --- */
+
+/* Allow wrapping so Parent + Total time never overlap other controls */
+#topbar{
+  flex-wrap: wrap;                 /* enable a second row when tight */
+  row-gap: 8px;
+}
+
+/* Keep the Parent toggle compact and non-stretching */
+#parentToggle{
+  flex: 0 0 auto;                  /* do not grow/shrink */
+}
+
+/* Ensure Total time group can move to its own row and stay readable */
+#durationWrap{
+  flex: 0 1 320px;                 /* allow shrink to ~320px before wrapping */
+  justify-content: flex-end;
+}
+@media (max-width: 980px){
+  #durationWrap{
+    order: 3;                      /* push below when width is tight */
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+/* Place the instruction at the bottom of the shelf section "box" */
+#shelfSection{
+  position: relative;
+  padding-bottom: 96px;            /* reserve space for the pinned instruction */
+}
+#shelfSection::before{ z-index: 0; }
+#shelfSection > *{ position: relative; z-index: 1; }
+#direction{
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 24px;                    /* sits just above the Go button */
+  margin: 0;
+  text-align: center;
+  z-index: 2;                      /* above the dim overlay */
+}
+
+/* Topbar: keep Parent toggle fixed; put slider to its LEFT */
+#progressWrap{ order: 1; flex: 1; }  /* progress occupies the left and pushes others right */
+#durationWrap{ order: 2; }           /* slider sits to the left of the toggle */
+#parentToggle{ order: 3; }           /* toggle is pinned at the far right */
+
+/* When Parent mode is OFF, don't collapse the slider space */
+#durationWrap.hidden{
+  visibility: hidden;  /* visually hidden */
+  opacity: 0;
+  pointer-events: none;
+  /* preserves layout width so the toggle doesn't move */
+}
+
+/* Optional: allow wrapping on narrow screens without changing the order */
+@media (max-width: 960px){
+  #topbar{ flex-wrap: wrap; row-gap: 8px; }
+  #progressWrap{ order: 1; flex: 1 1 100%; }
+  #durationWrap{ order: 2; }
+  #parentToggle{ order: 3; }
+}
+
+/* Freeze layout so the shelf row never collapses when empty */
+:root{
+  /* tune this if needed; it's slot height + space for the label & padding */
+  --shelfRowH: calc(var(--slotH) + 100px);
+  --go-offset-y: 40px; /* tweak to taste */
+}
+
+#shelfSection{
+  position: relative;
+  min-height: var(--shelfRowH);  /* <-- keeps shelf row from shrinking */
+}
+
+/* If your shelf grid/list container has the .shelf class, keep that row tall too */
+.shelf{
+  min-height: var(--slotH);
+  align-content: start; /* avoid vertical centering that can bobble */
+}
+
+/* Keep the instruction pinned where we placed it earlier */
+#direction{
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 16px;
+  z-index: 2;
+}
+
+#goBtn.go{
+  /* existing rule sets margin: 0 auto; — override it */
+  margin: var(--go-offset-y) auto 0 !important;
+}
+/* Less space above the plank graphic */
+.shelf{ padding-top: 36px; }          /* was 80px */
+#shelfSection{ padding-bottom: 56px; } /* was 96px *
+
+/* Make sure neither section can bleed horizontally */
+#timelineSection, #timeline, #shelfSection, #shelf{
+  position:relative;
+  overflow-x: clip;
+}
+@supports not (overflow-x: clip){
+  #timelineSection, #timeline, #shelfSection, #shelf{ overflow-x: hidden; }
+}
+
+#timelineSection{ overflow-x: clip; position:relative; }
+
+.slot.open::after,
+.slot.hot::after{
+  content:"";
+  position:absolute;
+  inset:4px;
+  border-radius:14px;
+  padding:0;
+  pointer-events:none;
+  background: conic-gradient(from var(--marq-angle,0deg),
+              rgba(245,131,1,.65) 0 100%, rgba(43,231,5,.66) 10% 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity:.85;
+  animation: slotMarqueeSpin 3.2s linear infinite;
+}
+
+/* Global custom cursor (wand) */
+:root { --wand-cursor: url('images/princess-wand.png') 12 12; }
+
+html, body, #app, * { cursor: var(--wand-cursor), auto !important; }
+
+a, button, [role="button"], [onclick], input[type="button"], input[type="submit"], label {
+  cursor: var(--wand-cursor), pointer !important;
+}
+
+input[type="text"], input[type="search"], input[type="email"], input[type="number"],
+input[type="password"], textarea, [contenteditable=""], [contenteditable="true"] {
+  cursor: text !important;
+}
+
+/* Force wand during drag and over drop-target highlights */
+body.dragging, .card.dragging, .slot.hot, .cookieReady {
+  cursor: var(--wand-cursor), move !important;
+}
+
+/* Freeze state: disable interactions and show not-allowed cursor */
+html.frozen #timeline,
+html.frozen #shelf,
+html.frozen #cookiePile,
+html.frozen .cookieToken,
+html.frozen .card .remove,
+html.frozen .cookieBadge .minus {
+  pointer-events: none !important;
+}
+
+html.frozen * {
+  cursor: var(--wand-cursor), not-allowed !important;
+}
+
+/* Keep progress/animations visible while frozen */
+html.frozen #progressBar,
+html.frozen #progressFill,
+html.frozen .fog { pointer-events: none; }
+
+/* --- Make UI text non-selectable everywhere (but allow inputs) --- */
+:root { -webkit-touch-callout: none; }              /* iOS long-press menu */
+* { -webkit-tap-highlight-color: transparent; }     /* mobile tap flash */
+
+html, body, #app, #timeline, #shelf, #cookiePile,
+.card, .card *, .slot, .slot *, .badge, .label, button, .btn,
+#goBtn, .toast, .hint, .banner {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Keep text selection where typing is expected */
+input, textarea, [contenteditable="true"], [contenteditable=""] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Prevent image dragging “ghosts” */
+img, svg, .card-icon {
+  -webkit-user-drag: none;
+}
+
+/* Touch: allow immediate pointer moves, and style the drag clone */
+.cookieToken { touch-action: none; }
+
+.dragGhost {
+  position: fixed;
+  pointer-events: none;
+  opacity: .9;
+  transform: scale(1.08);
+  z-index: 2147482000;
+}
+.card, .shelfCard { touch-action: none; }
+
+.cardGhost {
+  position: fixed;
+  pointer-events: none;
+  opacity: .9;
+  transform: scale(1.04);
+  z-index: 2147482000;
+}
+
+/* Kill long-press callout & text selection across the UI (but allow in inputs) */
+:root { -webkit-touch-callout: none; }                 /* iOS/Safari long-press menu */
+* { -webkit-tap-highlight-color: transparent; }        /* Android tap flash */
+
+#app, #timeline, #shelf, #cookiePile,
+.card, .shelfCard, .cookieToken, .slot, .label, button, .btn {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;                         /* iOS/Safari */
+}
+
+/* Let typing/selecting work where it should */
+input, textarea, [contenteditable="true"], [contenteditable=""] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
+
+/* Prevent image/link drag “save” affordances */
+img, svg { -webkit-user-drag: none; user-drag: none; }
+
+.cookieBadge:has(.count.zero) { display: none; }
+
+/* Utility: hide-on-demand (used for parent controls wrappers) */
+.hidden { display: none !important; }
+
+/* #6 — Hide cookie counter when zero (we set .count.zero in JS) */
+.cookieBadge .count.zero { display: none; }
+/* Keep the minus button hidden unless JS adds .showMinus */
+.cookieBadge .minus { display: none; }
+.cookieBadge.showMinus .minus { display: inline-flex; }
+
+/* #7 — Make GO look inviting when ready */
+#goBtn.ready {
+  animation: goPulse 1.4s ease-in-out infinite;
+  box-shadow:
+    0 0 0 6px rgba(255,255,255,0.10),
+    0 12px 28px rgba(0,0,0,0.35),
+    0 0 24px rgba(255,215,0,0.35);
+  transform: translateY(-1px);
+}
+@keyframes goPulse {
+  0%   { transform: translateY(-1px) scale(1.00); }
+  50%  { transform: translateY(-1px) scale(1.03); }
+  100% { transform: translateY(-1px) scale(1.00); }
+}
+
+/* Parent-mode controls (new cookie-min slider block) */
+#cookieMinWrap { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+#cookieMinWrap.hidden { display: none !important; }
+#cookieMinWrap label { opacity: .85; font-weight: 600; }
+#cookieMinRange { width: 100%; }
+#cookieMinValue { min-width: 2ch; text-align: right; opacity: .85; }
+
+/* Optional: nicer range styling (safe defaults) */
+#cookieMinRange,
+#durationRange {
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255,255,255,.25), rgba(255,255,255,.12));
+  outline: none;
+}
+#cookieMinRange::-webkit-slider-thumb,
+#durationRange::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #ffd96a; border: 1px solid rgba(0,0,0,.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  cursor: pointer;
+}
+#cookieMinRange::-moz-range-thumb,
+#durationRange::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #ffd96a; border: 1px solid rgba(0,0,0,.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  cursor: pointer;
+}
+/* always-on-top demo hand */
+#demoHand,
+.hand {
+  position: fixed;
+  left: -64px; top: -64px; /* initial offscreen */
+  width: 64px; height: 64px; /* whatever your sprite size is */
+  pointer-events: none;
+  z-index: 2147483600; /* higher than debug dock, clouds, etc. */
+  transform: translateZ(0); /* avoid accidental stacking glitches */
+}
+#demoHand .carry { position:absolute; z-index: 1; pointer-events:none; }
+
+/* --- Harden against Android long-press context menus --- */
+html, body, #app, #timeline, #shelf, #cookiePile, .card, .slot, .cookieToken, #demoHand, .fog, .shelfRow {
+  touch-action: manipulation;     /* reduces press/double-tap gestures */
+}
+
+/* Media and vector elements sometimes still trigger callouts on long-press */
+img, canvas, video, svg {
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+          user-drag: none !important;
+}

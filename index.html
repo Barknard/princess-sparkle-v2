@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Princess Twinkle Intro</title>
+  <link rel="stylesheet" href="plugin.css">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { background:#0b0b0b url('images/timeline-bg.png') center / cover fixed no-repeat; display:grid; place-items:center; overflow:hidden; }
+    #stage { position:fixed; inset:0; pointer-events:none; z-index:2147482999; }
+    
+    :root { --accent: #ffb6ff; --accent2: #ffd166; }
+    html, body { height: 100%; }
+    body {
+      background:#0b0b0b url("images/timeline-bg.png") center/cover no-repeat;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    /* Full-screen transparent stage for the animation, above everything */
+    #app {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      overflow: hidden;
+      z-index: 2147482999; /* under ps-stage, above page */
+      pointer-events: none; /* animation doesn't block clicks except our button */
+    }
+    /* Centered sparkly button */
+    #startBtn {
+      position: relative;
+      z-index: 2147482998;
+      border: none;
+      border-radius: 999px;
+      padding: 16px 24px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #231942;
+      background: radial-gradient(circle at 30% 30%, var(--accent), var(--accent2));
+      box-shadow: 0 10px 30px rgba(255, 182, 255, 0.35), 0 0 20px rgba(255, 209, 102, 0.35);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: opacity 220ms ease, transform 220ms ease, box-shadow 200ms ease;
+    }
+    #startBtn:hover { transform: translateY(-1px) scale(1.02); }
+    #startBtn:active { transform: translateY(0) scale(0.99); }
+    #startBtn .sparkle {
+      filter: drop-shadow(0 0 6px rgba(255,255,255,0.9));
+      animation: twinkle 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      from { transform: rotate(0deg) scale(1); opacity: 0.9; }
+      to   { transform: rotate(12deg) scale(1.12); opacity: 1; }
+    }
+    /* Button fade-out */
+    #startBtn.fade-out { opacity: 0; transform: scale(0.98); pointer-events: none; }
+  
+    .ps-backdrop { position:absolute; inset:0; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <button id="startBtn"><span class="sparkle">✨</span> Start Night-Time Activity Planner <span class="sparkle">✨</span></button>
+  <script src="PrincessSparkle.js"></script>
+  <script>
+  (function(){
+    const btn = document.getElementById('startBtn');
+    const stage = document.getElementById('stage');
+    function goToPlanner(){ window.location.replace('plugin.html?fresh=1'); }
+    function startPS(){
+      if (!window.PrincessSparkle || !window.PrincessSparkle.start) { goToPlanner(); return; }
+      btn.classList.add('fade-out'); btn.disabled = true;
+      var audio = new Audio('Princess Sparkle - Long.mp3'); audio.preload = 'auto';
+      window.PrincessSparkle.start({
+        mount: stage,
+        entranceAudio: audio,
+        entranceAudioDelayMs: -1322,
+        buildupMs: 6000,
+        targetSparkles: 100,
+        burstMode: 'odds',
+        zIndex: 2147483000,
+        talkTimeline: [
+          { image: 'images/ps-hello.png',  durationMs: 4298 },
+          { image: 'images/ps-talk.png',   durationMs: 6315 },
+          { image: 'images/ps-yawn.png',   durationMs: 5000 },
+          { image: 'images/ps-talk.png',   durationMs: 6000 },
+          { image: 'images/ps-hello.png',  durationMs: 4017 },
+		      { image: 'images/ps-question.png',  durationMs: 2645 },
+		      { image: 'images/ps-talk.png',   durationMs: 3537 }
+        ],
+        onDone: function(){ goToPlanner(); }
+      });
+    }
+    btn.addEventListener('click', startPS, { once:true });
+  })();
+  </script>
+</body>
+</html>
