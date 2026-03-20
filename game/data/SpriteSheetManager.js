@@ -3,8 +3,12 @@
  *
  * Central sprite rendering system for Princess Sparkle V2.
  * Loads the downloaded sprite pack PNGs (Kenney Tiny Dungeon,
- * Kenney Tiny Creatures, RPG 8-bit characters) and provides
- * a simple draw() method that entities can call.
+ * Kenney Tiny Creatures, RPG 8-bit characters) and the new
+ * Superdark Fantasy/Forest animated spritesheets.
+ *
+ * Animated spritesheets layout:
+ *   Row 0: Idle frames (4 frames, 16x16 each)
+ *   Row 1: Walk frames (4 frames, 16x16 each)
  *
  * Falls back to placeholder drawing if sheets haven't loaded yet.
  */
@@ -18,6 +22,49 @@ const SHEET_PATHS = {
   creatures: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
   rpg8bit:   './sprites/characters/rpg_16x16_8bit.png',
   unicornRun:'./sprites/creatures/unicorn_running.png',
+};
+
+// ── Animated spritesheet paths (Superdark packs) ────────────────────────────
+// These are combined spritesheets built by tools/build-spritesheets.js.
+// Layout: row 0 = idle (4 frames), row 1 = walk (4 frames), each 16x16.
+
+const ANIM_SHEET_PATHS = {
+  princess:         './sprites/sheets/princess.png',
+  merchant:         './sprites/sheets/merchant.png',
+  'townsfolk-male': './sprites/sheets/townsfolk-male.png',
+  'townsfolk-female':'./sprites/sheets/townsfolk-female.png',
+  wolf:             './sprites/sheets/wolf.png',
+  fairy:            './sprites/sheets/fairy.png',
+};
+
+// ── Animated sheet config ───────────────────────────────────────────────────
+
+const ANIM_FRAME_W = 16;
+const ANIM_FRAME_H = 16;
+const ANIM_IDLE_ROW = 0;
+const ANIM_WALK_ROW = 1;
+const ANIM_IDLE_FRAMES = 4;
+const ANIM_WALK_FRAMES = 4;
+
+// Animation timing (ms per frame)
+const WALK_FRAME_INTERVAL = 150;
+const IDLE_FRAME_INTERVAL = 400;
+
+// ── Character name to animated sheet key mapping ────────────────────────────
+// Maps game entity sprite names to animated sheet keys.
+
+const ANIM_SHEET_MAP = {
+  // Player
+  princess:     'princess',
+  // NPCs
+  npc_baker:    'merchant',
+  npc_finn:     'townsfolk-male',
+  npc_lily:     'townsfolk-female',
+  npc_grandma:  'townsfolk-female',
+  npc_melody:   'townsfolk-female',
+  // Creatures / Companions
+  wolf:         'wolf',
+  fairy:        'fairy',
 };
 
 // ── Sheet tile dimensions ───────────────────────────────────────────────────
@@ -130,6 +177,8 @@ const PLACEHOLDER_COLORS = {
   frog:        '#44cc44',
   duck:        '#ffdd44',
   rabbit:      '#dddddd',
+  wolf:        '#888899',
+  fairy:       '#ccaaff',
 };
 
 // ── Walk animation definitions for RPG 8-bit sheet ──────────────────────────
@@ -159,6 +208,8 @@ class SpriteSheetManager {
   constructor() {
     /** @type {Map<string, HTMLImageElement>} */
     this._sheets = new Map();
+    /** @type {Map<string, HTMLImageElement>} Animated spritesheets */
+    this._animSheets = new Map();
     this._loaded = false;
     this._loading = false;
   }
@@ -172,16 +223,27 @@ class SpriteSheetManager {
   }
 
   /**
-   * Load all sprite sheet PNGs. Safe to call multiple times.
+   * Check if an animated spritesheet is available for a given entity name.
+   * @param {string} name - Entity sprite name (e.g. 'princess', 'npc_baker')
+   * @returns {boolean}
+   */
+  hasAnimSheet(name) {
+    const key = ANIM_SHEET_MAP[name];
+    return key ? this._animSheets.has(key) : false;
+  }
+
+  /**
+   * Load all sprite sheet PNGs (static and animated). Safe to call multiple times.
    * @returns {Promise<void>}
    */
   async load() {
     if (this._loaded || this._loading) return;
     this._loading = true;
 
-    const entries = Object.entries(SHEET_PATHS);
-    const results = await Promise.all(
-      entries.map(async ([key, path]) => {
+    // Load static sheets
+    const staticEntries = Object.entries(SHEET_PATHS);
+    const staticResults = await Promise.all(
+      staticEntries.map(async ([key, path]) => {
         const img = await tryLoadImage(path);
         if (img) {
           console.log(`SpriteSheetManager: Loaded "${key}" (${img.width}x${img.height}) from ${path}`);
@@ -192,9 +254,29 @@ class SpriteSheetManager {
       })
     );
 
-    for (const [key, img] of results) {
+    for (const [key, img] of staticResults) {
       if (img) {
         this._sheets.set(key, img);
+      }
+    }
+
+    // Load animated spritesheets
+    const animEntries = Object.entries(ANIM_SHEET_PATHS);
+    const animResults = await Promise.all(
+      animEntries.map(async ([key, path]) => {
+        const img = await tryLoadImage(path);
+        if (img) {
+          console.log(`SpriteSheetManager: Loaded anim "${key}" (${img.width}x${img.height}) from ${path}`);
+        } else {
+          console.warn(`SpriteSheetManager: Failed to load anim "${key}" from ${path}`);
+        }
+        return [key, img];
+      })
+    );
+
+    for (const [key, img] of animResults) {
+      if (img) {
+        this._animSheets.set(key, img);
       }
     }
 
@@ -290,6 +372,104 @@ class SpriteSheetManager {
       ctx.fillRect(x | 0, y | 0, size | 0, 1);
       ctx.fillRect(x | 0, y | 0, 1, size | 0);
     }
+  }
+
+  /**
+   * Draw a walk animation frame from the Superdark animated spritesheets.
+   * Draws row 1 (walk row) at the given frame index.
+   * Falls back to static sprite if animated sheet is not available.
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} name - Entity sprite name (e.g. 'princess', 'npc_baker', 'wolf')
+   * @param {number} frame - Walk frame index (0-3)
+   * @param {number} x - Destination X
+   * @param {number} y - Destination Y
+   * @param {boolean} [flipX=false] - Flip horizontally (for facing left)
+   */
+  drawWalkFrame(ctx, name, frame, x, y, flipX = false) {
+    const sheetKey = ANIM_SHEET_MAP[name];
+    const sheet = sheetKey ? this._animSheets.get(sheetKey) : null;
+
+    if (!sheet) {
+      // Fall back to static sprite
+      this.draw(ctx, name, x, y, { flipX });
+      return;
+    }
+
+    const col = frame % ANIM_WALK_FRAMES;
+    const sx = col * ANIM_FRAME_W;
+    const sy = ANIM_WALK_ROW * ANIM_FRAME_H;
+
+    this._drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX);
+  }
+
+  /**
+   * Draw an idle animation frame from the Superdark animated spritesheets.
+   * Draws row 0 (idle row) at the given frame index.
+   * Falls back to static sprite if animated sheet is not available.
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} name - Entity sprite name (e.g. 'princess', 'npc_baker', 'wolf')
+   * @param {number} frame - Idle frame index (0-3)
+   * @param {number} x - Destination X
+   * @param {number} y - Destination Y
+   * @param {boolean} [flipX=false] - Flip horizontally (for facing left)
+   */
+  drawIdleFrame(ctx, name, frame, x, y, flipX = false) {
+    const sheetKey = ANIM_SHEET_MAP[name];
+    const sheet = sheetKey ? this._animSheets.get(sheetKey) : null;
+
+    if (!sheet) {
+      // Fall back to static sprite
+      this.draw(ctx, name, x, y, { flipX });
+      return;
+    }
+
+    const col = frame % ANIM_IDLE_FRAMES;
+    const sx = col * ANIM_FRAME_W;
+    const sy = ANIM_IDLE_ROW * ANIM_FRAME_H;
+
+    this._drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX);
+  }
+
+  /**
+   * Internal: draw a single frame from an animated spritesheet with flip support.
+   * All Superdark sprites face RIGHT by default; flip for LEFT movement.
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {HTMLImageElement} sheet
+   * @param {number} sx - Source X on sheet
+   * @param {number} sy - Source Y on sheet
+   * @param {number} x - Destination X
+   * @param {number} y - Destination Y
+   * @param {boolean} flipX
+   */
+  _drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX) {
+    if (flipX) {
+      ctx.save();
+      ctx.translate(x + ANIM_FRAME_W, y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(sheet, sx, sy, ANIM_FRAME_W, ANIM_FRAME_H,
+        0, 0, ANIM_FRAME_W, ANIM_FRAME_H);
+      ctx.restore();
+    } else {
+      ctx.drawImage(sheet, sx, sy, ANIM_FRAME_W, ANIM_FRAME_H,
+        x | 0, y | 0, ANIM_FRAME_W, ANIM_FRAME_H);
+    }
+  }
+
+  /**
+   * Compute the current animation frame based on elapsed time.
+   * Useful for entities that track their own animTimer.
+   *
+   * @param {number} animTimer - Accumulated time in milliseconds
+   * @param {boolean} isWalking - Whether the entity is moving
+   * @returns {number} Current frame index (0-3)
+   */
+  getAnimFrame(animTimer, isWalking) {
+    const interval = isWalking ? WALK_FRAME_INTERVAL : IDLE_FRAME_INTERVAL;
+    const maxFrames = isWalking ? ANIM_WALK_FRAMES : ANIM_IDLE_FRAMES;
+    return Math.floor(animTimer / interval) % maxFrames;
   }
 
   /**

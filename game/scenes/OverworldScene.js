@@ -6,6 +6,8 @@
  * Handles tap input: check interactable first (NPC, object), then pathfind.
  * Manages world interactables, ambient animals, silly moments.
  * Session time tracking with sky color gradient shifts.
+ * Ambient world life: grass sway, floating sparkles, butterflies,
+ *   flower bloom on tap, water shimmer, companion trail, day-night tint.
  *
  * Canvas only. No DOM. Integer coordinates for pixel art.
  */
@@ -77,6 +79,35 @@ const MAX_INTERACTABLES = 20;
 // ---- Particle pool ----------------------------------------------------------
 
 const MAX_PARTICLES = 64;
+
+// ---- Ambient sparkle pool ---------------------------------------------------
+
+const MAX_AMBIENT_SPARKLES = 15;
+
+// ---- Ambient butterfly pool -------------------------------------------------
+
+const MAX_BUTTERFLIES = 3;
+const BUTTERFLY_COLORS = ['#ff69b4', '#ff4444', '#ffaa00', '#44cc44', '#4488ff', '#aa44ff', '#ff88cc'];
+
+// ---- Companion trail --------------------------------------------------------
+
+const COMPANION_TRAIL_INTERVAL = 8; // emit 1 particle every 8 frames
+
+// ---- Day-night tint thresholds (minutes) ------------------------------------
+// Morning: 0-15min = no tint
+// Sunset: 15-18min = warm orange at 10% opacity
+// Evening: 18-20min = purple at 15% opacity
+
+// ---- Grass tile IDs that should sway (common Kenney grass range) ------------
+// Grass tiles in the Kenney 1-bit pack are typically in the 0-20 range.
+// We'll detect grass tiles by checking the ground layer for known IDs.
+const GRASS_TILE_IDS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+
+// Water/pond tile IDs (common Kenney water range)
+const WATER_TILE_IDS = new Set([104, 105, 106, 107, 108, 109, 110, 111, 112]);
+
+// Flower tile IDs in the object layer
+const FLOWER_TILE_IDS = new Set([48, 49, 50, 51, 52, 53, 54, 55, 56]);
 
 // ---- OverworldScene ---------------------------------------------------------
 
@@ -165,6 +196,47 @@ export default class OverworldScene {
     for (let i = 0; i < 16; i++) {
       this._breadcrumbs[i] = { active: false, x: 0, y: 0, alpha: 0, timer: 0 };
     }
+
+    // ---- Ambient world life state -------------------------------------------
+
+    // Floating ambient sparkles (always present in overworld)
+    this._ambientSparkles = new Array(MAX_AMBIENT_SPARKLES);
+    for (let i = 0; i < MAX_AMBIENT_SPARKLES; i++) {
+      this._ambientSparkles[i] = {
+        active: false, x: 0, y: 0, vy: 0, life: 0, maxLife: 0,
+        size: 1, alpha: 1, color: '#ffffff'
+      };
+    }
+    this._sparkleSpawnTimer = 0;
+
+    // Ambient butterflies
+    this._butterflies = new Array(MAX_BUTTERFLIES);
+    for (let i = 0; i < MAX_BUTTERFLIES; i++) {
+      this._butterflies[i] = {
+        active: false, x: 0, y: 0, baseY: 0,
+        vx: 0, phase: 0, color: '#ff69b4', life: 0
+      };
+    }
+    this._butterflySpawnTimer = 0;
+
+    // Water shimmer timer
+    this._waterShimmerTimer = 0;
+    this._waterShimmerPhase = 0; // 0 or 1, toggles every 600ms
+
+    // Companion trail frame counter
+    this._companionTrailFrame = 0;
+
+    // Flower bloom tap particles (separate from main particles for burst effect)
+    this._bloomParticles = new Array(16);
+    for (let i = 0; i < 16; i++) {
+      this._bloomParticles[i] = {
+        active: false, x: 0, y: 0, vx: 0, vy: 0,
+        life: 0, maxLife: 0, color: '#ff69b4', size: 2
+      };
+    }
+
+    // Global elapsed time for ambient animations (grass sway, etc.)
+    this._worldTime = 0;
   }
 
   // ---- Lifecycle ------------------------------------------------------------
@@ -216,6 +288,33 @@ export default class OverworldScene {
       this._particles[i].active = false;
     }
 
+    // Reset ambient sparkles
+    for (let i = 0; i < this._ambientSparkles.length; i++) {
+      this._ambientSparkles[i].active = false;
+    }
+    this._sparkleSpawnTimer = 0;
+
+    // Reset butterflies
+    for (let i = 0; i < this._butterflies.length; i++) {
+      this._butterflies[i].active = false;
+    }
+    this._butterflySpawnTimer = 0;
+
+    // Reset bloom particles
+    for (let i = 0; i < this._bloomParticles.length; i++) {
+      this._bloomParticles[i].active = false;
+    }
+
+    // Reset water shimmer
+    this._waterShimmerTimer = 0;
+    this._waterShimmerPhase = 0;
+
+    // Reset companion trail counter
+    this._companionTrailFrame = 0;
+
+    // Reset world time
+    this._worldTime = 0;
+
     // Load real sprite sheets (async, non-blocking — placeholders show until loaded)
     spriteSheets.load().then(() => {
       console.log('OverworldScene: Sprite sheets loaded');
@@ -266,6 +365,14 @@ export default class OverworldScene {
 
     // Particles
     this._updateParticles(dt);
+
+    // Ambient world life
+    this._worldTime += dt;
+    this._updateAmbientSparkles(dt);
+    this._updateButterflies(dt);
+    this._updateWaterShimmer(dt);
+    this._updateCompanionTrail(dt);
+    this._updateBloomParticles(dt);
 
     // Quest indicators
     this._questIndicators.update(dt);
@@ -642,6 +749,189 @@ export default class OverworldScene {
     }
   }
 
+  // ---- Ambient World Life: Floating Sparkles --------------------------------
+
+  _updateAmbientSparkles(dt) {
+    // Spawn new sparkles periodically
+    this._sparkleSpawnTimer += dt;
+    if (this._sparkleSpawnTimer >= 0.2) { // try to spawn every 0.2s
+      this._sparkleSpawnTimer = 0;
+      this._spawnAmbientSparkle();
+    }
+
+    // Update existing sparkles
+    for (let i = 0; i < this._ambientSparkles.length; i++) {
+      const s = this._ambientSparkles[i];
+      if (!s.active) continue;
+      s.life -= dt;
+      if (s.life <= 0) { s.active = false; continue; }
+      s.y += s.vy * dt;
+      // Gentle horizontal drift
+      s.x += Math.sin(this._worldTime * 2 + i * 1.3) * 0.15;
+      // Fade out gently in the last 30% of life
+      s.alpha = s.life < (s.maxLife * 0.3) ? (s.life / (s.maxLife * 0.3)) : 1.0;
+    }
+  }
+
+  _spawnAmbientSparkle() {
+    for (let i = 0; i < this._ambientSparkles.length; i++) {
+      const s = this._ambientSparkles[i];
+      if (s.active) continue;
+      s.active = true;
+      // Spawn randomly across the visible screen area (in world coords)
+      s.x = this._camX + Math.random() * LOGICAL_WIDTH;
+      s.y = this._camY + LOGICAL_HEIGHT * 0.3 + Math.random() * LOGICAL_HEIGHT * 0.7;
+      s.vy = -8 - Math.random() * 6; // slow upward drift (px/sec)
+      s.life = 2.0 + Math.random() * 1.0; // 2-3 seconds
+      s.maxLife = s.life;
+      s.size = 1 + Math.random(); // 1-2px
+      // White or gold sparkle
+      s.color = Math.random() < 0.6 ? '#ffffff' : '#ffd700';
+      return;
+    }
+  }
+
+  // ---- Ambient World Life: Butterflies -------------------------------------
+
+  _updateButterflies(dt) {
+    this._butterflySpawnTimer += dt;
+    if (this._butterflySpawnTimer >= 3.0) { // check every 3s
+      this._butterflySpawnTimer = 0;
+      this._spawnButterfly();
+    }
+
+    for (let i = 0; i < this._butterflies.length; i++) {
+      const b = this._butterflies[i];
+      if (!b.active) continue;
+      b.life -= dt;
+      if (b.life <= 0) { b.active = false; continue; }
+      // Horizontal drift
+      b.x += b.vx * dt;
+      // Sine-wave vertical flight
+      b.phase += dt * 2.5;
+      b.y = b.baseY + Math.sin(b.phase) * 12;
+      // Slow descent of the base path
+      b.baseY += 2 * dt;
+      // Deactivate if offscreen
+      if (b.x < this._camX - 20 || b.x > this._camX + LOGICAL_WIDTH + 20) {
+        b.active = false;
+      }
+    }
+  }
+
+  _spawnButterfly() {
+    // Count active butterflies
+    let activeCount = 0;
+    for (let i = 0; i < this._butterflies.length; i++) {
+      if (this._butterflies[i].active) activeCount++;
+    }
+    if (activeCount >= MAX_BUTTERFLIES) return;
+
+    for (let i = 0; i < this._butterflies.length; i++) {
+      const b = this._butterflies[i];
+      if (b.active) continue;
+      b.active = true;
+      // Spawn from left or right edge
+      const fromLeft = Math.random() < 0.5;
+      b.x = fromLeft ? (this._camX - 10) : (this._camX + LOGICAL_WIDTH + 10);
+      b.baseY = this._camY + 30 + Math.random() * (LOGICAL_HEIGHT * 0.5);
+      b.y = b.baseY;
+      b.vx = fromLeft ? (12 + Math.random() * 8) : -(12 + Math.random() * 8);
+      b.phase = Math.random() * Math.PI * 2;
+      b.color = BUTTERFLY_COLORS[(Math.random() * BUTTERFLY_COLORS.length) | 0];
+      b.life = 8 + Math.random() * 6; // 8-14 seconds to cross
+      return;
+    }
+  }
+
+  // ---- Ambient World Life: Water Shimmer -----------------------------------
+
+  _updateWaterShimmer(dt) {
+    this._waterShimmerTimer += dt;
+    if (this._waterShimmerTimer >= 0.6) {
+      this._waterShimmerTimer -= 0.6;
+      this._waterShimmerPhase = 1 - this._waterShimmerPhase;
+    }
+  }
+
+  // ---- Ambient World Life: Companion Trail ---------------------------------
+
+  _updateCompanionTrail(dt) {
+    if (!this._companion) return;
+    this._companionTrailFrame++;
+    if (this._companionTrailFrame < COMPANION_TRAIL_INTERVAL) return;
+    this._companionTrailFrame = 0;
+
+    // Only emit if companion is moving
+    const c = this._companion;
+    const dx = (c.x || 0) - (c.prevX || 0);
+    const dy = (c.y || 0) - (c.prevY || 0);
+    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
+
+    // Emit trail particle based on companion type
+    const trailConfig = this._getCompanionTrailConfig();
+    if (trailConfig) {
+      this._emitParticles(
+        (c.x || 0), (c.y || 0),
+        trailConfig.color, trailConfig.count
+      );
+    }
+  }
+
+  _getCompanionTrailConfig() {
+    if (!this._companion) return null;
+    const name = (this._companion.name || '').toLowerCase();
+    switch (name) {
+      case 'shimmer':
+        return { color: '#ff99ee', count: 1 }; // rainbow sparkle
+      case 'ember':
+        return { color: '#ffaa00', count: 1 }; // warm golden sparks
+      case 'petal':
+        return { color: '#ffccff', count: 1 }; // flower petals
+      case 'breeze':
+        return { color: '#aaddff', count: 1 }; // wish dust
+      case 'pip':
+        return { color: '#ffdd44', count: 1 }; // musical notes
+      default:
+        return { color: '#ffffff', count: 1 };
+    }
+  }
+
+  // ---- Ambient World Life: Bloom Particles (flower tap burst) ---------------
+
+  _updateBloomParticles(dt) {
+    for (let i = 0; i < this._bloomParticles.length; i++) {
+      const p = this._bloomParticles[i];
+      if (!p.active) continue;
+      p.life -= dt;
+      if (p.life <= 0) { p.active = false; continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 20 * dt; // gentle arc (gravity)
+    }
+  }
+
+  _emitBloomParticles(cx, cy, flowerColor) {
+    const colors = flowerColor || ['#ff6688', '#ffcc44', '#ff99cc', '#ff4466'];
+    let emitted = 0;
+    for (let i = 0; i < this._bloomParticles.length && emitted < 4; i++) {
+      const p = this._bloomParticles[i];
+      if (p.active) continue;
+      const angle = (emitted / 4) * Math.PI * 2 + Math.random() * 0.5;
+      const speed = 25 + Math.random() * 15;
+      p.active = true;
+      p.x = cx;
+      p.y = cy;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed - 20; // arc upward
+      p.life = 0.8;
+      p.maxLife = 0.8;
+      p.color = Array.isArray(colors) ? colors[emitted % colors.length] : colors;
+      p.size = 2;
+      emitted++;
+    }
+  }
+
   // ---- Input ----------------------------------------------------------------
 
   _handleInput() {
@@ -688,7 +978,20 @@ export default class OverworldScene {
       }
     }
 
-    // 4. Pathfind to tap position
+    // 4. Check if tapping near a flower tile (object layer) for bloom effect
+    if (this._tileMap && this._tileMap.objectLayer) {
+      const tileX = (worldX / 16) | 0;
+      const tileY = (worldY / 16) | 0;
+      const tileId = this._tileMap.getTileAt('objects', tileX, tileY);
+      if (tileId >= 0 && FLOWER_TILE_IDS.has(tileId)) {
+        this._emitBloomParticles(
+          tileX * 16 + 8, tileY * 16 + 8,
+          ['#ff6688', '#ffcc44', '#6699ff', '#ff99cc']
+        );
+      }
+    }
+
+    // 5. Pathfind to tap position
     if (this._player) {
       this._player.moveTo(worldX, worldY);
     }
@@ -711,6 +1014,13 @@ export default class OverworldScene {
 
     // Emit particles at object
     this._emitParticles(obj.x + obj.w / 2, obj.y, '#ffd700', 6);
+
+    // Flower bloom burst: 3-4 petal particles in flower colors
+    const flowerTypes = ['flower', 'FLOWER_SMALL', 'FLOWER_BIG'];
+    if (flowerTypes.indexOf(obj.type) >= 0 || (obj.type && obj.type.toLowerCase().indexOf('flower') >= 0)) {
+      const petalColors = ['#ff6688', '#ffcc44', '#6699ff', '#ff99cc'];
+      this._emitBloomParticles(obj.x + obj.w / 2, obj.y + obj.h / 2, petalColors);
+    }
 
     // Play corresponding SFX — map object type to actual sfxIndex keys
     if (this._audioManager) {
@@ -870,14 +1180,18 @@ export default class OverworldScene {
     ctx.save();
     ctx.translate(-camX, -camY);
 
-    // ---- Layer 1: Ground tiles ----------------------------------------------
+    // ---- Layer 1: Ground tiles (with grass sway) -----------------------------
     if (this._tileMap) {
       this._tileMap.drawLayer(ctx, 'ground', camX, camY, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+      // Grass sway overlay: subtle 1px oscillation on every 3rd grass tile
+      this._drawGrassSway(ctx, camX, camY);
     }
 
-    // ---- Layer 2: Object tiles ----------------------------------------------
+    // ---- Layer 2: Object tiles (with water shimmer) -------------------------
     if (this._tileMap) {
       this._tileMap.drawLayer(ctx, 'objects', camX, camY, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+      // Water shimmer: semi-transparent highlight on water tiles
+      this._drawWaterShimmer(ctx, camX, camY);
     }
 
     // ---- Layer 3: Entities (NPCs, player, companion, animals) ---------------
@@ -923,7 +1237,15 @@ export default class OverworldScene {
       this._drawSillyMoment(ctx);
     }
 
+    // ---- Ambient world life (world space) -----------------------------------
+    this._drawAmbientSparkles(ctx);
+    this._drawButterflies(ctx);
+    this._drawBloomParticles(ctx);
+
     ctx.restore();
+
+    // ---- Day-night tint overlay (screen space, on top of everything) --------
+    this._drawDayNightTint(ctx);
 
     // ---- Screen-space UI ----------------------------------------------------
     this._hud.draw(renderer);
@@ -1227,6 +1549,185 @@ export default class OverworldScene {
     const sy = (this._camY + LOGICAL_HEIGHT / 2 - 20) | 0;
     ctx.fillStyle = '#ffd700';
     ctx.fillRect(sx, sy, 3, 3);
+    ctx.restore();
+  }
+
+  // ---- Ambient draw helpers --------------------------------------------------
+
+  /**
+   * Draw subtle 1px grass sway on every 3rd grass tile.
+   * Uses a sine offset based on world time and tile position.
+   */
+  _drawGrassSway(ctx, camX, camY) {
+    if (!this._tileMap || !this._tileMap.groundLayer) return;
+    const tm = this._tileMap;
+    const w = tm.width;
+    const TILE = 16;
+    const startTX = Math.max(0, (camX / TILE) | 0);
+    const startTY = Math.max(0, (camY / TILE) | 0);
+    const endTX = Math.min(w, startTX + Math.ceil(LOGICAL_WIDTH / TILE) + 2);
+    const endTY = Math.min(tm.height, startTY + Math.ceil(LOGICAL_HEIGHT / TILE) + 2);
+
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#88dd66';
+
+    for (let ty = startTY; ty < endTY; ty++) {
+      for (let tx = startTX; tx < endTX; tx++) {
+        // Only every 3rd grass tile sways
+        if ((tx + ty * 7) % 3 !== 0) continue;
+        const tileId = tm.groundLayer[ty * w + tx];
+        if (tileId < 0 || !GRASS_TILE_IDS.has(tileId)) continue;
+
+        const sway = Math.sin(this._worldTime * 1.5 + tx * 0.7) * 0.5;
+        const px = tx * TILE + (sway | 0);
+        const py = ty * TILE;
+        // Draw a thin highlight line at the top of the grass tile to suggest motion
+        ctx.fillRect(px + 2, py + 1, 12, 2);
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw water shimmer: oscillating semi-transparent white highlights on water tiles.
+   */
+  _drawWaterShimmer(ctx, camX, camY) {
+    if (!this._tileMap) return;
+    // Check both ground and object layers for water tiles
+    const layers = [this._tileMap.groundLayer, this._tileMap.objectLayer];
+    const tm = this._tileMap;
+    const w = tm.width;
+    const TILE = 16;
+    const startTX = Math.max(0, (camX / TILE) | 0);
+    const startTY = Math.max(0, (camY / TILE) | 0);
+    const endTX = Math.min(w, startTX + Math.ceil(LOGICAL_WIDTH / TILE) + 2);
+    const endTY = Math.min(tm.height, startTY + Math.ceil(LOGICAL_HEIGHT / TILE) + 2);
+
+    ctx.save();
+    // Oscillating opacity: gentle shimmer between 0.04 and 0.12
+    const shimmerAlpha = 0.04 + (Math.sin(this._worldTime * 3) * 0.5 + 0.5) * 0.08;
+    ctx.globalAlpha = shimmerAlpha;
+    ctx.fillStyle = '#ffffff';
+
+    for (const layer of layers) {
+      if (!layer) continue;
+      for (let ty = startTY; ty < endTY; ty++) {
+        for (let tx = startTX; tx < endTX; tx++) {
+          const tileId = layer[ty * w + tx];
+          if (tileId < 0 || !WATER_TILE_IDS.has(tileId)) continue;
+          const px = tx * TILE;
+          const py = ty * TILE;
+          // Draw two small shimmer highlights at alternating positions
+          const offset = this._waterShimmerPhase === 0 ? 0 : 4;
+          ctx.fillRect(px + 3 + offset, py + 2, 4, 2);
+          ctx.fillRect(px + 9 - offset, py + 10, 3, 2);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw floating ambient sparkle particles (screen-anchored in world space).
+   */
+  _drawAmbientSparkles(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._ambientSparkles.length; i++) {
+      const s = this._ambientSparkles[i];
+      if (!s.active) continue;
+      ctx.globalAlpha = s.alpha * 0.7;
+      ctx.fillStyle = s.color;
+      const sz = s.size | 0;
+      if (sz <= 1) {
+        ctx.fillRect((s.x) | 0, (s.y) | 0, 1, 1);
+      } else {
+        // Tiny sparkle: center pixel + cross
+        const cx = (s.x) | 0;
+        const cy = (s.y) | 0;
+        ctx.fillRect(cx, cy, 1, 1);
+        ctx.globalAlpha = s.alpha * 0.4;
+        ctx.fillRect(cx - 1, cy, 1, 1);
+        ctx.fillRect(cx + 1, cy, 1, 1);
+        ctx.fillRect(cx, cy - 1, 1, 1);
+        ctx.fillRect(cx, cy + 1, 1, 1);
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw ambient butterflies as small colored dots on sine-wave paths.
+   */
+  _drawButterflies(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._butterflies.length; i++) {
+      const b = this._butterflies[i];
+      if (!b.active) continue;
+
+      const bx = (b.x) | 0;
+      const by = (b.y) | 0;
+
+      // Wing flap animation (alternate size 2-3px)
+      const wingOpen = Math.sin(this._worldTime * 12 + i * 3) > 0;
+
+      ctx.fillStyle = b.color;
+      ctx.globalAlpha = 0.8;
+
+      if (wingOpen) {
+        // Wings spread: 3px wide
+        ctx.fillRect(bx - 1, by, 3, 2);
+        ctx.fillRect(bx, by - 1, 1, 1); // body top
+      } else {
+        // Wings folded: 2px wide
+        ctx.fillRect(bx, by, 2, 2);
+      }
+
+      // Tiny body dot
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(bx, by, 1, 1);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw flower bloom burst particles.
+   */
+  _drawBloomParticles(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._bloomParticles.length; i++) {
+      const p = this._bloomParticles[i];
+      if (!p.active) continue;
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.fillStyle = p.color;
+      ctx.fillRect((p.x - 1) | 0, (p.y - 1) | 0, p.size, p.size);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw day-night tint overlay based on session time.
+   * Morning (0-15min): no tint
+   * Sunset (15-18min): warm orange at 10% opacity
+   * Evening (18-20min): purple at 15% opacity
+   */
+  _drawDayNightTint(ctx) {
+    if (this._sessionTime < SESSION_SUNSET_S) return; // no tint in morning
+
+    ctx.save();
+    if (this._timeOfDay === 'sunset') {
+      // Warm orange overlay, fading in from 0% to 10%
+      const t = (this._sessionTime - SESSION_SUNSET_S) / (SESSION_EVENING_S - SESSION_SUNSET_S);
+      ctx.globalAlpha = t * 0.10;
+      ctx.fillStyle = '#ff8833';
+      ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+    } else if (this._timeOfDay === 'evening') {
+      // Purple overlay at 15% opacity
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = '#6633aa';
+      ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+    }
     ctx.restore();
   }
 

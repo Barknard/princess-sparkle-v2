@@ -20,9 +20,11 @@ const FOLLOW_OFFSET_X = 0.8;  // tiles to the right
 const FOLLOW_OFFSET_Y = 1.5;  // tiles behind
 const LERP_FACTOR = 0.12;
 
-// Animation
-const IDLE_FRAME_MS = 800;
-const IDLE_FRAMES = 2;
+// Animation — Superdark sheets have 4 frames per animation
+const WALK_FRAME_MS = 150;
+const WALK_FRAMES = 4;
+const IDLE_FRAME_MS = 400;
+const IDLE_FRAMES = 4;
 const BOB_AMOUNT = 1; // pixels
 
 // Trail
@@ -95,6 +97,9 @@ export default class Companion {
     // Target position (where we're lerping toward)
     this._targetX = 0;
     this._targetY = 0;
+
+    // Movement state for animation (set in update)
+    this._isMoving = false;
   }
 
   /**
@@ -198,12 +203,17 @@ export default class Companion {
       this.sillying = false;
     }
 
-    // Idle animation: gentle bob
+    // Animation: walk frames when moving (150ms), idle frames when still (400ms)
+    const isMoving = moved >= 0.01;
+    const frameInterval = isMoving ? WALK_FRAME_MS : IDLE_FRAME_MS;
+    const frameCount = isMoving ? WALK_FRAMES : IDLE_FRAMES;
     this.animTimer += dtMs;
-    if (this.animTimer >= IDLE_FRAME_MS) {
-      this.animTimer -= IDLE_FRAME_MS;
-      this.animFrame = (this.animFrame + 1) % IDLE_FRAMES;
+    if (this.animTimer >= frameInterval) {
+      this.animTimer -= frameInterval;
+      this.animFrame = (this.animFrame + 1) % frameCount;
     }
+    /** @type {boolean} Whether the companion is actively moving (for draw) */
+    this._isMoving = isMoving;
 
     // Trail emission
     this.trailFrameCounter++;
@@ -372,8 +382,15 @@ export default class Companion {
     // Draw companion sprite using SpriteSheetManager
     const name = this.spriteName || 'unicorn';
 
-    // Use unicorn running animation if applicable
-    if (name === 'unicorn') {
+    // Prefer Superdark animated spritesheets for creatures with walk/idle
+    if (spriteSheets.loaded && spriteSheets.hasAnimSheet(name)) {
+      if (this._isMoving) {
+        spriteSheets.drawWalkFrame(ctx, name, this.animFrame, drawX, drawY + (yOffset | 0), this.flipX);
+      } else {
+        spriteSheets.drawIdleFrame(ctx, name, this.animFrame, drawX, drawY + (yOffset | 0), this.flipX);
+      }
+    } else if (name === 'unicorn') {
+      // Legacy unicorn running animation
       const frame = this.animFrame % 4;
       spriteSheets.drawUnicornRun(ctx, drawX, drawY + (yOffset | 0), frame, this.flipX);
     } else {

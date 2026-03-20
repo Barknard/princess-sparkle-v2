@@ -140,6 +140,9 @@ export default class Animal {
     this.fleeOriginX = 0;
     this.fleeOriginY = 0;
 
+    // Movement state for animation (set in update)
+    this._isMoving = false;
+
     // Active flag for pool management
     this.active = true;
   }
@@ -197,12 +200,20 @@ export default class Animal {
 
     const dtMs = dt * 1000;
 
-    // Animation
+    // Animation — use animated sheet frame rate if available
+    const isMoving = (this.behavior === AnimalBehavior.WANDER ||
+                      this.behavior === AnimalBehavior.FOLLOW ||
+                      this.behavior === AnimalBehavior.FLEE ||
+                      this.behavior === AnimalBehavior.RETURN);
+    const frameInterval = isMoving ? 150 : 400;
+    const frameCount = spriteSheets.hasAnimSheet(this.spriteName) ? 4 : 2;
     this.animTimer += dtMs;
-    if (this.animTimer >= 600) {
-      this.animTimer -= 600;
-      this.animFrame = (this.animFrame + 1) % 2;
+    if (this.animTimer >= frameInterval) {
+      this.animTimer -= frameInterval;
+      this.animFrame = (this.animFrame + 1) % frameCount;
     }
+    /** @type {boolean} Whether this animal is actively moving (for draw) */
+    this._isMoving = isMoving;
 
     switch (this.behavior) {
       case AnimalBehavior.IDLE:
@@ -463,16 +474,36 @@ export default class Animal {
       yOffset += Math.sin(this.animTimer * 0.008) * 1.5;
     }
 
-    // Draw sprite using SpriteSheetManager
+    // Draw sprite using SpriteSheetManager — prefer animated sheets
     const name = this.spriteName || this.type.toLowerCase();
     ctx.save();
     if (scale !== 1) {
       ctx.translate(sx + 8, sy + 16);
       ctx.scale(scale, scale);
       ctx.translate(-8, -16);
-      spriteSheets.draw(ctx, name, 0, yOffset | 0, { flipX: this.flipX, scale: 1 });
+      if (spriteSheets.loaded && spriteSheets.hasAnimSheet(name)) {
+        if (this._isMoving) {
+          spriteSheets.drawWalkFrame(ctx, name, this.animFrame, 0, yOffset | 0, this.flipX);
+        } else {
+          // Idle with bob effect: add gentle vertical oscillation
+          const bob = Math.sin(this.animTimer * 0.005) * 1;
+          spriteSheets.drawIdleFrame(ctx, name, this.animFrame, 0, (yOffset + bob) | 0, this.flipX);
+        }
+      } else {
+        spriteSheets.draw(ctx, name, 0, yOffset | 0, { flipX: this.flipX, scale: 1 });
+      }
     } else {
-      spriteSheets.draw(ctx, name, sx, sy + (yOffset | 0), { flipX: this.flipX });
+      if (spriteSheets.loaded && spriteSheets.hasAnimSheet(name)) {
+        if (this._isMoving) {
+          spriteSheets.drawWalkFrame(ctx, name, this.animFrame, sx, sy + (yOffset | 0), this.flipX);
+        } else {
+          // Idle with bob effect
+          const bob = Math.sin(this.animTimer * 0.005) * 1;
+          spriteSheets.drawIdleFrame(ctx, name, this.animFrame, sx, sy + ((yOffset + bob) | 0), this.flipX);
+        }
+      } else {
+        spriteSheets.draw(ctx, name, sx, sy + (yOffset | 0), { flipX: this.flipX });
+      }
     }
     ctx.restore();
   }

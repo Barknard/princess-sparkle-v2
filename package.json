@@ -1,0 +1,25 @@
+{
+  "name": "princess-sparkle-v2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sw.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:sprites": "node tools/build-spritesheets.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Barknard/princess-sparkle-v2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Barknard/princess-sparkle-v2/issues"
+  },
+  "homepage": "https://github.com/Barknard/princess-sparkle-v2#readme",
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}

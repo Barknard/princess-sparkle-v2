@@ -151,11 +151,14 @@ export default class NPC {
     const dtMs = dt * 1000;
     let ambientLine = null;
 
-    // Idle animation
+    // Animation: walk frames at 150ms, idle frames at 400ms
+    const isMoving = this.isWandering;
+    const frameInterval = isMoving ? 150 : 400;
+    const frameCount = 4; // Superdark sheets have 4 frames per row
     this.animTimer += dtMs;
-    if (this.animTimer >= 800) {
-      this.animTimer -= 800;
-      this.animFrame = (this.animFrame + 1) % 2;
+    if (this.animTimer >= frameInterval) {
+      this.animTimer -= frameInterval;
+      this.animFrame = (this.animFrame + 1) % frameCount;
     }
 
     // Quest star pulse
@@ -309,8 +312,19 @@ export default class NPC {
       yOffset = Math.sin(this.sillyTimer * 8) * 2;
     }
 
-    // Draw sprite using SpriteSheetManager
-    spriteSheets.draw(ctx, this.spriteName, sx, sy + (yOffset | 0), { flipX: this.flipX });
+    // Draw sprite using SpriteSheetManager — prefer animated sheets
+    if (spriteSheets.loaded && spriteSheets.hasAnimSheet(this.spriteName)) {
+      if (this.isWandering) {
+        // Walk animation: cycle Walk_1-4 at 150ms
+        spriteSheets.drawWalkFrame(ctx, this.spriteName, this.animFrame, sx, sy + (yOffset | 0), this.flipX);
+      } else {
+        // Idle animation: cycle Idle_1-4 at 400ms
+        spriteSheets.drawIdleFrame(ctx, this.spriteName, this.animFrame, sx, sy + (yOffset | 0), this.flipX);
+      }
+    } else {
+      // Fallback to static sprite
+      spriteSheets.draw(ctx, this.spriteName, sx, sy + (yOffset | 0), { flipX: this.flipX });
+    }
 
     // Draw quest indicator ("!" star)
     if (this.hasQuest) {

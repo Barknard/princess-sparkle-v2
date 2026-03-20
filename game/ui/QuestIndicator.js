@@ -13,7 +13,7 @@
 // ---- Constants --------------------------------------------------------------
 
 const PULSE_MIN = 1.0;
-const PULSE_MAX = 1.1;
+const PULSE_MAX = 1.2;
 const PULSE_CYCLE_S = 1.5;
 
 const INDICATOR_SIZE = 12;           // logical pixels (width and height of the star)

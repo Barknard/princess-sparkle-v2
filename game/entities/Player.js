@@ -4,8 +4,8 @@
  * Position in tile coordinates (fractional for smooth movement).
  * State machine: IDLE, WALKING, INTERACTING, CELEBRATING.
  * Walk speed: 2 tiles/second.
- * Sprite animation: 4 directions x 3 frames, 150ms per frame.
- * Idle animation: gentle sway, 2 frames, 800ms.
+ * Sprite animation: 4 walk frames from Superdark princess sheet, 150ms per frame.
+ * Idle animation: 4 idle frames from Superdark princess sheet, 400ms per frame.
  * Silly reactions: sneeze near flowers, tiptoe near sleeping animals, splash in puddles.
  * Consumes path from MovementSystem step by step.
  */
@@ -36,9 +36,9 @@ const WALK_SPEED = 2.0; // tiles per second
 
 // Animation timing
 const WALK_FRAME_MS = 150;
-const WALK_FRAMES = 3;
-const IDLE_FRAME_MS = 800;
-const IDLE_FRAMES = 2;
+const WALK_FRAMES = 4;  // Superdark princess has 4 walk frames
+const IDLE_FRAME_MS = 400;
+const IDLE_FRAMES = 4;  // Superdark princess has 4 idle frames
 
 // Silly reaction thresholds
 const SNEEZE_CHANCE = 0.33; // 1 in 3 near big flowers
@@ -381,8 +381,19 @@ export default class Player {
     }
 
     // Draw the princess sprite using SpriteSheetManager
-    if (this.state === PlayerState.WALKING && spriteSheets.loaded) {
-      // Walk animation from RPG 8-bit sheet
+    // Prefer Superdark animated spritesheets; fall back to RPG 8-bit or static
+    if (spriteSheets.loaded && spriteSheets.hasAnimSheet('princess')) {
+      if (this.state === PlayerState.WALKING) {
+        // Walk animation: cycle through Walk_1-4 at 150ms per frame
+        const walkFrame = this.animFrame % WALK_FRAMES;
+        spriteSheets.drawWalkFrame(ctx, 'princess', walkFrame, drawX, drawY + (yOffset | 0), flipX);
+      } else {
+        // Idle animation: cycle through Idle_1-4 at 400ms per frame
+        const idleFrame = this.animFrame % IDLE_FRAMES;
+        spriteSheets.drawIdleFrame(ctx, 'princess', idleFrame, drawX, drawY + (yOffset | 0), flipX);
+      }
+    } else if (this.state === PlayerState.WALKING && spriteSheets.loaded) {
+      // Legacy fallback: walk animation from RPG 8-bit sheet
       const frame = this.animFrame % 3;
       spriteSheets.drawWalk(ctx, drawX, drawY + (yOffset | 0), this.direction, frame, flipX);
     } else {
