@@ -12,10 +12,12 @@
 | Dragon              | DOWNLOADED    | Tiny Creatures tile_0041   |
 | Humanoid NPCs       | DOWNLOADED    | Kenney Tiny Dungeon chars  |
 | NPC walk animations | DOWNLOADED    | 8-bit RPG Character Set    |
-| Princess character  | NEED MANUAL   | Superdark NPC Pack         |
-| More NPC variety    | NEED MANUAL   | Superdark NPC Pack         |
+| Princess character  | DOWNLOADED    | Superdark Fantasy RPG      |
+| More NPC variety    | DOWNLOADED    | Superdark Fantasy RPG      |
+| Forest creatures    | DOWNLOADED    | Superdark Enchanted Forest |
+| Extra Kenney-style  | DOWNLOADED    | Szym Tiny Pack Add-On      |
+| Pixel Crawler heroes| DOWNLOADED    | Anokolisa Pixel Crawler    |
 | Cute Fantasy style  | NEED MANUAL   | Kenmi Cute Fantasy RPG     |
-| Extra Kenney-style  | NEED MANUAL   | Szym Tiny Pack Add-On      |
 
 ---
 
@@ -139,33 +141,71 @@
 
 ---
 
-## NEED MANUAL DOWNLOAD (itch.io requires browser)
+## DOWNLOADED -- itch.io Sprite Packs (2026-03-20)
 
-### 10. Superdark 16x16 Fantasy RPG Characters (HIGHLY RECOMMENDED)
+### 10. Superdark 16x16 Fantasy RPG Characters
 - **URL**: https://superdark.itch.io/16x16-free-npc-pack
 - **License**: Free for personal and commercial use, modification allowed
 - **Size**: 16x16
-- **Contents**: 20+ NPC types including:
-  - PRINCESS
-  - Queen, King
-  - Male and female villagers
-  - Blacksmith
-  - Alchemist
-  - Merchant
-  - Nuns, bishop
-  - Royal knights (5 variants)
-  - Archer, thief
-- **Walk animations**: YES (added in v1.3)
-- **Download steps**:
-  1. Visit https://superdark.itch.io/16x16-free-npc-pack
-  2. Click "Download Now"
-  3. Enter $0 (or donate) and click "No thanks, just take me to the downloads"
-  4. Download both files:
-     - `Characters` (6.4 kB) -- spritesheet
-     - `Fantasy RPG NPCs - Individual Frames.rar` (188 kB) -- all individual frames
-  5. Extract to `sprites/characters/superdark-npcs/`
+- **Location**: `sprites/characters/superdark-fantasy/`
+- **Walk animations**: YES (Idle + Walk, 4 frames each)
+- **Contents**: 25 character types with individual frames:
+  - Alchemist, Archer, Bishop, Blacksmith, Butcher, Executioner
+  - Herald, King, Knight (Elite/Heavy/Standard), Large Knight (Elite/Standard)
+  - Mage, Magic Shopkeeper, Merchant, Mountain King
+  - Nun (Fat/Normal/Tall), **Princess**, Queen
+  - Thief, Townsfolk (Female/Male)
+- **Files**:
+  - `Fantasy RPG NPCs - Individuel Frames.rar` (extracted) -- individual PNGs per character
+  - `knights.png` -- spritesheet
 
-### 11. Kenmi Cute Fantasy RPG -- Free Version
+### 11. Superdark 16x16 Enchanted Forest Characters
+- **URL**: https://superdark.itch.io/enchanted-forest-characters
+- **License**: CC0
+- **Size**: 16x16
+- **Location**: `sprites/creatures/superdark-forest/`
+- **Walk animations**: YES (Idle + Walk, 4 frames each)
+- **Contents**: 27 character/creature types with individual frames:
+  - Bandit, Bear, Centaur (Male/Female), Cleric (Fat/Normal/Tall)
+  - Elf (Female/Male), Elf Princess, Elven King, Elven Knight, Ent
+  - Fairy, Forest Guardian, Gnoll (Brute/Overseer/Scout/Shaman)
+  - Golem, Mushroom (Large/Normal/Small), Ranger, Troll, Wizard, Wolf
+- **Files**:
+  - `Enchanted Forest - Individual Frames.zip` (extracted) -- individual PNGs per creature
+  - `Enchanted Forest - Individual Frames.rar` (same content)
+  - `Enchanted Forest Characters with animations.png` -- full spritesheet
+
+### 12. Szym Tiny Pack Add-On (Kenney Tiny Compatible)
+- **URL**: https://nszym.itch.io/tiny-pack-add-on
+- **License**: Free for personal and commercial use
+- **Size**: 16x16 (Kenney Tiny style)
+- **Location**: `sprites/characters/szym-tiny/`
+- **Contents**: `TinyPackAddOn.zip` (extracted) containing:
+  - `Sprites-16x16.png` -- main spritesheet with 48 characters + 48 creatures
+  - `Content.png` -- content overview/legend
+  - `Example.png` -- example usage
+  - `Licence.txt`
+- **Walk animations**: Static poses (Kenney Tiny style)
+
+### 13. Anokolisa Pixel Crawler 16x16
+- **URL**: https://anokolisa.itch.io/free-pixel-art-asset-pack-topdown-tileset-rpg-16x16-sprites
+- **License**: Free
+- **Size**: 16x16
+- **Location**: `sprites/characters/anokolisa/`
+- **Walk animations**: YES -- 4-direction with Walk, Run, Idle, Carry, plus combat animations
+- **Contents**: `Pixel Crawler - Free Pack 2.0.4.zip` (extracted) containing:
+  - **Characters**: Body_A with 14 animation types (Carry_Idle, Carry_Run, Carry_Walk, Collect, Crush, Death, Fishing, Hit, Idle, Pierce, Run, Slice, Walk, Watering)
+  - **Mobs**: Orc Crew (Orc, Orc-Rogue, Orc-Shaman, Orc-Warrior), Skeleton Crew (Skeleton-Base, Skeleton-Mage, Skeleton-Rogue, Skeleton-Warrior)
+  - **NPCs**: Knight, Rogue, Wizzard
+  - **Environment**: Props (Animated pans, Static dungeon props/esoteric/farm/furniture), Structures, Tilesets
+  - **Weapons**: Bone, Hands, Wood (PNG + Aseprite source files)
+  - **Icons**: Resources
+
+---
+
+## NEED MANUAL DOWNLOAD (itch.io requires browser)
+
+### 14. Kenmi Cute Fantasy RPG -- Free Version
 - **URL**: https://kenmi-art.itch.io/cute-fantasy-rpg
 - **License**: Free for non-commercial use, credit required (Credit: Kenmi)
 - **Size**: 16x16
@@ -182,20 +222,7 @@
   4. Download `Cute_Fantasy_Free.zip` (53 kB)
   5. Extract to `sprites/characters/kenmi-cute-fantasy/`
 
-### 12. Szym Tiny Pack Add-On (Kenney Tiny Compatible)
-- **URL**: https://nszym.itch.io/tiny-pack-add-on
-- **License**: Free for personal and commercial use
-- **Size**: 16x16 (Kenney Tiny style)
-- **Contents**: 203 sprites -- 48 characters, 48 creatures/enemies, 35 items, 12 potions, 6 shields, 54 weapons
-- **Walk animations**: Unknown (likely static poses like Kenney Tiny)
-- **Download steps**:
-  1. Visit https://nszym.itch.io/tiny-pack-add-on
-  2. Click "Download Now"
-  3. Enter $0, click "No thanks, just take me to the downloads"
-  4. Download `TinyPackAddOn.zip` (89 kB)
-  5. Extract to `sprites/characters/szym-tiny-addon/`
-
-### 13. COLEVID-19 Pixel Art Unicorn
+### 15. COLEVID-19 Pixel Art Unicorn
 - **URL**: https://rcxno.itch.io/pixel-art-unicorn
 - **License**: Free for commercial and non-commercial use
 - **Size**: 16x16
@@ -207,7 +234,7 @@
   4. Download `kaitlyn_unicorn.png` (1.2 kB)
   5. Save to `sprites/creatures/kaitlyn_unicorn.png`
 
-### 14. Cup Nooble Sprout Lands (Basic Free Pack)
+### 16. Cup Nooble Sprout Lands (Basic Free Pack)
 - **URL**: https://cupnooble.itch.io/sprout-lands-asset-pack
 - **License**: Free for non-commercial use, credit required (Credit: Cup Nooble)
 - **Size**: 16-bit pixel art
@@ -247,10 +274,14 @@ Use these CC0 assets NOW to replace the colored rectangles:
 
 **For princess** -- use Kenney Tiny Dungeon tile_0099 as static sprite
 
-### Priority 2: Manual download (10 minutes of work)
-1. Download Superdark NPC pack -- gives you a proper PRINCESS + 20 NPC types
-2. Download Szym Tiny Pack Add-On -- 48 more Kenney-style characters
-3. Download Kenmi Cute Fantasy Free -- cutest style, good animal animations
+### Priority 2: Use newly downloaded itch.io packs
+1. **Superdark Fantasy RPG** -- proper PRINCESS sprite + 24 other NPC types with walk animations
+2. **Superdark Enchanted Forest** -- Wolf, Bear, Fairy, Golem, Ent, Mushrooms + 20 more (CC0!)
+3. **Anokolisa Pixel Crawler** -- Hero with 14 animation types + Orcs, Skeletons, NPCs, environment
+4. **Szym Tiny Pack Add-On** -- 48 Kenney-style characters + 48 creatures (static poses)
+
+### Priority 3: Manual download (optional)
+1. Download Kenmi Cute Fantasy Free -- cutest style, good animal animations
 
 ### Priority 3: Walk animation assembly
 The Tiny Creatures and Kenney Tiny Dungeon sprites are STATIC (single frame).
@@ -276,8 +307,10 @@ To create walk animations:
 | Top-Down Girl               | CC0           | No                  | Yes           |
 | Duck Sprite                 | CC0           | No                  | Yes           |
 | Running Unicorn             | CC-BY-SA 3.0 | Yes                 | Yes           |
-| Superdark NPC Pack          | Free/custom   | Appreciated         | Yes           |
+| Superdark Fantasy RPG       | Free/custom   | Appreciated         | Yes           |
+| Superdark Enchanted Forest  | CC0           | No                  | Yes           |
 | Szym Tiny Pack Add-On       | Free/custom   | Appreciated         | Yes           |
+| Anokolisa Pixel Crawler     | Free/custom   | Appreciated         | Yes           |
 | COLEVID-19 Unicorn          | Free/custom   | No                  | Yes           |
 | Kenmi Cute Fantasy (free)   | Custom        | Yes (Credit: Kenmi) | Non-commercial|
 | Cup Nooble Sprout Lands     | Custom        | Yes (Credit: Cup Nooble) | Non-commercial |

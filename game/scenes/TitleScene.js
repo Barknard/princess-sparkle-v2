@@ -22,6 +22,7 @@
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
 import { playVoice, preloadVoices, SCENE_VOICES } from '../data/voiceIndex.js';
+import spriteSheets from '../data/SpriteSheetManager.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -724,30 +725,30 @@ export default class TitleScene {
       ctx.globalAlpha = this._princessAlpha;
     }
 
-    // Princess placeholder (16x16 sprite, drawn at 2x)
-    // In production, replaced with actual sprite from AssetLoader
+    // Princess sprite (16x16 from Kenney Tiny Dungeon, drawn at 2x)
     const spriteSize = 32;
     const px = (cx - spriteSize / 2) | 0;
     const py = (cy - spriteSize / 2) | 0;
 
-    // Body (placeholder)
-    ctx.fillStyle = '#ffe0ec';
-    ctx.fillRect(px + 8, py + 10, 16, 18);
-    // Dress
-    ctx.fillStyle = '#ff99cc';
-    ctx.fillRect(px + 6, py + 18, 20, 12);
-    // Head
-    ctx.fillStyle = '#ffdab9';
-    ctx.fillRect(px + 10, py + 2, 12, 12);
-    // Crown
-    ctx.fillStyle = '#ffd700';
-    ctx.fillRect(px + 11, py, 10, 4);
-    ctx.fillRect(px + 13, py - 2, 2, 3);
-    ctx.fillRect(px + 17, py - 2, 2, 3);
-    // Eyes
-    ctx.fillStyle = '#4a4a4a';
-    ctx.fillRect(px + 12, py + 6, 2, 2);
-    ctx.fillRect(px + 18, py + 6, 2, 2);
+    if (spriteSheets.loaded && spriteSheets.getSpriteRect('princess')) {
+      // Draw real sprite at 2x scale
+      spriteSheets.draw(ctx, 'princess', px, py, { scale: 2 });
+    } else {
+      // Fallback placeholder
+      ctx.fillStyle = '#ffe0ec';
+      ctx.fillRect(px + 8, py + 10, 16, 18);
+      ctx.fillStyle = '#ff99cc';
+      ctx.fillRect(px + 6, py + 18, 20, 12);
+      ctx.fillStyle = '#ffdab9';
+      ctx.fillRect(px + 10, py + 2, 12, 12);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(px + 11, py, 10, 4);
+      ctx.fillRect(px + 13, py - 2, 2, 3);
+      ctx.fillRect(px + 17, py - 2, 2, 3);
+      ctx.fillStyle = '#4a4a4a';
+      ctx.fillRect(px + 12, py + 6, 2, 2);
+      ctx.fillRect(px + 18, py + 6, 2, 2);
+    }
 
     ctx.restore();
   }
