@@ -3,10 +3,19 @@
  *
  * Five companions in a horizontal arc on a meadow background.
  * Each has a colored glow matching their personality.
- * Tap → grows to 1.2x, voice intro plays, particle effect demos.
- * Tap same companion again → "Choose [Name]" button appears (80px tall min).
- * Confirm → joyful animation, particles burst, others wave goodbye.
- * Iris wipe transition to OverworldScene.
+ *
+ * AUTO-CYCLE SHOWCASE: After narrator intro, companions are showcased one at a
+ * time — each grows, glows, plays its voice intro, then shrinks back. After all
+ * 5 have been shown, the cycle repeats with ESCALATING visual nudges:
+ *   0-10s:  gentle bob, colored glows
+ *   10-20s: higher bounce, brighter pulsing glows
+ *   20-30s: sparkle particles orbit each companion, gentle chime
+ *   30s+:   one companion at a time does a "pick me!" dance (jump+spin+sparkle burst)
+ *
+ * SELECTION RULE: NEVER auto-select. She MUST choose herself.
+ *   - Tap any companion: it grows, glows bright, plays its voice intro
+ *   - Tap the SAME companion a second time: confirm with celebration
+ *   - Scene waits FOREVER. Never auto-picks.
  *
  * Canvas only. No DOM. Pre-allocated particles. Integer coords.
  */
@@ -54,7 +63,7 @@ const SHIMMER_SPEED = 2.5;     // shimmer animation speed
 const SHIMMER_PARTICLES = 3;   // sparkle motes per untapped companion
 
 // Particles
-const MAX_PARTICLES = 40;
+const MAX_PARTICLES = 60; // increased for orbit sparkles and pick-me bursts
 
 // Narrator voice lines (IDs match voice-script/audio/voice/ filenames)
 const NARRATOR_LINES = {
@@ -73,6 +82,17 @@ const NARRATOR_CONFIRM = {
   pip:     'narrator_companion_confirm_pip',
 };
 
+// Auto-cycle timing
+const SHOWCASE_DURATION = 3.0;   // seconds each companion is showcased
+const SHOWCASE_FADE_IN = 0.4;    // seconds to grow/brighten
+const SHOWCASE_HOLD = 1.8;       // seconds at full highlight
+const SHOWCASE_FADE_OUT = 0.8;   // seconds to shrink back
+
+// Escalation thresholds (seconds after first full cycle completes)
+const ESCALATION_TIER_2 = 10;   // higher bounce, brighter pulse
+const ESCALATION_TIER_3 = 20;   // orbit sparkles, chime
+const ESCALATION_TIER_4 = 30;   // pick-me dance
+
 // ---- CompanionSelectScene ---------------------------------------------------
 
 export default class CompanionSelectScene {
@@ -85,14 +105,22 @@ export default class CompanionSelectScene {
     this._assetLoader = null;
 
     // State
-    this._selectedIndex = -1;     // currently highlighted companion
-    this._confirmedIndex = -1;    // chosen companion (after button press)
+    this._selectedIndex = -1;     // currently highlighted companion (by player tap)
+    this._confirmedIndex = -1;    // chosen companion (after double-tap)
     this._tapCount = 0;           // taps on same companion
-    this._showButton = false;
+    this._showConfirmHeart = false;
 
     // Narrator state
-    this._introPhase = 0;        // 0=playing intro lines, 1=interactive
+    this._introPhase = 0;        // 0,1=playing intro lines, 2=interactive/showcase
     this._introTimer = 0;
+
+    // === Auto-cycle showcase state ===
+    this._showcaseActive = false;     // true while auto-cycling (stops on player tap)
+    this._showcaseIndex = -1;         // which companion is currently showcased (-1 = none yet)
+    this._showcaseTimer = 0;          // time into current showcase step
+    this._showcaseCycle = 0;          // how many full cycles completed
+    this._showcaseEscalationTime = 0; // total seconds since first cycle completed
+    this._showcaseChimePlayed = false; // per-showcase-step chime flag
 
     // Companion animation states (pre-allocated)
     this._companionStates = new Array(COMPANIONS.length);
@@ -110,6 +138,11 @@ export default class CompanionSelectScene {
         tapped: false,    // has this companion been tapped at least once?
         danceTimer: 0,    // happy dance timer for selected companion
         dancing: false,   // whether doing happy dance
+        // Escalation-specific
+        pickMeDancing: false,  // "pick me!" dance during tier 4
+        pickMeTimer: 0,
+        orbitSparkleTimer: 0,
+        spinAngle: 0,         // for pick-me spin
       };
     }
 
@@ -162,12 +195,20 @@ export default class CompanionSelectScene {
     this._selectedIndex = -1;
     this._confirmedIndex = -1;
     this._tapCount = 0;
-    this._showButton = false;
+    this._showConfirmHeart = false;
     this._introPhase = 0;
     this._introTimer = 0;
     this._confirmTimer = 0;
     this._confirmAnimating = false;
     this._transition = new TransitionOverlay();
+
+    // Reset showcase
+    this._showcaseActive = false;
+    this._showcaseIndex = -1;
+    this._showcaseTimer = 0;
+    this._showcaseCycle = 0;
+    this._showcaseEscalationTime = 0;
+    this._showcaseChimePlayed = false;
 
     for (let i = 0; i < this._companionStates.length; i++) {
       const cs = this._companionStates[i];
@@ -181,6 +222,10 @@ export default class CompanionSelectScene {
       cs.tapped = false;
       cs.danceTimer = 0;
       cs.dancing = false;
+      cs.pickMeDancing = false;
+      cs.pickMeTimer = 0;
+      cs.orbitSparkleTimer = 0;
+      cs.spinAngle = 0;
     }
 
     for (let i = 0; i < this._particles.length; i++) {
@@ -206,7 +251,7 @@ export default class CompanionSelectScene {
 
     this._introTimer += dt;
 
-    // Narrator intro sequence
+    // Narrator intro sequence — leads into showcase
     if (this._introPhase === 0) {
       if (this._introTimer > 3) {
         this._playVoice(NARRATOR_LINES.intro2);
@@ -215,30 +260,75 @@ export default class CompanionSelectScene {
     } else if (this._introPhase === 1) {
       if (this._introTimer > 6) {
         this._playVoice(NARRATOR_LINES.intro3);
-        this._introPhase = 2; // now interactive
+        this._introPhase = 2;
+        // Start auto-cycle showcase
+        this._showcaseActive = true;
+        this._showcaseIndex = 0;
+        this._showcaseTimer = 0;
+        this._showcaseChimePlayed = false;
+        // Immediately highlight first companion
+        this._beginShowcaseStep(0);
       }
+    }
+
+    // === Auto-cycle showcase ===
+    if (this._showcaseActive && this._selectedIndex === -1 && !this._confirmAnimating) {
+      this._updateShowcase(dt);
+    }
+
+    // === Escalation timer (counts up after first full cycle) ===
+    if (this._showcaseCycle >= 1 && this._showcaseActive) {
+      this._showcaseEscalationTime += dt;
     }
 
     // Companion idle animations
     for (let i = 0; i < this._companionStates.length; i++) {
       const cs = this._companionStates[i];
       cs.bobTimer += dt;
-      // Lively bobbing — different speed per companion so they feel alive
-      cs.bobY = Math.sin(cs.bobTimer * (2.0 + i * 0.3)) * 3;
 
-      // Happy dance for selected companion (bouncy squash-stretch)
+      // Determine escalation tier
+      const tier = this._getEscalationTier();
+
+      // Base bob — amplitude depends on escalation
+      let bobAmp = 3;
+      let bobSpeed = 2.0 + i * 0.3;
+      if (tier >= 2 && this._showcaseActive) {
+        bobAmp = 6;
+        bobSpeed = 2.5 + i * 0.3;
+      }
+      cs.bobY = Math.sin(cs.bobTimer * bobSpeed) * bobAmp;
+
+      // Happy dance for player-selected companion (bouncy squash-stretch)
       if (cs.dancing) {
         cs.danceTimer += dt;
         const dancePulse = Math.sin(cs.danceTimer * 8) * 0.08;
         cs.scale += (cs.targetScale + dancePulse - cs.scale) * Math.min(dt * 8, 1);
-        // Extra bounce
         cs.bobY += Math.abs(Math.sin(cs.danceTimer * 6)) * 4;
+      } else if (cs.pickMeDancing) {
+        // Tier 4 "pick me!" dance: jump + spin + sparkle burst
+        cs.pickMeTimer += dt;
+        cs.spinAngle += dt * 12; // spin fast
+        // Big bouncy jump
+        cs.bobY -= Math.abs(Math.sin(cs.pickMeTimer * 5)) * 12;
+        // Scale pulse
+        const pickPulse = Math.sin(cs.pickMeTimer * 6) * 0.12;
+        cs.scale += (cs.targetScale + pickPulse - cs.scale) * Math.min(dt * 10, 1);
+        // Emit sparkle burst periodically
+        if (cs.pickMeTimer > 0.5 && ((cs.pickMeTimer * 3) | 0) % 2 === 0) {
+          const pos = this._positions[i];
+          this._emitCompanionParticles(pos.x, pos.y + cs.bobY, COMPANIONS[i].glowColor);
+        }
       } else {
         // Smooth scale interpolation
         cs.scale += (cs.targetScale - cs.scale) * Math.min(dt * 6, 1);
       }
 
       cs.alpha += (cs.targetAlpha - cs.alpha) * Math.min(dt * 6, 1);
+
+      // Orbit sparkle timer (tier 3+)
+      if (tier >= 3 && this._showcaseActive) {
+        cs.orbitSparkleTimer += dt;
+      }
 
       // Wave goodbye animation
       if (cs.waving) {
@@ -266,7 +356,7 @@ export default class CompanionSelectScene {
       }
     }
 
-    // Handle input (only after intro)
+    // Handle input (only after intro, always — even during showcase)
     if (this._introPhase >= 2 && !this._confirmAnimating) {
       this._handleInput();
     }
@@ -275,14 +365,124 @@ export default class CompanionSelectScene {
     this._updateParticles(dt);
   }
 
+  // ---- Auto-cycle showcase --------------------------------------------------
+
+  _getEscalationTier() {
+    if (this._showcaseCycle < 1) return 1;
+    const t = this._showcaseEscalationTime;
+    if (t >= ESCALATION_TIER_4) return 4;
+    if (t >= ESCALATION_TIER_3) return 3;
+    if (t >= ESCALATION_TIER_2) return 2;
+    return 1;
+  }
+
+  _beginShowcaseStep(index) {
+    // Reset all companions to idle
+    for (let i = 0; i < this._companionStates.length; i++) {
+      const cs = this._companionStates[i];
+      cs.targetScale = 1.0;
+      cs.targetAlpha = 0.6;
+      cs.glowAlpha = 0.3;
+      cs.pickMeDancing = false;
+      cs.pickMeTimer = 0;
+    }
+
+    // Highlight the showcased companion
+    const cs = this._companionStates[index];
+    cs.targetScale = 1.25;
+    cs.targetAlpha = 1.0;
+    cs.glowAlpha = 0.6;
+
+    // Play this companion's voice intro so she hears each one
+    this._playVoice(COMPANIONS[index].voice);
+
+    // Demo particles
+    const pos = this._positions[index];
+    this._emitCompanionParticles(pos.x, pos.y, COMPANIONS[index].glowColor);
+
+    this._showcaseChimePlayed = false;
+  }
+
+  _updateShowcase(dt) {
+    this._showcaseTimer += dt;
+    const tier = this._getEscalationTier();
+
+    // Current showcased companion visual updates based on showcase phase
+    if (this._showcaseIndex >= 0 && this._showcaseIndex < COMPANIONS.length) {
+      const cs = this._companionStates[this._showcaseIndex];
+      const t = this._showcaseTimer;
+
+      if (t < SHOWCASE_FADE_IN) {
+        // Growing in
+        const progress = t / SHOWCASE_FADE_IN;
+        cs.targetScale = 1.0 + 0.25 * easeOutBack(progress);
+        cs.targetAlpha = 0.6 + 0.4 * progress;
+        cs.glowAlpha = 0.3 + 0.4 * progress;
+      } else if (t < SHOWCASE_FADE_IN + SHOWCASE_HOLD) {
+        // Holding at full highlight
+        cs.targetScale = 1.25;
+        cs.targetAlpha = 1.0;
+        cs.glowAlpha = 0.7;
+
+        // Tier 3+: play chime once per showcase step
+        if (tier >= 3 && !this._showcaseChimePlayed) {
+          if (this._audioManager) {
+            this._audioManager.playSFX('trailShimmer');
+          }
+          this._showcaseChimePlayed = true;
+        }
+
+        // Tier 4: "pick me!" dance for the showcased companion
+        if (tier >= 4) {
+          cs.pickMeDancing = true;
+          cs.targetScale = 1.3;
+        }
+      } else {
+        // Fading out
+        const fadeProgress = (t - SHOWCASE_FADE_IN - SHOWCASE_HOLD) / SHOWCASE_FADE_OUT;
+        cs.targetScale = 1.25 - 0.25 * Math.min(fadeProgress, 1);
+        cs.targetAlpha = 1.0 - 0.4 * Math.min(fadeProgress, 1);
+        cs.glowAlpha = 0.7 - 0.4 * Math.min(fadeProgress, 1);
+        cs.pickMeDancing = false;
+      }
+
+      // Tier 2+: brighter glow pulse on showcased companion
+      if (tier >= 2) {
+        cs.glowAlpha += Math.sin(this._introTimer * 4) * 0.15;
+      }
+    }
+
+    // Advance to next companion when showcase duration expires
+    if (this._showcaseTimer >= SHOWCASE_DURATION) {
+      this._showcaseTimer = 0;
+
+      // Stop pick-me dance on current
+      if (this._showcaseIndex >= 0) {
+        this._companionStates[this._showcaseIndex].pickMeDancing = false;
+        this._companionStates[this._showcaseIndex].pickMeTimer = 0;
+      }
+
+      this._showcaseIndex++;
+      if (this._showcaseIndex >= COMPANIONS.length) {
+        // Completed one full cycle
+        this._showcaseIndex = 0;
+        this._showcaseCycle++;
+      }
+
+      this._beginShowcaseStep(this._showcaseIndex);
+    }
+  }
+
+  // ---- Input ----------------------------------------------------------------
+
   _handleInput() {
     if (!this._inputManager || !this._inputManager.tapped) return;
 
     const tx = this._inputManager.x;
     const ty = this._inputManager.y;
 
-    // Check confirm heart icon first (big glowing heart replaces text button)
-    if (this._showButton) {
+    // Check confirm heart icon first (only visible after double-tap)
+    if (this._showConfirmHeart) {
       const heartCX = (LOGICAL_WIDTH / 2) | 0;
       const heartCY = (HEART_ICON_Y + HEART_ICON_SIZE / 2) | 0;
       const dist = Math.hypot(tx - heartCX, ty - heartCY);
@@ -305,11 +505,21 @@ export default class CompanionSelectScene {
   }
 
   _onCompanionTapped(index) {
+    // Player tapped a companion — stop auto-cycle showcase
+    this._showcaseActive = false;
+
+    // Reset all pick-me dances from showcase
+    for (let i = 0; i < this._companionStates.length; i++) {
+      this._companionStates[i].pickMeDancing = false;
+      this._companionStates[i].pickMeTimer = 0;
+    }
+
     if (index === this._selectedIndex) {
-      // Same companion tapped again — show confirm button
+      // Same companion tapped again — CONFIRM selection with celebration
       this._tapCount++;
       if (this._tapCount >= 2) {
-        this._showButton = true;
+        this._onConfirm();
+        return;
       }
     } else {
       // New companion selected
@@ -317,10 +527,11 @@ export default class CompanionSelectScene {
       if (this._selectedIndex >= 0) {
         this._companionStates[this._selectedIndex].targetScale = 1.0;
         this._companionStates[this._selectedIndex].targetAlpha = 0.7;
+        this._companionStates[this._selectedIndex].dancing = false;
       }
       this._selectedIndex = index;
       this._tapCount = 1;
-      this._showButton = false;
+      this._showConfirmHeart = false;
     }
 
     // Highlight selected — grow bigger, glow brighter, start happy dance
@@ -355,10 +566,13 @@ export default class CompanionSelectScene {
   }
 
   _onConfirm() {
+    if (this._selectedIndex < 0) return;
+
     this._confirmedIndex = this._selectedIndex;
     this._confirmAnimating = true;
     this._confirmTimer = 0;
-    this._showButton = false;
+    this._showConfirmHeart = false;
+    this._showcaseActive = false;
 
     // Joyful animation for chosen companion
     const cs = this._companionStates[this._confirmedIndex];
@@ -370,6 +584,7 @@ export default class CompanionSelectScene {
         this._companionStates[i].waving = true;
         this._companionStates[i].waveTimer = 0;
         this._companionStates[i].targetAlpha = 0;
+        this._companionStates[i].dancing = false;
       }
     }
 
@@ -399,13 +614,23 @@ export default class CompanionSelectScene {
       this._drawCompanion(ctx, i);
     }
 
-    // Confirm heart icon (replaces text button)
-    if (this._showButton && this._selectedIndex >= 0) {
+    // Orbit sparkles (tier 3+ escalation)
+    if (this._showcaseActive && this._getEscalationTier() >= 3) {
+      this._drawOrbitSparkles(ctx);
+    }
+
+    // Confirm heart icon — only shown after double-tap (never during showcase)
+    if (this._showConfirmHeart && this._selectedIndex >= 0) {
       this._drawConfirmHeart(ctx, this._selectedIndex);
     }
 
     // Shimmer on untapped companions to say "tap me!"
     this._drawUntappedShimmers(ctx);
+
+    // Showcase spotlight indicator — subtle "look here!" arrow/ring
+    if (this._showcaseActive && this._showcaseIndex >= 0) {
+      this._drawShowcaseIndicator(ctx, this._showcaseIndex);
+    }
 
     // Particles
     this._drawParticles(ctx);
@@ -456,12 +681,27 @@ export default class CompanionSelectScene {
     ctx.save();
     ctx.globalAlpha = cs.alpha;
 
+    // Apply spin for pick-me dance
+    if (cs.pickMeDancing && cs.spinAngle !== 0) {
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.sin(cs.spinAngle) * 0.3); // wobble-spin, not full 360
+      ctx.translate(-cx, -cy);
+    }
+
     // Colored glow behind companion
     ctx.save();
-    ctx.globalAlpha = cs.alpha * cs.glowAlpha;
+    ctx.globalAlpha = cs.alpha * Math.max(0, Math.min(1, cs.glowAlpha));
     ctx.fillStyle = comp.glowColor;
     ctx.beginPath();
-    ctx.arc(cx, cy, (size * 0.7) | 0, 0, Math.PI * 2);
+    // Glow radius grows with escalation tier
+    let glowSize = size * 0.7;
+    if (this._showcaseActive) {
+      const tier = this._getEscalationTier();
+      if (tier >= 2) glowSize = size * 0.85;
+      if (tier >= 3) glowSize = size * 1.0;
+      if (tier >= 4 && cs.pickMeDancing) glowSize = size * 1.2;
+    }
+    ctx.arc(cx, cy, glowSize | 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     ctx.globalAlpha = cs.alpha;
@@ -497,7 +737,6 @@ export default class CompanionSelectScene {
 
     // Wave goodbye animation
     if (cs.waving && cs.waveTimer < 2) {
-      const waveAngle = Math.sin(cs.waveTimer * 8) * 0.2;
       // Small hand-wave indicator
       ctx.fillStyle = comp.glowColor;
       const wx = (cx + halfSize + 2) | 0;
@@ -505,6 +744,66 @@ export default class CompanionSelectScene {
       ctx.fillRect(wx, wy, 3, 3);
     }
 
+    ctx.restore();
+  }
+
+  /** Draw a pulsing ring + down-arrow above the currently showcased companion. */
+  _drawShowcaseIndicator(ctx, index) {
+    const pos = this._positions[index];
+    const cs = this._companionStates[index];
+    const comp = COMPANIONS[index];
+    const cy = (pos.y + cs.bobY) | 0;
+    const pulse = Math.sin(this._introTimer * 4) * 0.5 + 0.5;
+
+    ctx.save();
+
+    // Pulsing ring
+    ctx.globalAlpha = 0.15 + pulse * 0.15;
+    ctx.strokeStyle = comp.glowColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(pos.x, cy, (COMPANION_SIZE * 0.9 + pulse * 4) | 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Small bouncing down-arrow above companion
+    const arrowY = (cy - COMPANION_SIZE - 10 - Math.sin(this._introTimer * 5) * 4) | 0;
+    ctx.globalAlpha = 0.5 + pulse * 0.3;
+    ctx.fillStyle = comp.glowColor;
+    ctx.beginPath();
+    ctx.moveTo(pos.x, arrowY + 6);
+    ctx.lineTo(pos.x - 4, arrowY);
+    ctx.lineTo(pos.x + 4, arrowY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /** Draw sparkle particles orbiting each companion (tier 3+ escalation). */
+  _drawOrbitSparkles(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._companionStates.length; i++) {
+      const cs = this._companionStates[i];
+      const pos = this._positions[i];
+      const comp = COMPANIONS[i];
+      const t = cs.orbitSparkleTimer;
+      if (t <= 0) continue;
+
+      const numSparkles = 5;
+      for (let j = 0; j < numSparkles; j++) {
+        const angle = (j / numSparkles) * Math.PI * 2 + t * 2.5;
+        const orbitR = COMPANION_SIZE * 0.8 + Math.sin(t * 1.5 + j) * 4;
+        const sx = (pos.x + Math.cos(angle) * orbitR) | 0;
+        const sy = (pos.y + cs.bobY + Math.sin(angle) * orbitR * 0.6) | 0;
+        const sparkleAlpha = 0.4 + Math.sin(t * 3 + j * 1.7) * 0.3;
+
+        ctx.globalAlpha = Math.max(0, Math.min(1, sparkleAlpha));
+        ctx.fillStyle = comp.glowColor;
+        // Star-shaped sparkle: draw a small + shape
+        ctx.fillRect(sx - 1, sy, 3, 1);
+        ctx.fillRect(sx, sy - 1, 1, 3);
+      }
+    }
     ctx.restore();
   }
 
@@ -704,6 +1003,8 @@ export default class CompanionSelectScene {
     for (let i = 0; i < this._companionStates.length; i++) {
       const cs = this._companionStates[i];
       if (cs.tapped || i === this._selectedIndex) continue;
+      // During showcase, the showcased companion already has effects
+      if (this._showcaseActive && i === this._showcaseIndex) continue;
 
       const pos = this._positions[i];
       const comp = COMPANIONS[i];
