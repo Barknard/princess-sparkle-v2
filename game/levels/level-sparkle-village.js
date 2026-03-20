@@ -61,55 +61,75 @@ function grid(rows) {
 // ── Tile ID aliases (Kenney Tiny Town — 12 cols x 11 rows) ─────────────────
 //
 // GROUND TILES — fill every cell, grass dominant
-const GR  = 37;   // plain grass (60% of ground)
-const GR2 = 38;   // grass variant (30% of ground)
-const GF  = 43;   // grass with small flowers (10% of ground)
-const DP  = 40;   // dirt path center
-const DPH = 39;   // dirt path edge (horizontal/left)
-const DPV = 41;   // dirt path edge (right/vertical)
-const DPX = 42;   // dirt path edge (vertical transitions)
+// Verified against visual inspection of tilemap_packed.png
+const GR  = 1;    // plain grass — Row 0, Col 1 (light green)
+const GR2 = 2;    // grass with tiny flowers — Row 0, Col 2
+const GF  = 2;    // same as GR2 (flower grass accent)
+const DP  = 24;   // dirt path center — Row 2, Col 0
+const DPT = 25;   // path edge top (grass above)
+const DPR = 26;   // path edge right (grass right)
+const DPB = 28;   // path edge bottom (grass below)
+const DPL = 32;   // path edge left (grass left)
+const CTL = 33;   // path corner top-left
+const CTR = 27;   // path corner top-right
+const CBL = 36;   // path corner bottom-left
+const CBR = 29;   // path corner bottom-right
+const TJR = 30;   // path T-junction (opening right)
+const TJT = 34;   // path T-junction (opening top)
+const TJL = 35;   // path T-junction (opening left)
+const TJB = 37;   // path T-junction (opening bottom)
+const CRS = 31;   // path crossroads
 
 // EMPTY (for object/foreground layers)
 const E   = -1;
 
 // TREE TILES (objects layer = trunks, foreground layer = canopies)
-const TT1 = 0;    // tree canopy — large round green (top-left of 2x2)
-const TT2 = 1;    // tree canopy — large round green (top-right of 2x2)
-const TT3 = 2;    // tree canopy — with yellow flowers
-const TT4 = 4;    // tree canopy — darker evergreen
-const TB1 = 12;   // tree bottom-left (trunk + lower leaves)
-const TB2 = 13;   // tree bottom-right (trunk + lower leaves)
+// Row 0: canopy tops, Row 1: trunks/bottoms
+const TT1 = 4;    // tree canopy top-left (round green) — Row 0, Col 4
+const TT2 = 5;    // tree canopy top-right (round green) — Row 0, Col 5
+const TT3 = 7;    // tree canopy top-left (orange/autumn) — Row 0, Col 7
+const TT4 = 10;   // pine tree top — Row 0, Col 10
+const TB1 = 12;   // tree trunk-left — Row 1, Col 0
+const TB2 = 13;   // tree trunk-right — Row 1, Col 1
 
 // BUSHES AND SMALL PLANTS
-const BSH = 6;    // round bush (green)
-const BS2 = 7;    // small bush variant
-const PLT = 18;   // small plant/fern
-const PL2 = 19;   // small flower plant (purple blooms)
-const FLW = 29;   // red flowers / berries
+const BSH = 14;   // bush/shrub — Row 1, Col 2
+const BS2 = 17;   // dark bush — Row 1, Col 5
+const PLT = 6;    // small full tree (1 tile) — Row 0, Col 6
+const PL2 = 9;    // small orange tree (1 tile) — Row 0, Col 9
+const FLW = 116;  // red flowers — Row 9, Col 8
 
-// ROOFS — RED/ORANGE
-const RFL = 63;   // roof left slope
-const RFM = 64;   // roof middle
-const RFR = 65;   // roof right slope
-const RFK = 67;   // roof peak/chimney cap
+// ROOFS — BROWN (Row 5: IDs 60-71)
+const RFL = 60;   // roof top-left — Row 5, Col 0
+const RFM = 61;   // roof top-center — Row 5, Col 1
+const RFR = 62;   // roof top-right — Row 5, Col 2
+const RFK = 66;   // chimney — Row 5, Col 6
 
-// WALLS — WOOD (warm brown)
-const WLL = 72;   // wood wall left edge
-const WLM = 73;   // wood wall mid (plain)
-const WLW = 75;   // wood wall with window
-const WLD = 74;   // wood wall with door
+// WALLS — WOOD (Row 6: IDs 72-83)
+const WLL = 72;   // wood wall left — Row 6, Col 0
+const WLM = 73;   // wood wall center — Row 6, Col 1
+const WLW = 76;   // wood wall with window — Row 6, Col 4
+const WLD = 75;   // wood door — Row 6, Col 3
 
-// WALLS — STONE/BRICK (Baker's shop for variety)
-const SWL = 84;   // dark stone wall left
-const SWM = 85;   // dark stone wall mid
-const SWW = 87;   // dark stone wall with window
-const SWD = 86;   // dark stone wall with door
+// WALLS — STONE (Row 7: IDs 84-95)
+const SWL = 78;   // stone wall left — Row 6, Col 6
+const SWM = 79;   // stone wall center — Row 6, Col 7
+const SWW = 82;   // stone window — Row 6, Col 10
+const SWD = 81;   // stone door — Row 6, Col 9
 
-// FENCES — WHITE PICKET
-const FNL = 96;   // fence left end
-const FNM = 97;   // fence mid section
-const FNR = 98;   // fence right end
-const FNP = 108;  // fence post (vertical)
+// FENCES (Row 4: IDs 48-59)
+const FNH = 48;   // fence horizontal — Row 4, Col 0
+const FNV = 49;   // fence vertical — Row 4, Col 1
+const FCT = 50;   // fence corner top-left — Row 4, Col 2
+const FCR = 51;   // fence corner top-right — Row 4, Col 3
+const FCB = 52;   // fence corner bottom-left — Row 4, Col 4
+const FCD = 53;   // fence corner bottom-right — Row 4, Col 5
+const FGT = 54;   // fence gate — Row 4, Col 6
+// Aliases for backward compat with old names used in grid
+const FNL = FCT;  // fence left = corner TL
+const FNM = FNH;  // fence mid = horizontal
+const FNR = FCR;  // fence right = corner TR
+const FNP = FNV;  // fence post = vertical
 
 // WATER TILES (objects layer — drawn on top of grass ground)
 const WTL = 109;  // water edge top-left

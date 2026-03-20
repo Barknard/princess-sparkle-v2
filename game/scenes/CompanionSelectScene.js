@@ -14,6 +14,7 @@
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
 import { playVoice, preloadVoices, SCENE_VOICES } from '../data/voiceIndex.js';
+import spriteSheets from '../data/SpriteSheetManager.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -465,16 +466,33 @@ export default class CompanionSelectScene {
     ctx.restore();
     ctx.globalAlpha = cs.alpha;
 
-    // Companion placeholder sprites (each creature drawn differently)
+    // Draw companion sprite (real art if loaded, placeholder otherwise)
     const lx = (cx - halfSize) | 0;
     const ly = (cy - halfSize) | 0;
 
-    switch (comp.id) {
-      case 'shimmer': this._drawShimmer(ctx, lx, ly, size); break;
-      case 'ember':   this._drawEmber(ctx, lx, ly, size); break;
-      case 'petal':   this._drawPetal(ctx, lx, ly, size); break;
-      case 'breeze':  this._drawBreeze(ctx, lx, ly, size); break;
-      case 'pip':     this._drawPip(ctx, lx, ly, size); break;
+    // Map companion IDs to sprite names
+    const COMP_SPRITES = {
+      shimmer: 'unicorn',
+      ember: 'dragon',
+      petal: 'bunny',
+      breeze: 'butterfly',
+      pip: 'fox',
+    };
+
+    const spriteName = COMP_SPRITES[comp.id];
+    if (spriteName && spriteSheets.loaded && spriteSheets.getSpriteRect(spriteName)) {
+      // Draw real sprite scaled up from 16x16 to display size
+      const spriteScale = size / 16;
+      spriteSheets.draw(ctx, spriteName, lx, ly, { scale: spriteScale });
+    } else {
+      // Fallback to procedural placeholder
+      switch (comp.id) {
+        case 'shimmer': this._drawShimmer(ctx, lx, ly, size); break;
+        case 'ember':   this._drawEmber(ctx, lx, ly, size); break;
+        case 'petal':   this._drawPetal(ctx, lx, ly, size); break;
+        case 'breeze':  this._drawBreeze(ctx, lx, ly, size); break;
+        case 'pip':     this._drawPip(ctx, lx, ly, size); break;
+      }
     }
 
     // Wave goodbye animation

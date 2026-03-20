@@ -26,7 +26,7 @@ const SHEET_META = {
   dungeon:   { tileW: 16, tileH: 16, cols: 12, rows: 11, spacing: 0 }, // packed = no spacing
   creatures: { tileW: 16, tileH: 16, cols: 10, rows: 18, spacing: 0 },
   rpg8bit:   { tileW: 16, tileH: 16, cols: 16, rows: 8, spacing: 0 },
-  unicornRun:{ tileW: 16, tileH: 16, cols: 4, rows: 1, spacing: 0 },  // 4-frame strip
+  unicornRun:{ tileW: 16, tileH: 16, cols: 4, rows: 1, spacing: 1 },  // 4-frame strip with 1px separators
 };
 
 // ── Sprite definitions: name -> { sheet, tileIndex (0-based in packed) } ────
@@ -362,7 +362,7 @@ class SpriteSheetManager {
 
     const meta = SHEET_META.unicornRun;
     const col = frame % meta.cols;
-    const sx = col * meta.tileW;
+    const sx = col * (meta.tileW + meta.spacing);
     const sy = 0;
 
     if (flipX) {

@@ -44,19 +44,22 @@ export function tryLoadImage(path) {
     try {
       const img = new Image();
 
-      img.addEventListener('load', function onLoad() {
+      function onLoad() {
         img.removeEventListener('load', onLoad);
-        img.removeEventListener('error', onError);
+        img.removeEventListener('error', onErr);
         _cache.set(path, img);
         resolve(img);
-      }, { once: true });
+      }
 
-      img.addEventListener('error', function onError() {
+      function onErr() {
         img.removeEventListener('load', onLoad);
-        img.removeEventListener('error', onError);
+        img.removeEventListener('error', onErr);
         _cache.set(path, null);
         resolve(null);
-      }, { once: true });
+      }
+
+      img.addEventListener('load', onLoad, { once: true });
+      img.addEventListener('error', onErr, { once: true });
 
       img.src = path;
     } catch (err) {
@@ -85,19 +88,22 @@ export function tryLoadAudio(path) {
       const audio = new Audio();
       audio.preload = 'auto';
 
-      audio.addEventListener('canplaythrough', function onLoad() {
-        audio.removeEventListener('canplaythrough', onLoad);
-        audio.removeEventListener('error', onError);
+      function onAudioLoad() {
+        audio.removeEventListener('canplaythrough', onAudioLoad);
+        audio.removeEventListener('error', onAudioErr);
         _cache.set(path, audio);
         resolve(audio);
-      }, { once: true });
+      }
 
-      audio.addEventListener('error', function onError() {
-        audio.removeEventListener('canplaythrough', onLoad);
-        audio.removeEventListener('error', onError);
+      function onAudioErr() {
+        audio.removeEventListener('canplaythrough', onAudioLoad);
+        audio.removeEventListener('error', onAudioErr);
         _cache.set(path, null);
         resolve(null);
-      }, { once: true });
+      }
+
+      audio.addEventListener('canplaythrough', onAudioLoad, { once: true });
+      audio.addEventListener('error', onAudioErr, { once: true });
 
       audio.src = path;
       audio.load();
