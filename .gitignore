@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# Test screenshots (don't commit these)
+test-*.png
+test2-*.png
+r2-*.png
+r3-*.png
+final-*.png
+FINAL-*.png
+review-*.png
+polish-*.png
+playtest-*.png
