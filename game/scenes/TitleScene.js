@@ -33,7 +33,7 @@ function easeInOutCubic(t) {
 // ---- Constants --------------------------------------------------------------
 
 // Phase durations in seconds
-const PHASE_DURATIONS = [3, 7, 10, 8, 5, 9, Infinity]; // phase 6 waits for tap
+const PHASE_DURATIONS = [3, 7, 10, 8, 5, 9, 5]; // phase 6 auto-advances after 5s (tap speeds it up)
 const CONTINUE_DURATION = 3; // compressed returning-player intro
 
 // Colors
@@ -340,9 +340,16 @@ export default class TitleScene {
       case 6: this._updatePhase6(dt); break; // Tap the sparkle
     }
 
-    // Auto-advance phases (except phase 6 which waits for tap)
-    if (this._phase < 6 && this._phaseTimer >= PHASE_DURATIONS[this._phase]) {
-      this._advancePhase();
+    // Auto-advance all phases (including phase 6 — toddler doesn't need to tap)
+    if (this._phaseTimer >= PHASE_DURATIONS[this._phase]) {
+      if (this._phase === 6) {
+        // Phase 6 auto-advance: treat as if sparkle was tapped
+        if (!this._sparkleTapped && !this._burstActive) {
+          this._onSparkleTapped();
+        }
+      } else {
+        this._advancePhase();
+      }
     }
 
     // Update particles
@@ -457,18 +464,9 @@ export default class TitleScene {
         }
       }
 
-      // Check for tap on sparkle (generous touch target)
+      // Tap ANYWHERE to advance (toddler-friendly — no precision needed)
       if (this._inputManager && this._inputManager.tapped) {
-        const tx = this._inputManager.x;
-        const ty = this._inputManager.y;
-        const cx = LOGICAL_WIDTH / 2;
-        const bobY = Math.sin(this._sparkleTimer * SPARKLE_BOB_SPEED) * SPARKLE_BOB_AMOUNT;
-        const cy = LOGICAL_HEIGHT / 2 + bobY;
-        const dist = Math.hypot(tx - cx, ty - cy);
-
-        if (dist < SPARKLE_SIZE) {
-          this._onSparkleTapped();
-        }
+        this._onSparkleTapped();
       }
     }
 
@@ -735,10 +733,10 @@ export default class TitleScene {
     const bandGap = 1;               // tiny gap between bands for definition
     const totalBandStep = bandWidth + bandGap;
     const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
-    // Place arc center below the screen top so the arc spans most of the width
-    const arcCenterY = (LOGICAL_HEIGHT * 0.65) | 0;
-    // Radius chosen so the arc feet are at ~10% and ~90% of screen width
-    const outerRadius = (LOGICAL_WIDTH * 0.45) | 0;
+    // Place arc center high enough that the full arc is visible in the upper sky
+    const arcCenterY = (LOGICAL_HEIGHT * 0.78) | 0;
+    // Radius spans full width: arc feet at left and right edges
+    const outerRadius = (LOGICAL_WIDTH * 0.52) | 0;
 
     ctx.save();
 
@@ -798,8 +796,8 @@ export default class TitleScene {
     const bandGap = 1;
     const totalBandStep = bandWidth + bandGap;
     const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
-    const arcCenterY = (LOGICAL_HEIGHT * 0.65) | 0;
-    const outerRadius = (LOGICAL_WIDTH * 0.45) | 0;
+    const arcCenterY = (LOGICAL_HEIGHT * 0.78) | 0;
+    const outerRadius = (LOGICAL_WIDTH * 0.52) | 0;
     const r = outerRadius - bandIndex * totalBandStep;
 
     // Position at the leading edge of the arc
@@ -889,13 +887,24 @@ export default class TitleScene {
       }
     }
 
-    // Dirt path
+    // Dirt path — narrow winding trail through the village
     ctx.fillStyle = '#d4b896';
-    ctx.fillRect(200, baseY | 0, 80, LOGICAL_HEIGHT);
+    const pathW = 28;
+    const pathX = 226; // centered in the old 200-280 region
+    ctx.fillRect(pathX, baseY | 0, pathW, LOGICAL_HEIGHT);
+    // Slight curve with two offset segments for a winding feel
+    ctx.fillRect((pathX - 8) | 0, (baseY + 20) | 0, pathW, 30);
+    ctx.fillRect((pathX + 6) | 0, (baseY + 60) | 0, pathW, 30);
     // Path edge highlights
     ctx.fillStyle = '#c9a87c';
-    ctx.fillRect(198, baseY | 0, 2, LOGICAL_HEIGHT);
-    ctx.fillRect(280, baseY | 0, 2, LOGICAL_HEIGHT);
+    ctx.fillRect((pathX - 1) | 0, baseY | 0, 2, LOGICAL_HEIGHT);
+    ctx.fillRect((pathX + pathW - 1) | 0, baseY | 0, 2, LOGICAL_HEIGHT);
+    // Pebble details
+    ctx.fillStyle = '#c0a070';
+    ctx.fillRect((pathX + 8) | 0, (baseY + 10) | 0, 3, 2);
+    ctx.fillRect((pathX + 16) | 0, (baseY + 28) | 0, 2, 2);
+    ctx.fillRect((pathX + 5) | 0, (baseY + 50) | 0, 3, 2);
+    ctx.fillRect((pathX + 20) | 0, (baseY + 70) | 0, 2, 2);
 
     // Houses (simple colored rectangles with roofs)
     const houses = [
@@ -1119,12 +1128,20 @@ export default class TitleScene {
   _drawLargeSparkle(ctx) {
     const cx = (LOGICAL_WIDTH / 2) | 0;
     const bobY = Math.sin(this._sparkleTimer * SPARKLE_BOB_SPEED) * SPARKLE_BOB_AMOUNT;
-    const cy = ((LOGICAL_HEIGHT / 2) + bobY) | 0;
+    // Position sparkle in the upper sky area so it's visible above the village
+    const cy = ((LOGICAL_HEIGHT * 0.3) + bobY) | 0;
     const pulse = Math.sin(this._sparkleTimer * Math.PI * 2 / SPARKLE_PULSE_CYCLE) * 0.5 + 0.5;
     const scale = SPARKLE_MIN_SCALE + (SPARKLE_MAX_SCALE - SPARKLE_MIN_SCALE) * pulse;
     const size = SPARKLE_VISUAL_SIZE * scale;
 
     ctx.save();
+
+    // Soft dark backing circle for contrast against any background
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#1a0033';
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 2.5, 0, Math.PI * 2);
+    ctx.fill();
 
     // Golden glow ring that expands and contracts
     const ringScale = SPARKLE_GLOW_RING_MIN + (SPARKLE_GLOW_RING_MAX - SPARKLE_GLOW_RING_MIN) * pulse;
@@ -1256,8 +1273,8 @@ export default class TitleScene {
     this._burstActive = true;
     this._burstTimer = 0;
 
-    // Emit rainbow burst
-    this._emitBurst(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+    // Emit rainbow burst at sparkle's visual position (upper sky)
+    this._emitBurst(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT * 0.3);
 
     // Play pop-chime SFX
     if (this._audioManager) {
