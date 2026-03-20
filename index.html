@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Princess Twinkle Intro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Princess Sparkle" />
+  <link rel="apple-touch-icon" href="images/ps-hello.png" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Princess Sparkle</title>
   <link rel="stylesheet" href="plugin.css">
   <style>
     html, body { height: 100%; margin: 0; }
@@ -66,6 +71,7 @@
 <body>
   <div id="stage"></div>
   <button id="startBtn"><span class="sparkle">✨</span> Start Night-Time Activity Planner <span class="sparkle">✨</span></button>
+  <script src="update-checker.js"></script>
   <script src="PrincessSparkle.js"></script>
   <script>
   (function(){
