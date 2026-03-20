@@ -185,6 +185,55 @@ export default class TileMap {
   }
 
   /**
+   * Draw a named layer using raw canvas context and pixel-space camera.
+   * Used by OverworldScene which manages its own camera transform.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} layerName - 'ground', 'objects', or 'foreground'
+   * @param {number} camPxX - Camera X in pixels
+   * @param {number} camPxY - Camera Y in pixels
+   * @param {number} screenW - Screen width in pixels
+   * @param {number} screenH - Screen height in pixels
+   */
+  drawLayer(ctx, layerName, camPxX, camPxY, screenW, screenH) {
+    if (!this.tileset || !this.tileset.loaded) return;
+
+    let layer = null;
+    switch (layerName) {
+      case 'ground':     layer = this.groundLayer; break;
+      case 'objects':    layer = this.objectLayer; break;
+      case 'foreground': layer = this.foregroundLayer; break;
+      default: return;
+    }
+    if (!layer) return;
+
+    const ts = this.tileset;
+    const w = this.width;
+    const startTX = Math.max(0, (camPxX / TILE) | 0);
+    const startTY = Math.max(0, (camPxY / TILE) | 0);
+    const endTX = Math.min(w, startTX + Math.ceil(screenW / TILE) + 2);
+    const endTY = Math.min(this.height, startTY + Math.ceil(screenH / TILE) + 2);
+
+    for (let ty = startTY; ty < endTY; ty++) {
+      for (let tx = startTX; tx < endTX; tx++) {
+        const tileId = layer[ty * w + tx];
+        if (tileId < 0) continue;
+        // Note: OverworldScene applies ctx.translate(-camX,-camY) so we draw at world coords
+        ts.drawTile(ctx, tileId, tx * TILE, ty * TILE);
+      }
+    }
+  }
+
+  /** World width in pixels. */
+  get widthPx() {
+    return this.width * TILE;
+  }
+
+  /** World height in pixels. */
+  get heightPx() {
+    return this.height * TILE;
+  }
+
+  /**
    * Get the tile ID at a specific layer and position.
    * @param {string} layer - 'ground', 'objects', or 'foreground'
    * @param {number} tx

@@ -97,6 +97,21 @@ export default class SaveManager {
   }
 
   /**
+   * Set the chosen companion. Convenience wrapper for set().
+   * @param {string} companionId
+   */
+  setCompanion(companionId) {
+    this.set({ companionId });
+  }
+
+  /**
+   * Save current state. Alias for _persist (re-writes current data).
+   */
+  save() {
+    this._persist();
+  }
+
+  /**
    * Reset save data (delete the save file).
    */
   reset() {

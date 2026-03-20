@@ -887,7 +887,7 @@ export default class TitleScene {
     }
     // Fallback: check localStorage directly
     try {
-      return localStorage.getItem('princess_sparkle_save') !== null;
+      return localStorage.getItem('sparkle-save') !== null;
     } catch (e) {
       return false;
     }

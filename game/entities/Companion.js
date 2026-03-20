@@ -140,10 +140,30 @@ export default class Companion {
   }
 
   /**
+   * Convenience follow method for OverworldScene.
+   * Sets target position and lerps toward it.
+   * @param {number} targetX - Player X position
+   * @param {number} targetY - Player Y position
+   * @param {number} dt - Delta time in seconds
+   */
+  follow(targetX, targetY, dt) {
+    this.prevX = this.x;
+    this.prevY = this.y;
+    this._targetX = targetX + FOLLOW_OFFSET_X;
+    this._targetY = targetY + FOLLOW_OFFSET_Y;
+    this.x += (this._targetX - this.x) * LERP_FACTOR;
+    this.y += (this._targetY - this.y) * LERP_FACTOR;
+    const moveDx = this.x - this.prevX;
+    if (Math.abs(moveDx) > 0.001) {
+      this.flipX = moveDx < 0;
+    }
+  }
+
+  /**
    * Update companion each frame.
    * @param {number} dt - Delta time in seconds
-   * @param {import('./Player.js').default} player - The princess
-   * @param {import('./ParticleSystem.js').default|null} particles - Particle system
+   * @param {import('./Player.js').default} [player] - The princess
+   * @param {import('./ParticleSystem.js').default|null} [particles] - Particle system
    */
   update(dt, player, particles) {
     const dtMs = dt * 1000;
@@ -152,8 +172,10 @@ export default class Companion {
     this.prevX = this.x;
     this.prevY = this.y;
 
-    // Calculate follow target based on player direction
-    this._calculateFollowTarget(player);
+    // Calculate follow target based on player direction (if player provided)
+    if (player) {
+      this._calculateFollowTarget(player);
+    }
 
     // Lerp toward target
     this.x += (this._targetX - this.x) * LERP_FACTOR;

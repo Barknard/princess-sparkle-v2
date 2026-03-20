@@ -4,9 +4,15 @@
  * Maps sound IDs to file paths for all game SFX.
  * See audio/sfx/SOURCES.md for licensing and attribution details.
  *
+ * AUTO-DISCOVERY: If an SFX ID isn't in this index, the system tries
+ * to load it by convention: audio/sfx/{category}/{id}.mp3
+ * Drop a new sound file in the right folder and it just works.
+ *
  * Audio specs: MP3, 44100 Hz, mono, 64 kbps, normalized to -12dB
  * All frequencies filtered to 80-4000 Hz range (child-safe).
  */
+
+import { tryLoadAudio } from './assetDiscovery.js';
 
 export const SFX = {
   // === Movement ===
@@ -100,3 +106,93 @@ export const STEPPING_STONE_SCALE = [
   'steppingStoneG',
   'steppingStoneA',
 ];
+
+// ══════════════════════════════════════════════════════════════
+// Auto-discovery fallback
+// ══════════════════════════════════════════════════════════════
+
+// Cache for discovered SFX not in the index
+const _discoveredSFX = {};
+
+/**
+ * SFX category folders — used for convention-based auto-discovery.
+ * When an SFX ID isn't found in the index, we try each category folder.
+ */
+const SFX_CATEGORY_FOLDERS = [
+  'movement', 'social', 'items', 'quest', 'reward',
+  'companion', 'world', 'animal', 'silly', 'music', 'session',
+];
+
+/**
+ * Get the path for an SFX ID.
+ *
+ * Fast path: looks up the hardcoded SFX index first.
+ * Fallback: if not found, returns null (use discoverSFX for auto-discovery).
+ *
+ * @param {string} id - SFX identifier (e.g. 'footstepGrass')
+ * @returns {string|null} File path or null
+ */
+export function getSFXPath(id) {
+  if (SFX[id]) return SFX[id];
+  if (_discoveredSFX[id]) return _discoveredSFX[id];
+  return null;
+}
+
+/**
+ * Try to auto-discover an SFX file by convention.
+ *
+ * If the ID is in the index, returns its path immediately.
+ * If not, tries audio/sfx/{category}/{id}.mp3 for each known category.
+ * If a specific category is provided, only tries that one.
+ *
+ * Results are cached so each ID is only probed once.
+ *
+ * @param {string} id - SFX identifier (e.g. 'bell-chime')
+ * @param {string} [category] - Optional category hint (e.g. 'world')
+ * @returns {Promise<HTMLAudioElement|null>}
+ */
+export async function discoverSFX(id, category) {
+  // Fast path: already in index
+  if (SFX[id]) {
+    try {
+      return await tryLoadAudio(SFX[id]);
+    } catch (err) {
+      console.warn(`sfxIndex: Failed to load indexed SFX "${id}":`, err);
+      return null;
+    }
+  }
+
+  // Already discovered
+  if (_discoveredSFX[id] !== undefined) {
+    if (_discoveredSFX[id] === null) return null;
+    try {
+      return await tryLoadAudio(_discoveredSFX[id]);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // Try specific category first if provided
+  const categoriesToTry = category
+    ? [category, ...SFX_CATEGORY_FOLDERS.filter(c => c !== category)]
+    : SFX_CATEGORY_FOLDERS;
+
+  for (const cat of categoriesToTry) {
+    const path = `./audio/sfx/${cat}/${id}.mp3`;
+    try {
+      const audio = await tryLoadAudio(path);
+      if (audio) {
+        _discoveredSFX[id] = path;
+        console.log(`sfxIndex: Auto-discovered SFX "${id}" at ${path}`);
+        return audio;
+      }
+    } catch (err) {
+      // Continue to next category
+    }
+  }
+
+  // Not found in any category
+  _discoveredSFX[id] = null;
+  console.warn(`sfxIndex: SFX "${id}" not found in index or by convention`);
+  return null;
+}

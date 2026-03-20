@@ -14,6 +14,12 @@ import AssetLoader from './engine/AssetLoader.js';
 import Camera from './engine/Camera.js';
 import SaveManager from './engine/SaveManager.js';
 import TransitionOverlay from './engine/TransitionOverlay.js';
+import TitleScene from './scenes/TitleScene.js';
+import CompanionSelectScene from './scenes/CompanionSelectScene.js';
+import OverworldScene from './scenes/OverworldScene.js';
+import DialogueScene from './scenes/DialogueScene.js';
+import QuestCompleteScene from './scenes/QuestCompleteScene.js';
+import WindDownScene from './scenes/WindDownScene.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -84,58 +90,21 @@ function draw() {
   sceneManager.draw(renderer);
 }
 
-// ── Placeholder boot scene ─────────────────────────────────────────────────
-// This is a minimal scene so the engine has something to display immediately.
-// It will be replaced by TitleScene once scenes are built.
+// ── Register scenes ────────────────────────────────────────────────────────
 
-const BootScene = {
-  _timer: 0,
-  _sparkleAlpha: 0,
+sceneManager.setGame(game);
+sceneManager.register('Title', () => new TitleScene());
+sceneManager.register('CompanionSelect', () => new CompanionSelectScene());
+sceneManager.register('Overworld', () => new OverworldScene());
+sceneManager.register('Dialogue', () => new DialogueScene());
+sceneManager.register('QuestComplete', () => new QuestCompleteScene());
+sceneManager.register('WindDown', () => new WindDownScene());
 
-  init() {
-    this._timer = 0;
-    this._sparkleAlpha = 0;
-  },
+// ── Start with TitleScene ──────────────────────────────────────────────────
 
-  enter() {},
-  exit() {},
-
-  update(dt) {
-    this._timer += dt;
-    // Gentle pulsing sparkle (matches OPENING-STORYBOARD MOMENT 0)
-    this._sparkleAlpha = 0.4 + 0.6 * Math.abs(Math.sin(this._timer * 2));
-  },
-
-  draw(r) {
-    // Soft pink background (#ffe0ec) per the storyboard
-    r.fillBackground('#ffe0ec');
-
-    // Center sparkle indicator
-    r.save();
-    r.setAlpha(this._sparkleAlpha);
-    r.fillRect(232, 152, 16, 16, '#ffffff');
-    r.restore();
-
-    // Engine ready text (temporary — will be replaced by proper title scene)
-    r.drawText('Princess Sparkle V2', 240, 140, {
-      font: '10px monospace',
-      color: '#9b59b6',
-      align: 'center',
-      baseline: 'bottom'
-    });
-
-    r.drawText('Engine Ready', 240, 180, {
-      font: '8px monospace',
-      color: '#c39bd3',
-      align: 'center',
-      baseline: 'top'
-    });
-  }
-};
-
-// ── Start! ─────────────────────────────────────────────────────────────────
-
-sceneManager.push(BootScene);
+const titleScene = new TitleScene();
+titleScene.init(game);
+sceneManager.push(titleScene);
 gameLoop.start(update, draw);
 
 export default game;

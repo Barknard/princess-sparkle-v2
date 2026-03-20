@@ -20,6 +20,78 @@ export default class SceneManager {
 
     // Pending scene operation during transition
     this._pendingOp = null;
+
+    // Scene registry: name -> factory function that returns an init'd scene
+    /** @type {Map<string, Function>} */
+    this._registry = new Map();
+
+    // Game systems reference (set via setGame)
+    this._game = null;
+  }
+
+  /**
+   * Store a reference to the game systems object so scenes can be init'd.
+   * @param {object} game
+   */
+  setGame(game) {
+    this._game = game;
+  }
+
+  /**
+   * Register a scene factory.
+   * @param {string} name - Scene name (e.g. 'Title', 'CompanionSelect')
+   * @param {Function} factory - () => scene instance (constructor)
+   */
+  register(name, factory) {
+    this._registry.set(name, factory);
+  }
+
+  /**
+   * Create a scene by name from the registry, init it with game systems.
+   * @param {string} name
+   * @returns {object} Initialized scene
+   */
+  _createScene(name) {
+    const factory = this._registry.get(name);
+    if (!factory) {
+      throw new Error(`SceneManager: Unknown scene "${name}". Register it first.`);
+    }
+    const scene = factory();
+    if (scene.init && this._game) {
+      scene.init(this._game);
+    }
+    return scene;
+  }
+
+  /**
+   * Replace the entire stack with a named scene (convenience for scene switching).
+   * @param {string} name - Registered scene name
+   * @param {object} [params] - Optional params passed to scene.enter()
+   * @param {object} [options] - Transition options
+   */
+  switchTo(name, params, options) {
+    const scene = this._createScene(name);
+    // Store params so enter() can receive them
+    scene._enterParams = params || null;
+    this.clearAndPush(scene, options);
+  }
+
+  /**
+   * Push a named scene as a transparent overlay.
+   * @param {string} name
+   * @param {object} [params]
+   */
+  pushOverlay(name, params) {
+    const scene = this._createScene(name);
+    scene._enterParams = params || null;
+    this.push(scene, { transparent: true });
+  }
+
+  /**
+   * Pop the topmost overlay scene.
+   */
+  popOverlay() {
+    this.pop();
   }
 
   /** @returns {object|null} The top scene on the stack */
@@ -164,11 +236,12 @@ export default class SceneManager {
 
   // --- Internal methods ---
 
-  /** Push without transition. */
+  /** Push without transition. Scenes must be init'd before push. */
   _doPush(scene, transparent) {
-    if (scene.init) scene.init();
     this._stack.push({ scene, transparent });
-    if (scene.enter) scene.enter();
+    if (scene.enter) {
+      scene.enter(scene._enterParams || undefined);
+    }
   }
 
   /** Pop without transition. */

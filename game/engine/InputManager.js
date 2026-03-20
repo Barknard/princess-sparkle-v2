@@ -107,10 +107,24 @@ export default class InputManager {
   /**
    * Process and dispatch all queued events.
    * Call this once per frame from the game loop update.
+   * Also sets polling state (tapped, x, y) for scenes that poll input.
    */
   processEvents() {
+    // Reset per-frame polling state
+    this.tapped = false;
+    this.x = 0;
+    this.y = 0;
+
     for (let i = 0; i < this._eventQueue.length; i++) {
       const evt = this._eventQueue[i];
+
+      // Set polling state for TAP events (scenes can check this._inputManager.tapped)
+      if (evt.type === InputEvent.TAP) {
+        this.tapped = true;
+        this.x = evt.x;
+        this.y = evt.y;
+      }
+
       const listeners = this._listeners.get(evt.type);
       if (listeners) {
         for (let j = 0; j < listeners.length; j++) {

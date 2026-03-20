@@ -7,9 +7,15 @@
  * w/h are the full region size, frames is the number of animation frames,
  * and frameW is the width of each frame (w / frames).
  *
+ * AUTO-DISCOVERY: If a sprite name isn't in this index, the system tries
+ * to load it by convention: sprites/{name}.png
+ * Drop a new sprite file in the folder and it just works.
+ *
  * When using procedural sprites (sprites.js), these entries serve as
  * the canonical name-to-key mapping and metadata reference.
  */
+
+import { tryLoadImage } from './assetDiscovery.js';
 
 const SPRITE_INDEX = {
   // === Player ===
@@ -217,3 +223,101 @@ export function hasSprite(name) {
 }
 
 export default SPRITE_INDEX;
+
+// ══════════════════════════════════════════════════════════════
+// Auto-discovery fallback
+// ══════════════════════════════════════════════════════════════
+
+// Cache for discovered standalone sprite images not in the index
+const _discoveredSprites = {};
+
+/**
+ * Sprite folder conventions for auto-discovery.
+ * When a sprite name isn't in the index, we try these paths in order.
+ */
+const SPRITE_FOLDERS = [
+  './sprites/',
+  './sprites/portraits/',
+  './sprites/tilesets/',
+];
+
+/**
+ * Get sprite info by name, with auto-discovery fallback.
+ *
+ * Fast path: looks up the hardcoded SPRITE_INDEX first.
+ * Fallback: tries to load sprites/{name}.png as a standalone image.
+ * Returns the index entry if found, or a discovered image wrapper.
+ *
+ * @param {string} name - Sprite name
+ * @returns {object|null} Sprite info from index, or null (use discoverSprite for async)
+ */
+export function getSpriteWithFallback(name) {
+  // Fast path: in the index
+  if (SPRITE_INDEX[name]) return SPRITE_INDEX[name];
+
+  // Already discovered as standalone image
+  if (_discoveredSprites[name] !== undefined) {
+    return _discoveredSprites[name];
+  }
+
+  // Not found synchronously — caller should use discoverSprite() for async lookup
+  return null;
+}
+
+/**
+ * Try to auto-discover a standalone sprite image by convention.
+ *
+ * If the name is in the index, returns the index entry immediately.
+ * If not, tries:
+ *   1. sprites/{name}.png
+ *   2. sprites/portraits/{name}.png
+ *   3. sprites/tilesets/{name}.png
+ *
+ * On success, returns an object with { image, w, h, standalone: true }
+ * so callers can distinguish from spritesheet entries.
+ *
+ * Results are cached so each name is only probed once.
+ *
+ * @param {string} name - Sprite name (e.g. 'new-character')
+ * @returns {Promise<object|null>}
+ */
+export async function discoverSprite(name) {
+  // Fast path: in the index
+  if (SPRITE_INDEX[name]) return SPRITE_INDEX[name];
+
+  // Already discovered
+  if (_discoveredSprites[name] !== undefined) {
+    return _discoveredSprites[name];
+  }
+
+  // Try convention paths
+  for (const folder of SPRITE_FOLDERS) {
+    const path = `${folder}${name}.png`;
+    try {
+      const image = await tryLoadImage(path);
+      if (image) {
+        const entry = {
+          standalone: true,
+          image,
+          path,
+          w: image.naturalWidth || image.width,
+          h: image.naturalHeight || image.height,
+          frames: 1,
+          frameW: image.naturalWidth || image.width,
+          frameH: image.naturalHeight || image.height,
+          directions: 1,
+        };
+        _discoveredSprites[name] = entry;
+        console.log(`spriteIndex: Auto-discovered sprite "${name}" at ${path}`);
+        return entry;
+      }
+    } catch (err) {
+      // Continue to next folder
+    }
+  }
+
+  // Not found
+  _discoveredSprites[name] = null;
+  console.warn(`spriteIndex: Sprite "${name}" not found in index or by convention`);
+  return null;
+}

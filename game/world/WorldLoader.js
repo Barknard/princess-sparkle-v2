@@ -1,11 +1,18 @@
 /**
  * WorldLoader.js — Dynamic level loading for Princess Sparkle V2
  *
+ * AUTO-DISCOVERY: Levels follow the convention levels/level-{id}.js
+ * Drop a new level file in the folder and it loads automatically.
+ * No code changes needed. LevelRegistry.js is optional — used only
+ * for preloading hints and the map screen.
+ *
  * Uses dynamic import() to load level modules.
  * Caches loaded modules.
  * On load: passes data to TileMap, registers NPCs, loads quests.
  * Try/catch: failed loads show "That path is blocked today!" (never crash).
  */
+
+import { KNOWN_LEVELS } from './LevelRegistry.js';
 
 export default class WorldLoader {
   constructor() {
@@ -22,7 +29,15 @@ export default class WorldLoader {
   }
 
   /**
-   * Load a level by its module path.
+   * Load a level by its ID using convention-based auto-discovery.
+   *
+   * Resolution order:
+   *   1. Check cache (already loaded)
+   *   2. Try dynamic import: levels/level-{id}.js
+   *   3. On failure: show friendly message, return null
+   *
+   * The level does NOT need to be listed in LevelRegistry to load.
+   * Any file matching the convention works.
    *
    * @param {string} levelId - Level identifier (e.g., 'sparkle-village')
    * @param {object} systems - Game systems to populate
@@ -42,8 +57,8 @@ export default class WorldLoader {
       return data;
     }
 
-    // Build module path
-    const modulePath = `../../levels/level-${levelId}.js`;
+    // Auto-discover: try dynamic import by convention path
+    const modulePath = `../levels/level-${levelId}.js`;
 
     try {
       const module = await import(modulePath);
@@ -104,6 +119,56 @@ export default class WorldLoader {
     if (systems.dialogue && data.dialogues) {
       systems.dialogue.loadDialogues(data.dialogues);
     }
+  }
+
+  /**
+   * Get the list of known levels for preloading and map screen display.
+   * These are hints from LevelRegistry — the loader works without them.
+   *
+   * @returns {Array<{id: string, name: string, bgm?: string}>}
+   */
+  getKnownLevels() {
+    return KNOWN_LEVELS;
+  }
+
+  /**
+   * Preload a list of levels into cache (for upcoming area transitions).
+   * Silently skips any that fail to load.
+   *
+   * @param {string[]} levelIds - Array of level IDs to preload
+   * @returns {Promise<string[]>} IDs of levels that loaded successfully
+   */
+  async preload(levelIds) {
+    const loaded = [];
+    await Promise.all(levelIds.map(async (id) => {
+      if (this._cache.has(id)) {
+        loaded.push(id);
+        return;
+      }
+      try {
+        const modulePath = `../levels/level-${id}.js`;
+        const module = await import(modulePath);
+        const data = module.default || module;
+        if (data && data.width && data.height && data.ground) {
+          this._cache.set(id, data);
+          loaded.push(id);
+        }
+      } catch (err) {
+        console.warn(`WorldLoader: Preload skipped "${id}":`, err);
+      }
+    }));
+    return loaded;
+  }
+
+  /**
+   * Preload all known levels from the registry.
+   * Useful for small games where all levels fit in memory.
+   *
+   * @returns {Promise<string[]>} IDs of levels that loaded successfully
+   */
+  async preloadKnown() {
+    const ids = KNOWN_LEVELS.map(l => l.id);
+    return this.preload(ids);
   }
 
   /**

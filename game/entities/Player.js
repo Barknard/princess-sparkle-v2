@@ -89,6 +89,28 @@ export default class Player {
   }
 
   /**
+   * Move to a world pixel position (convenience wrapper).
+   * Creates a simple direct path (single waypoint).
+   * For proper pathfinding, use setPath() with MovementSystem output.
+   * @param {number} worldX - Target X in world pixels or tile coords
+   * @param {number} worldY - Target Y in world pixels or tile coords
+   */
+  moveTo(worldX, worldY) {
+    // Convert pixel coords to tile coords if needed (heuristic: >30 likely pixels)
+    const tx = worldX > 30 ? worldX / 16 : worldX;
+    const ty = worldY > 30 ? worldY / 16 : worldY;
+    this.setPath([{ x: tx, y: ty }]);
+  }
+
+  /**
+   * Whether the player is currently moving.
+   * @returns {boolean}
+   */
+  get isMoving() {
+    return this.state === PlayerState.WALKING;
+  }
+
+  /**
    * Cancel current movement and go idle.
    */
   stopMoving() {

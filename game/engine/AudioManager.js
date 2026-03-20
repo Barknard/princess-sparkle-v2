@@ -244,6 +244,21 @@ export default class AudioManager {
   }
 
   /**
+   * Convenience method: play a named audio asset.
+   * If the name starts with 'bgm_', plays as BGM with crossfade.
+   * Otherwise plays as a one-shot SFX.
+   * @param {string} name - Asset name
+   */
+  play(name) {
+    if (!name) return;
+    if (name.startsWith('bgm_')) {
+      this.playBGM(name);
+    } else {
+      this.playSFX(name);
+    }
+  }
+
+  /**
    * Set BGM volume (0-1).
    * @param {number} vol
    */
