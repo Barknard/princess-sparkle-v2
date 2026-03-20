@@ -22,10 +22,14 @@ const BOX_X = BOX_MARGIN_X;
 const BOX_W = LOGICAL_WIDTH - BOX_MARGIN_X * 2;
 const CORNER_RADIUS = 10;
 
-const PORTRAIT_SIZE = 40;
+const PORTRAIT_SIZE = 48;           // 48x48 minimum — prominent speaker face
 const PORTRAIT_PAD = 8;
 const PORTRAIT_X = BOX_X + PORTRAIT_PAD;
 const PORTRAIT_Y = BOX_Y + (BOX_HEIGHT - PORTRAIT_SIZE) / 2;
+
+// Bounce animation when voice finishes (tells child "tap to continue")
+const BOUNCE_DURATION_S = 0.4;
+const BOUNCE_HEIGHT = 4;
 
 // Glow pulse parameters
 const GLOW_MIN_ALPHA = 0.15;
@@ -73,7 +77,13 @@ export default class DialogueBox {
     // Glow pulse timer
     this._glowTimer = 0;
 
-    // Choice buttons (icon-based, 80px min touch target)
+    // Bounce state (triggers when voice stops to invite tap-to-continue)
+    this._bouncing = false;
+    this._bounceTimer = 0;
+    this._bounceY = 0;
+    this._prevVoicePlaying = false;
+
+    // Choice buttons (icon-based, 64x64 minimum touch target for 4yo)
     /** @type {Array<{id: string, icon: HTMLImageElement|null, iconSrc: object|null, x: number, y: number, w: number, h: number}>} */
     this._choices = [];
 
@@ -127,7 +137,7 @@ export default class DialogueBox {
    */
   setChoices(choices) {
     const count = choices.length;
-    const btnW = 80;
+    const btnW = 80;    // touch target size (generous for small fingers)
     const btnH = 80;
     const gap = 16;
     const totalW = count * btnW + (count - 1) * gap;
@@ -138,7 +148,6 @@ export default class DialogueBox {
       id: c.id,
       icon: c.icon || null,
       iconSrc: c.iconSrc || null,
-      label: c.label || '',
       x: (startX + i * (btnW + gap)) | 0,
       y: btnY,
       w: btnW,
@@ -183,6 +192,25 @@ export default class DialogueBox {
     // Glow timer
     this._glowTimer += dt;
 
+    // Detect voice-stop transition: trigger bounce to say "tap to continue"
+    if (this._prevVoicePlaying && !this._voicePlaying) {
+      this._bouncing = true;
+      this._bounceTimer = 0;
+    }
+    this._prevVoicePlaying = this._voicePlaying;
+
+    // Bounce animation
+    if (this._bouncing) {
+      this._bounceTimer += dt;
+      if (this._bounceTimer < BOUNCE_DURATION_S) {
+        const t = this._bounceTimer / BOUNCE_DURATION_S;
+        this._bounceY = -Math.abs(Math.sin(t * Math.PI)) * BOUNCE_HEIGHT;
+      } else {
+        this._bouncing = false;
+        this._bounceY = 0;
+      }
+    }
+
     // Fade
     if (this._fading === 'in') {
       this._fadeTimer += dt * 1000;
@@ -215,75 +243,111 @@ export default class DialogueBox {
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // ---- Glow effect (behind the box) while voice plays -----------------
+    // Apply bounce offset to the entire box
+    const boxOffsetY = this._bounceY | 0;
+
+    // ---- Pulsing wave/glow while voice plays (shows "someone is talking") --
     if (this._voicePlaying) {
       const pulse = Math.sin(this._glowTimer * Math.PI * 2 / GLOW_CYCLE_S);
       const glowA = GLOW_MIN_ALPHA + (GLOW_MAX_ALPHA - GLOW_MIN_ALPHA) * (pulse * 0.5 + 0.5);
       ctx.save();
       ctx.globalAlpha = alpha * glowA;
       ctx.shadowColor = `rgb(${GLOW_COLOR_R}, ${GLOW_COLOR_G}, ${GLOW_COLOR_B})`;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
       ctx.fillStyle = `rgb(${GLOW_COLOR_R}, ${GLOW_COLOR_G}, ${GLOW_COLOR_B})`;
-      this._roundRect(ctx, BOX_X - 4, BOX_Y - 4, BOX_W + 8, BOX_HEIGHT + 8, CORNER_RADIUS + 2);
+      this._roundRect(ctx, BOX_X - 4, BOX_Y - 4 + boxOffsetY, BOX_W + 8, BOX_HEIGHT + 8, CORNER_RADIUS + 2);
       ctx.fill();
       ctx.restore();
-      ctx.globalAlpha = alpha; // reset after glow
+      ctx.globalAlpha = alpha;
+
+      // Animated wave bar inside box (visual indicator voice is active)
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.3;
+      const waveBarW = BOX_W - PORTRAIT_SIZE - PORTRAIT_PAD * 3;
+      const waveBarX = PORTRAIT_X + PORTRAIT_SIZE + PORTRAIT_PAD;
+      const waveBarY = BOX_Y + BOX_HEIGHT / 2 + boxOffsetY;
+      ctx.fillStyle = `rgb(${GLOW_COLOR_R}, ${GLOW_COLOR_G}, ${GLOW_COLOR_B})`;
+      for (let wi = 0; wi < 8; wi++) {
+        const wh = 4 + Math.sin(this._glowTimer * 6 + wi * 0.8) * 6;
+        const wx = (waveBarX + wi * (waveBarW / 8)) | 0;
+        ctx.fillRect(wx, (waveBarY - wh / 2) | 0, (waveBarW / 10) | 0, wh | 0);
+      }
+      ctx.restore();
+      ctx.globalAlpha = alpha;
     }
 
-    // ---- Box background (gradient) --------------------------------------
-    const grad = ctx.createLinearGradient(BOX_X, BOX_Y, BOX_X, BOX_Y + BOX_HEIGHT);
+    // ---- Box background (gradient) with bounce offset -------------------
+    const grad = ctx.createLinearGradient(BOX_X, BOX_Y + boxOffsetY, BOX_X, BOX_Y + BOX_HEIGHT + boxOffsetY);
     grad.addColorStop(0, BG_TOP);
     grad.addColorStop(1, BG_BOTTOM);
 
     ctx.fillStyle = grad;
-    this._roundRect(ctx, BOX_X, BOX_Y, BOX_W, BOX_HEIGHT, CORNER_RADIUS);
+    this._roundRect(ctx, BOX_X, BOX_Y + boxOffsetY, BOX_W, BOX_HEIGHT, CORNER_RADIUS);
     ctx.fill();
 
     // Border
     ctx.strokeStyle = BORDER_COLOR;
     ctx.lineWidth = 1;
-    this._roundRect(ctx, BOX_X, BOX_Y, BOX_W, BOX_HEIGHT, CORNER_RADIUS);
+    this._roundRect(ctx, BOX_X, BOX_Y + boxOffsetY, BOX_W, BOX_HEIGHT, CORNER_RADIUS);
     ctx.stroke();
 
-    // ---- Portrait -------------------------------------------------------
+    // ---- Portrait (48x48 prominent speaker face) ------------------------
+    const portraitDrawY = (PORTRAIT_Y + boxOffsetY) | 0;
     if (this._portrait && this._portraitSrc) {
       const ps = this._portraitSrc;
       ctx.drawImage(
         this._portrait,
         ps.sx, ps.sy, ps.sw, ps.sh,
-        PORTRAIT_X | 0, PORTRAIT_Y | 0, PORTRAIT_SIZE, PORTRAIT_SIZE
+        PORTRAIT_X | 0, portraitDrawY, PORTRAIT_SIZE, PORTRAIT_SIZE
       );
     } else {
-      // Narrator sparkle placeholder — small diamond
-      const cx = (PORTRAIT_X + PORTRAIT_SIZE / 2) | 0;
-      const cy = (PORTRAIT_Y + PORTRAIT_SIZE / 2) | 0;
-      const s = 8;
+      // Narrator sparkle placeholder — golden diamond
+      const pcx = (PORTRAIT_X + PORTRAIT_SIZE / 2) | 0;
+      const pcy = (portraitDrawY + PORTRAIT_SIZE / 2) | 0;
+      const s = 10;
       ctx.fillStyle = '#ffd700';
       ctx.beginPath();
-      ctx.moveTo(cx, cy - s);
-      ctx.lineTo(cx + s, cy);
-      ctx.lineTo(cx, cy + s);
-      ctx.lineTo(cx - s, cy);
+      ctx.moveTo(pcx, pcy - s);
+      ctx.lineTo(pcx + s, pcy);
+      ctx.lineTo(pcx, pcy + s);
+      ctx.lineTo(pcx - s, pcy);
       ctx.closePath();
+      ctx.fill();
+      // Inner glow
+      ctx.fillStyle = '#fffacd';
+      ctx.beginPath();
+      ctx.arc(pcx, pcy, (s * 0.4) | 0, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // ---- Choice buttons -------------------------------------------------
+    // ---- Choice buttons (LARGE 64x64 icons, no text) --------------------
     for (let i = 0; i < this._choices.length; i++) {
       const c = this._choices[i];
+      const pulse = Math.sin(this._glowTimer * 2.5 + i * 1.3) * 0.5 + 0.5;
+
+      // Animated glow behind choice (shows it is tappable)
+      ctx.save();
+      ctx.globalAlpha = alpha * (0.15 + pulse * 0.15);
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc((c.x + c.w / 2) | 0, (c.y + c.h / 2) | 0, (c.w * 0.6) | 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = alpha;
+
       // Button background
       ctx.fillStyle = 'rgba(255, 245, 250, 0.95)';
-      this._roundRect(ctx, c.x, c.y, c.w, c.h, 8);
+      this._roundRect(ctx, c.x, c.y, c.w, c.h, 10);
       ctx.fill();
       ctx.strokeStyle = 'rgba(200, 150, 180, 0.7)';
-      ctx.lineWidth = 1;
-      this._roundRect(ctx, c.x, c.y, c.w, c.h, 8);
+      ctx.lineWidth = 2;
+      this._roundRect(ctx, c.x, c.y, c.w, c.h, 10);
       ctx.stroke();
 
-      // Icon inside button
+      // Icon inside button (64x64 rendered size)
       if (c.icon && c.iconSrc) {
         const is = c.iconSrc;
-        const iconSize = 48;
+        const iconSize = 64;
         const ix = (c.x + (c.w - iconSize) / 2) | 0;
         const iy = (c.y + (c.h - iconSize) / 2) | 0;
         ctx.drawImage(c.icon, is.sx, is.sy, is.sw, is.sh, ix, iy, iconSize, iconSize);

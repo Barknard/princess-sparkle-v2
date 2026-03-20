@@ -24,10 +24,9 @@ function easeInOutCubic(t) {
 
 // ---- Constants --------------------------------------------------------------
 
-const BUTTON_DELAY_MS = 3000;
-const BUTTON_W = 120;
-const BUTTON_H = 36;
-const BUTTON_Y = LOGICAL_HEIGHT - 48;
+// Auto-progress: moon icon appears, then auto-transitions after lullaby
+const MOON_APPEAR_S = 3.0;          // when the moon icon fades in
+const AUTO_GOODNIGHT_S = 12.0;      // auto-save and return to title after this
 
 // Star twinkle pool
 const MAX_STARS = 20;
@@ -59,9 +58,10 @@ export default class WindDownScene {
     // Timer
     this._timer = 0;
 
-    // Button
-    this._buttonVisible = false;
-    this._buttonAlpha = 0;
+    // Moon icon (visual cue, no text)
+    this._moonVisible = false;
+    this._moonAlpha = 0;
+    this._autoGoodnightTriggered = false;
 
     // Voice flags
     this._recapPlayed = false;
@@ -122,8 +122,9 @@ export default class WindDownScene {
     this._friendsHelped = p.questsCompleted || 0;
     this._companionId = p.companionId || '';
     this._timer = 0;
-    this._buttonVisible = false;
-    this._buttonAlpha = 0;
+    this._moonVisible = false;
+    this._moonAlpha = 0;
+    this._autoGoodnightTriggered = false;
     this._recapPlayed = false;
     this._companionPlayed = false;
     this._narratorPlayed = false;
@@ -180,16 +181,27 @@ export default class WindDownScene {
     // Firefly movement
     this._updateFireflies(dt);
 
-    // Button appears after delay
-    if (this._timer * 1000 >= BUTTON_DELAY_MS && !this._buttonVisible) {
-      this._buttonVisible = true;
+    // Moon icon appears after delay
+    if (this._timer >= MOON_APPEAR_S && !this._moonVisible) {
+      this._moonVisible = true;
     }
-    if (this._buttonVisible) {
-      this._buttonAlpha = Math.min(this._buttonAlpha + dt * 0.8, 1);
+    if (this._moonVisible) {
+      this._moonAlpha = Math.min(this._moonAlpha + dt * 0.5, 1);
     }
 
-    // Input
-    this._handleInput();
+    // Auto-goodnight after lullaby plays (no button needed)
+    if (this._timer >= AUTO_GOODNIGHT_S && !this._autoGoodnightTriggered) {
+      this._autoGoodnightTriggered = true;
+      this._onGoodnight();
+    }
+
+    // Allow tap-anywhere to trigger goodnight early (after moon is visible)
+    if (this._moonVisible && this._moonAlpha > 0.5 && !this._autoGoodnightTriggered) {
+      if (this._inputManager && this._inputManager.tapped) {
+        this._autoGoodnightTriggered = true;
+        this._onGoodnight();
+      }
+    }
   }
 
   _updateFireflies(dt) {
@@ -204,20 +216,6 @@ export default class WindDownScene {
       if (f.x > LOGICAL_WIDTH + 5) f.x = -5;
       if (f.y < LOGICAL_HEIGHT * 0.2) f.vy = Math.abs(f.vy);
       if (f.y > LOGICAL_HEIGHT * 0.85) f.vy = -Math.abs(f.vy);
-    }
-  }
-
-  _handleInput() {
-    if (!this._buttonVisible || this._buttonAlpha < 0.5) return;
-    if (!this._inputManager || !this._inputManager.tapped) return;
-
-    const tx = this._inputManager.x;
-    const ty = this._inputManager.y;
-    const btnX = ((LOGICAL_WIDTH - BUTTON_W) / 2) | 0;
-
-    if (tx >= btnX && tx <= btnX + BUTTON_W &&
-        ty >= BUTTON_Y && ty <= BUTTON_Y + BUTTON_H) {
-      this._onGoodnight();
     }
   }
 
@@ -258,9 +256,9 @@ export default class WindDownScene {
     // Recap hearts display (visual, not text)
     this._drawRecapHearts(ctx);
 
-    // Goodnight button
-    if (this._buttonVisible) {
-      this._drawButton(ctx);
+    // Moon icon with stars (no text, pure visual)
+    if (this._moonVisible) {
+      this._drawMoonIcon(ctx);
     }
 
     // Transition
@@ -373,14 +371,19 @@ export default class WindDownScene {
     ctx.fillStyle = '#4a4a4a';
     ctx.fillRect((compX + 12) | 0, (compY + compBreathe) | 0, 2, 1);
 
-    // Sleepy Z's
-    const zAlpha = Math.sin(this._timer * 2) * 0.5 + 0.5;
-    ctx.globalAlpha = zAlpha * 0.6;
-    ctx.fillStyle = '#ccccff';
-    ctx.font = '6px monospace';
-    ctx.fillText('z', (compX + 18) | 0, (compY - 6 - this._timer % 3 * 2) | 0);
-    ctx.font = '4px monospace';
-    ctx.fillText('z', (compX + 22) | 0, (compY - 10 - this._timer % 3 * 2) | 0);
+    // Sleepy sparkle motes (replacing "z" text — no text for pre-literate play)
+    for (let zi = 0; zi < 3; zi++) {
+      const zFloat = (this._timer * 0.8 + zi * 0.5) % 3;
+      const zAlpha = Math.sin(this._timer * 2 + zi) * 0.5 + 0.5;
+      ctx.globalAlpha = zAlpha * 0.4 * (1 - zFloat / 3);
+      ctx.fillStyle = '#ccccff';
+      const zx = (compX + 18 + zi * 4) | 0;
+      const zy = (compY - 4 - zFloat * 8) | 0;
+      // Tiny star shape instead of letter
+      ctx.fillRect(zx, zy, 2, 2);
+      ctx.fillRect(zx - 1, zy + 1, 1, 1);
+      ctx.fillRect(zx + 2, zy + 1, 1, 1);
+    }
 
     ctx.restore();
   }
@@ -411,42 +414,49 @@ export default class WindDownScene {
     ctx.fill();
   }
 
-  _drawButton(ctx) {
-    const btnX = ((LOGICAL_WIDTH - BUTTON_W) / 2) | 0;
+  /** Draw a large moon icon with orbiting stars — no text. */
+  _drawMoonIcon(ctx) {
+    const cx = (LOGICAL_WIDTH / 2) | 0;
+    const cy = (LOGICAL_HEIGHT - 48) | 0;
+    const pulse = Math.sin(this._timer * 1.5) * 0.5 + 0.5;
 
     ctx.save();
-    ctx.globalAlpha = easeInOutCubic(this._buttonAlpha);
+    ctx.globalAlpha = easeInOutCubic(this._moonAlpha);
 
-    // Soft dark button for night theme
-    ctx.fillStyle = 'rgba(60, 40, 100, 0.85)';
-    ctx.beginPath();
-    this._roundRect(ctx, btnX, BUTTON_Y, BUTTON_W, BUTTON_H, 8);
-    ctx.fill();
-
-    // Border
-    ctx.strokeStyle = 'rgba(180, 150, 220, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    this._roundRect(ctx, btnX, BUTTON_Y, BUTTON_W, BUTTON_H, 8);
-    ctx.stroke();
-
-    // Text
-    ctx.fillStyle = '#e8d8ff';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Goodnight', (LOGICAL_WIDTH / 2) | 0, (BUTTON_Y + BUTTON_H / 2) | 0);
-
-    // Small moon icon
+    // Soft glow behind moon
+    ctx.globalAlpha = easeInOutCubic(this._moonAlpha) * (0.15 + pulse * 0.1);
     ctx.fillStyle = '#ffeebb';
     ctx.beginPath();
-    ctx.arc((btnX + 16) | 0, (BUTTON_Y + BUTTON_H / 2) | 0, 5, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
     ctx.fill();
-    // Moon shadow (crescent)
-    ctx.fillStyle = 'rgba(60, 40, 100, 0.85)';
+
+    // Moon (crescent)
+    ctx.globalAlpha = easeInOutCubic(this._moonAlpha);
+    ctx.fillStyle = '#ffeebb';
     ctx.beginPath();
-    ctx.arc((btnX + 18) | 0, (BUTTON_Y + BUTTON_H / 2 - 1) | 0, 4, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
     ctx.fill();
+    // Shadow to make crescent shape
+    ctx.fillStyle = '#1a1040';
+    ctx.beginPath();
+    ctx.arc((cx + 5) | 0, (cy - 3) | 0, 11, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Small twinkling stars around the moon
+    const starPositions = [
+      { dx: -20, dy: -12, s: 3 },
+      { dx: 18, dy: -16, s: 2 },
+      { dx: -14, dy: 14, s: 2 },
+      { dx: 22, dy: 8, s: 3 },
+      { dx: -8, dy: -22, s: 2 },
+    ];
+    for (let i = 0; i < starPositions.length; i++) {
+      const sp = starPositions[i];
+      const twinkle = Math.sin(this._timer * (2 + i * 0.5) + i * 1.3) * 0.5 + 0.5;
+      ctx.globalAlpha = easeInOutCubic(this._moonAlpha) * (0.3 + twinkle * 0.7);
+      ctx.fillStyle = '#ffffee';
+      ctx.fillRect((cx + sp.dx) | 0, (cy + sp.dy) | 0, sp.s, sp.s);
+    }
 
     ctx.restore();
   }

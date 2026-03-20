@@ -43,10 +43,13 @@ const ARC_RADIUS_Y = 20; // slight vertical arc
 const COMPANION_SIZE = 28; // base sprite size
 const TOUCH_SIZE = 80;     // touch target around each companion
 
-// Button
-const BUTTON_W = 160;
-const BUTTON_H = 40; // 80px at 2x scale = meets 80px min requirement
-const BUTTON_Y = LOGICAL_HEIGHT - 60;
+// Confirm heart icon (replaces text button)
+const HEART_ICON_SIZE = 64;  // 64x64 logical px — large touch target for 4yo
+const HEART_ICON_Y = LOGICAL_HEIGHT - 80;
+
+// Shimmer effect for untapped companions
+const SHIMMER_SPEED = 2.5;     // shimmer animation speed
+const SHIMMER_PARTICLES = 3;   // sparkle motes per untapped companion
 
 // Particles
 const MAX_PARTICLES = 40;
@@ -94,6 +97,9 @@ export default class CompanionSelectScene {
         bobY: 0,
         waving: false,    // wave goodbye animation
         waveTimer: 0,
+        tapped: false,    // has this companion been tapped at least once?
+        danceTimer: 0,    // happy dance timer for selected companion
+        dancing: false,   // whether doing happy dance
       };
     }
 
@@ -162,6 +168,9 @@ export default class CompanionSelectScene {
       cs.glowAlpha = 0.3;
       cs.waving = false;
       cs.waveTimer = 0;
+      cs.tapped = false;
+      cs.danceTimer = 0;
+      cs.dancing = false;
     }
 
     for (let i = 0; i < this._particles.length; i++) {
@@ -201,10 +210,21 @@ export default class CompanionSelectScene {
     for (let i = 0; i < this._companionStates.length; i++) {
       const cs = this._companionStates[i];
       cs.bobTimer += dt;
-      cs.bobY = Math.sin(cs.bobTimer * 2) * 2;
+      // Lively bobbing — different speed per companion so they feel alive
+      cs.bobY = Math.sin(cs.bobTimer * (2.0 + i * 0.3)) * 3;
 
-      // Smooth scale interpolation
-      cs.scale += (cs.targetScale - cs.scale) * Math.min(dt * 6, 1);
+      // Happy dance for selected companion (bouncy squash-stretch)
+      if (cs.dancing) {
+        cs.danceTimer += dt;
+        const dancePulse = Math.sin(cs.danceTimer * 8) * 0.08;
+        cs.scale += (cs.targetScale + dancePulse - cs.scale) * Math.min(dt * 8, 1);
+        // Extra bounce
+        cs.bobY += Math.abs(Math.sin(cs.danceTimer * 6)) * 4;
+      } else {
+        // Smooth scale interpolation
+        cs.scale += (cs.targetScale - cs.scale) * Math.min(dt * 6, 1);
+      }
+
       cs.alpha += (cs.targetAlpha - cs.alpha) * Math.min(dt * 6, 1);
 
       // Wave goodbye animation
@@ -248,10 +268,12 @@ export default class CompanionSelectScene {
     const tx = this._inputManager.x;
     const ty = this._inputManager.y;
 
-    // Check "Choose" button first
+    // Check confirm heart icon first (big glowing heart replaces text button)
     if (this._showButton) {
-      const btnX = ((LOGICAL_WIDTH - BUTTON_W) / 2) | 0;
-      if (tx >= btnX && tx <= btnX + BUTTON_W && ty >= BUTTON_Y && ty <= BUTTON_Y + BUTTON_H) {
+      const heartCX = (LOGICAL_WIDTH / 2) | 0;
+      const heartCY = (HEART_ICON_Y + HEART_ICON_SIZE / 2) | 0;
+      const dist = Math.hypot(tx - heartCX, ty - heartCY);
+      if (dist < HEART_ICON_SIZE * 0.7) {
         this._onConfirm();
         return;
       }
@@ -288,17 +310,21 @@ export default class CompanionSelectScene {
       this._showButton = false;
     }
 
-    // Highlight selected
+    // Highlight selected — grow bigger, glow brighter, start happy dance
     const cs = this._companionStates[index];
-    cs.targetScale = 1.2;
+    cs.targetScale = 1.3;
     cs.targetAlpha = 1.0;
-    cs.glowAlpha = 0.6;
+    cs.glowAlpha = 0.7;
+    cs.tapped = true;
+    cs.dancing = true;
+    cs.danceTimer = 0;
 
-    // Dim all others
+    // Dim all others and stop their dances
     for (let i = 0; i < this._companionStates.length; i++) {
       if (i !== index) {
         this._companionStates[i].targetScale = 1.0;
         this._companionStates[i].targetAlpha = 0.5;
+        this._companionStates[i].dancing = false;
       }
     }
 
@@ -359,10 +385,13 @@ export default class CompanionSelectScene {
       this._drawCompanion(ctx, i);
     }
 
-    // Choose button
+    // Confirm heart icon (replaces text button)
     if (this._showButton && this._selectedIndex >= 0) {
-      this._drawChooseButton(ctx, this._selectedIndex);
+      this._drawConfirmHeart(ctx, this._selectedIndex);
     }
+
+    // Shimmer on untapped companions to say "tap me!"
+    this._drawUntappedShimmers(ctx);
 
     // Particles
     this._drawParticles(ctx);
@@ -591,37 +620,76 @@ export default class CompanionSelectScene {
 
   // ---- Choose button --------------------------------------------------------
 
-  _drawChooseButton(ctx, index) {
+  /** Draw a large glowing heart as the confirm icon (no text). */
+  _drawConfirmHeart(ctx, index) {
     const comp = COMPANIONS[index];
-    const btnX = ((LOGICAL_WIDTH - BUTTON_W) / 2) | 0;
+    const cx = (LOGICAL_WIDTH / 2) | 0;
+    const cy = (HEART_ICON_Y + HEART_ICON_SIZE / 2) | 0;
+    const pulse = Math.sin(this._introTimer * 3) * 0.5 + 0.5;
+    const heartScale = 0.9 + pulse * 0.1;
+    const r = (HEART_ICON_SIZE / 2) * heartScale;
 
     ctx.save();
 
-    // Button background
-    ctx.fillStyle = 'rgba(255, 245, 250, 0.95)';
+    // Outer glow ring (companion color)
+    ctx.globalAlpha = 0.2 + pulse * 0.15;
+    ctx.fillStyle = comp.glowColor;
     ctx.beginPath();
-    this._roundRect(ctx, btnX, BUTTON_Y, BUTTON_W, BUTTON_H, 8);
+    ctx.arc(cx, cy, r * 1.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Border glow
-    ctx.strokeStyle = comp.glowColor;
-    ctx.lineWidth = 2;
+    // Heart shape
+    ctx.globalAlpha = 0.85 + pulse * 0.15;
+    ctx.fillStyle = '#ff6b8a';
     ctx.beginPath();
-    this._roundRect(ctx, btnX, BUTTON_Y, BUTTON_W, BUTTON_H, 8);
-    ctx.stroke();
+    ctx.moveTo(cx, cy + r * 0.5);
+    ctx.bezierCurveTo(cx + r * 1.1, cy - r * 0.25, cx + r * 0.6, cy - r * 1.0, cx, cy - r * 0.3);
+    ctx.bezierCurveTo(cx - r * 0.6, cy - r * 1.0, cx - r * 1.1, cy - r * 0.25, cx, cy + r * 0.5);
+    ctx.fill();
 
-    // Text: "Choose [Name]"
-    ctx.fillStyle = '#6a3d6a';
-    ctx.font = '10px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(
-      'Choose ' + comp.name,
-      (LOGICAL_WIDTH / 2) | 0,
-      (BUTTON_Y + BUTTON_H / 2) | 0
-    );
+    // Shine on heart
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc((cx - r * 0.25) | 0, (cy - r * 0.4) | 0, (r * 0.2) | 0 || 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sparkle motes orbiting the heart
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + this._introTimer * 2;
+      const sr = r * 1.2 + Math.sin(this._introTimer * 3 + i) * 3;
+      const sx = (cx + Math.cos(angle) * sr) | 0;
+      const sy = (cy + Math.sin(angle) * sr) | 0;
+      ctx.globalAlpha = 0.5 + Math.sin(this._introTimer * 4 + i * 2) * 0.3;
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(sx - 1, sy - 1, 3, 3);
+    }
 
     ctx.restore();
+  }
+
+  /** Draw subtle shimmer sparkles on companions that haven't been tapped yet. */
+  _drawUntappedShimmers(ctx) {
+    for (let i = 0; i < this._companionStates.length; i++) {
+      const cs = this._companionStates[i];
+      if (cs.tapped || i === this._selectedIndex) continue;
+
+      const pos = this._positions[i];
+      const comp = COMPANIONS[i];
+
+      ctx.save();
+      for (let j = 0; j < SHIMMER_PARTICLES; j++) {
+        const angle = this._introTimer * SHIMMER_SPEED + j * (Math.PI * 2 / SHIMMER_PARTICLES) + i * 1.3;
+        const shimmerR = COMPANION_SIZE * 0.6 + Math.sin(this._introTimer * 2 + j) * 3;
+        const sx = (pos.x + Math.cos(angle) * shimmerR) | 0;
+        const sy = (pos.y + cs.bobY + Math.sin(angle) * shimmerR) | 0;
+        const shimmerAlpha = 0.25 + Math.sin(this._introTimer * 3 + j * 2.1 + i) * 0.2;
+        ctx.globalAlpha = shimmerAlpha;
+        ctx.fillStyle = comp.glowColor;
+        ctx.fillRect(sx - 1, sy - 1, 2, 2);
+      }
+      ctx.restore();
+    }
   }
 
   // ---- Particles ------------------------------------------------------------

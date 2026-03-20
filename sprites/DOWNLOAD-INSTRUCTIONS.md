@@ -1,43 +1,288 @@
-# Sprite Asset Downloads — Princess Sparkle V2
+# Sprite Asset Downloads -- Princess Sparkle V2
 
-All assets are **CC0 licensed** (public domain) from [Kenney.nl](https://kenney.nl).
+## Status Summary
 
-## Included Assets
+| Need                | Status        | Source                     |
+|---------------------|---------------|----------------------------|
+| World tiles         | DOWNLOADED    | Kenney Tiny Town           |
+| Dungeon tiles       | DOWNLOADED    | Kenney Tiny Dungeon        |
+| UI elements         | DOWNLOADED    | Kenney UI Pack RPG         |
+| Creatures/Animals   | DOWNLOADED    | Tiny Creatures (CC0)       |
+| Unicorn             | DOWNLOADED    | Tiny Creatures tile_0153   |
+| Dragon              | DOWNLOADED    | Tiny Creatures tile_0041   |
+| Humanoid NPCs       | DOWNLOADED    | Kenney Tiny Dungeon chars  |
+| NPC walk animations | DOWNLOADED    | 8-bit RPG Character Set    |
+| Princess character  | NEED MANUAL   | Superdark NPC Pack         |
+| More NPC variety    | NEED MANUAL   | Superdark NPC Pack         |
+| Cute Fantasy style  | NEED MANUAL   | Kenmi Cute Fantasy RPG     |
+| Extra Kenney-style  | NEED MANUAL   | Szym Tiny Pack Add-On      |
+
+---
+
+## ALREADY DOWNLOADED -- World & UI
 
 ### 1. Kenney Tiny Town
 - **URL**: https://kenney.nl/assets/tiny-town
 - **Download**: https://kenney.nl/media/pages/assets/tiny-town/5e46f9e551-1735736916/kenney_tiny-town.zip
 - **Location**: `sprites/town/`
 - **Contents**: 132 town-themed 16x16 tiles (buildings, trees, paths, fences, etc.)
-- **Tilemap spritesheet**: `sprites/tileset_town.png` (packed spritesheet)
+- **License**: CC0
 
 ### 2. Kenney Tiny Dungeon
 - **URL**: https://kenney.nl/assets/tiny-dungeon
 - **Download**: https://kenney.nl/media/pages/assets/tiny-dungeon/b56d7a13e3-1674742415/kenney_tiny-dungeon.zip
-- **Location**: `sprites/dungeon/`
-- **Contents**: 132 dungeon-themed 16x16 tiles (walls, floors, characters, items)
-- **Tilemap spritesheet**: `sprites/tileset_dungeon.png` (packed spritesheet)
+- **Location**: `sprites/dungeon/` and `sprites/characters/kenney-tiny-dungeon/`
+- **Contents**: 132 dungeon-themed 16x16 tiles including ~15 humanoid characters
+- **License**: CC0
+- **Key character tiles**:
+  - `tile_0097` = Knight/armored warrior
+  - `tile_0098` = Male NPC (brown hair)
+  - `tile_0099` = Female NPC (pink/purple -- usable as princess!)
+  - `tile_0100` = Old man/wizard (usable as grandma variant)
+  - `tile_0109` = Blonde male NPC
+  - `tile_0110` = Red warrior
+  - `tile_0111` = Bearded NPC
+  - `tile_0112` = Dark-haired NPC
 
 ### 3. Kenney UI Pack (RPG Expansion)
 - **URL**: https://kenney.nl/assets/ui-pack-rpg-expansion
-- **Download**: https://kenney.nl/media/pages/assets/ui-pack-rpg-expansion/b1e1f298c6-1677661824/kenney_ui-pack-rpg-expansion.zip
 - **Location**: `sprites/ui/`
-- **Contents**: 85 UI elements (panels, buttons, bars, cursors, icons)
-- **Spritesheet**: `sprites/ui/uipack_rpg_sheet.png`
+- **License**: CC0
 
-## Manual Download Steps (if needed)
+---
 
-1. Visit the URL above
-2. Click "Download" (free, no account required)
-3. Extract the .zip file
-4. Copy the `Tilemap/tilemap_packed.png` to the corresponding `sprites/` location
-5. Copy the `Tiles/` folder contents for individual tile access
+## ALREADY DOWNLOADED -- Characters & Creatures
 
-## License
+### 4. Tiny Creatures by Clint Bellanger (BEST MATCH)
+- **URL**: https://opengameart.org/content/tiny-creatures
+- **itch.io**: https://clintbellanger.itch.io/tiny-creatures
+- **Download**: https://opengameart.org/sites/default/files/tiny-creatures.zip
+- **Location**: `sprites/creatures/tiny-creatures/`
+- **License**: CC0 1.0 Universal (public domain, no attribution required)
+- **Size**: 16x16 pixels with thick outlines -- PERFECT Kenney Tiny style match
+- **Contents**: 180 sprites total (100+ monsters, 50+ animals)
+- **Walk animations**: No (single facing-right poses, flip horizontally for left)
+- **KEY SPRITES FOR THIS GAME**:
+  - `tile_0153` = **UNICORN** (white horse with horn!)
+  - `tile_0041` = **DRAGON** (green baby dragon)
+  - `tile_0131` = **BUNNY/RABBIT**
+  - `tile_0137` = **BUTTERFLY** (purple)
+  - `tile_0133` = **FOX** (orange)
+  - `tile_0132` = **CAT** (grey tabby)
+  - `tile_0165` = **WHITE CAT**
+  - `tile_0169` = **DOG/PUPPY** (brown)
+  - `tile_0166` = **DOG/WOLF** (grey)
+  - `tile_0138` = **BIRD** (dark/crow)
+  - `tile_0180` = **BIRD** (small)
+  - `tile_0147` = **FROG** (green)
+  - `tile_0146` = **DUCK**
+  - `tile_0177` = **SQUIRREL** (grey)
+  - `tile_0178` = **SQUIRREL** (red)
+  - `tile_0134` = **OWL**
+  - `tile_0135` = **DEER**
+  - `tile_0142` = **HORSE/PONY**
+  - `tile_0175` = **BAT**
+  - `tile_0144` = **TURTLE**
+  - `tile_0046` = **FIRE ELEMENTAL** (cute flame creature)
+  - `tile_0051` = **RED DRAGON/DEMON**
 
-All Kenney assets are released under **Creative Commons CC0** (public domain).
-No attribution required. Free for personal and commercial use.
-See LICENSE-CC0.txt in each subdirectory for full license text.
+### 5. Running Unicorn Sprite
+- **URL**: https://opengameart.org/content/running-unicorn-0
+- **Download**: https://opengameart.org/sites/default/files/unicorn_1.png
+- **Location**: `sprites/creatures/unicorn_running.png`
+- **License**: CC-BY-SA 3.0 (attribution + share-alike required)
+- **Size**: 67x16 pixels (4-frame animation strip, ~16x16 per frame)
+- **Contents**: Pink/magenta unicorn with running animation
+- **NOTE**: Different style from Kenney Tiny -- more colorful/detailed
+
+### 6. 16x16 Duck Sprite
+- **URL**: https://opengameart.org/content/16x16-duck
+- **Download**: https://opengameart.org/sites/default/files/duck_spritesheet.png
+- **Location**: `sprites/creatures/duck_spritesheet.png`
+- **License**: CC0
+- **Contents**: Animated duck sprite
+
+### 7. 16x16 8-bit RPG Character Set (CC0)
+- **URL**: https://opengameart.org/content/16x16-8-bit-rpg-character-set
+- **Download**: https://opengameart.org/sites/default/files/rpg_16x16_0.png
+- **Location**: `sprites/characters/rpg_16x16_8bit.png`
+- **License**: CC0
+- **Size**: 256x128 spritesheet
+- **Contents**: 7 characters with 4-direction walk animations (3 frames each)
+- **Walk animations**: YES, 4 directions!
+- **Colors**: Red, gold, blue, cyan, purple, dark, green characters
+- **VERY USEFUL**: Provides walk cycle templates that can represent different NPCs
+  - Red character = Princess Sparkle
+  - Gold character = Baker/shopkeeper
+  - Blue character = Neighbor (Lily)
+  - Purple character = Grandma (Melody)
+  - Green character = Child NPC (Finn)
+
+### 8. Simple Character Base 16x16 (CC0)
+- **URL**: https://opengameart.org/content/simple-character-base-16x16
+- **Download**: https://opengameart.org/sites/default/files/character_base_16x16.png
+- **Location**: `sprites/characters/character_base_16x16.png`
+- **License**: CC0
+- **Size**: 16x16 character with 4-direction walk cycle (3 frames per direction)
+- **Walk animations**: YES, 4 directions!
+- **NOTE**: Base/template character, good for creating variants
+
+### 9. Top-Down Girl Sprite (CC0)
+- **URL**: https://opengameart.org/content/girl-top-down
+- **Download**: https://opengameart.org/sites/default/files/top_down_girl.zip
+- **Location**: `sprites/characters/top_down_girl/`
+- **License**: CC0
+- **Size**: 26x30 pixels (LARGER than 16x16, needs scaling down)
+- **Walk animations**: YES -- up and down walking + idle
+- **Contents**: Individual frame PNGs for a brown-haired girl character
+- **NOTE**: Would need to be scaled to 16x16 to match; art style differs from Kenney
+
+---
+
+## NEED MANUAL DOWNLOAD (itch.io requires browser)
+
+### 10. Superdark 16x16 Fantasy RPG Characters (HIGHLY RECOMMENDED)
+- **URL**: https://superdark.itch.io/16x16-free-npc-pack
+- **License**: Free for personal and commercial use, modification allowed
+- **Size**: 16x16
+- **Contents**: 20+ NPC types including:
+  - PRINCESS
+  - Queen, King
+  - Male and female villagers
+  - Blacksmith
+  - Alchemist
+  - Merchant
+  - Nuns, bishop
+  - Royal knights (5 variants)
+  - Archer, thief
+- **Walk animations**: YES (added in v1.3)
+- **Download steps**:
+  1. Visit https://superdark.itch.io/16x16-free-npc-pack
+  2. Click "Download Now"
+  3. Enter $0 (or donate) and click "No thanks, just take me to the downloads"
+  4. Download both files:
+     - `Characters` (6.4 kB) -- spritesheet
+     - `Fantasy RPG NPCs - Individual Frames.rar` (188 kB) -- all individual frames
+  5. Extract to `sprites/characters/superdark-npcs/`
+
+### 11. Kenmi Cute Fantasy RPG -- Free Version
+- **URL**: https://kenmi-art.itch.io/cute-fantasy-rpg
+- **License**: Free for non-commercial use, credit required (Credit: Kenmi)
+- **Size**: 16x16
+- **Contents (free version)**:
+  - Character sprites with walk, idle, attack, death animations
+  - Enemy sprites with animations
+  - Animal sprites with basic animations
+  - Grass, water, path tiles
+- **Walk animations**: YES
+- **Download steps**:
+  1. Visit https://kenmi-art.itch.io/cute-fantasy-rpg
+  2. Click "Download Now"
+  3. Enter $0, click "No thanks, just take me to the downloads"
+  4. Download `Cute_Fantasy_Free.zip` (53 kB)
+  5. Extract to `sprites/characters/kenmi-cute-fantasy/`
+
+### 12. Szym Tiny Pack Add-On (Kenney Tiny Compatible)
+- **URL**: https://nszym.itch.io/tiny-pack-add-on
+- **License**: Free for personal and commercial use
+- **Size**: 16x16 (Kenney Tiny style)
+- **Contents**: 203 sprites -- 48 characters, 48 creatures/enemies, 35 items, 12 potions, 6 shields, 54 weapons
+- **Walk animations**: Unknown (likely static poses like Kenney Tiny)
+- **Download steps**:
+  1. Visit https://nszym.itch.io/tiny-pack-add-on
+  2. Click "Download Now"
+  3. Enter $0, click "No thanks, just take me to the downloads"
+  4. Download `TinyPackAddOn.zip` (89 kB)
+  5. Extract to `sprites/characters/szym-tiny-addon/`
+
+### 13. COLEVID-19 Pixel Art Unicorn
+- **URL**: https://rcxno.itch.io/pixel-art-unicorn
+- **License**: Free for commercial and non-commercial use
+- **Size**: 16x16
+- **Contents**: Animated unicorn with multiple animation frames
+- **Download steps**:
+  1. Visit https://rcxno.itch.io/pixel-art-unicorn
+  2. Click "Download Now"
+  3. Enter $0, click "No thanks, just take me to the downloads"
+  4. Download `kaitlyn_unicorn.png` (1.2 kB)
+  5. Save to `sprites/creatures/kaitlyn_unicorn.png`
+
+### 14. Cup Nooble Sprout Lands (Basic Free Pack)
+- **URL**: https://cupnooble.itch.io/sprout-lands-asset-pack
+- **License**: Free for non-commercial use, credit required (Credit: Cup Nooble)
+- **Size**: 16-bit pixel art
+- **Contents (free version)**: Grass/water tiles, simple character animations, some animals
+- **Walk animations**: Limited in free version (premium has 4-direction)
+- **Download steps**:
+  1. Visit https://cupnooble.itch.io/sprout-lands-asset-pack
+  2. Click "Download Now"
+  3. Enter $0 for basic pack
+  4. Extract to `sprites/characters/sprout-lands/`
+
+---
+
+## RECOMMENDED INTEGRATION PLAN
+
+### Priority 1: Immediate use (already downloaded)
+Use these CC0 assets NOW to replace the colored rectangles:
+
+**For creatures/animals** -- use Tiny Creatures pack:
+- Copy `tile_0153.png` -> unicorn sprite
+- Copy `tile_0041.png` -> baby dragon sprite
+- Copy `tile_0131.png` -> bunny sprite
+- Copy `tile_0137.png` -> butterfly sprite
+- Copy `tile_0133.png` -> fox cub sprite
+- Copy `tile_0132.png` -> cat sprite
+- Copy `tile_0169.png` -> dog sprite
+- Copy `tile_0138.png` -> bird sprite
+- Copy `tile_0147.png` -> frog sprite
+- Copy `tile_0146.png` -> duck sprite
+- Copy `tile_0177.png` -> squirrel sprite
+- (hedgehog not found in pack -- use tile_0144 turtle as substitute or find separately)
+
+**For NPC characters** -- use 8-bit RPG Character Set:
+- 7 characters with 4-direction walk animations (3 frames each)
+- Assign different colors to different NPCs
+- These have walk cycles the game already expects
+
+**For princess** -- use Kenney Tiny Dungeon tile_0099 as static sprite
+
+### Priority 2: Manual download (10 minutes of work)
+1. Download Superdark NPC pack -- gives you a proper PRINCESS + 20 NPC types
+2. Download Szym Tiny Pack Add-On -- 48 more Kenney-style characters
+3. Download Kenmi Cute Fantasy Free -- cutest style, good animal animations
+
+### Priority 3: Walk animation assembly
+The Tiny Creatures and Kenney Tiny Dungeon sprites are STATIC (single frame).
+To create walk animations:
+- Use the 8-bit RPG set as the walk animation source for humanoid NPCs
+- For creatures, create simple 2-frame animations by:
+  - Frame 1: original sprite
+  - Frame 2: shift sprite 1px up (bounce effect)
+  - Or flip horizontally for a simple wiggle
+
+---
+
+## License Summary
+
+| Pack                        | License       | Attribution Required | Commercial OK |
+|-----------------------------|---------------|---------------------|---------------|
+| Kenney Tiny Town            | CC0           | No                  | Yes           |
+| Kenney Tiny Dungeon         | CC0           | No                  | Yes           |
+| Kenney UI Pack RPG          | CC0           | No                  | Yes           |
+| Tiny Creatures              | CC0           | No                  | Yes           |
+| 8-bit RPG Character Set     | CC0           | No                  | Yes           |
+| Simple Character Base       | CC0           | No                  | Yes           |
+| Top-Down Girl               | CC0           | No                  | Yes           |
+| Duck Sprite                 | CC0           | No                  | Yes           |
+| Running Unicorn             | CC-BY-SA 3.0 | Yes                 | Yes           |
+| Superdark NPC Pack          | Free/custom   | Appreciated         | Yes           |
+| Szym Tiny Pack Add-On       | Free/custom   | Appreciated         | Yes           |
+| COLEVID-19 Unicorn          | Free/custom   | No                  | Yes           |
+| Kenmi Cute Fantasy (free)   | Custom        | Yes (Credit: Kenmi) | Non-commercial|
+| Cup Nooble Sprout Lands     | Custom        | Yes (Credit: Cup Nooble) | Non-commercial |
+
+---
 
 ## Fallback
 

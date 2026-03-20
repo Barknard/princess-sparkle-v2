@@ -33,14 +33,12 @@ const GOLDEN_FADE_MS = 800;
 const HEART_COUNT = 3;
 const HEART_STAGGER_MS = 400;
 const HEART_FLOAT_SPEED = 30;       // pixels per second
-const HEART_SIZE = 16;
+const HEART_SIZE = 28;              // BIG colorful hearts for a child
 
-const BUTTON_DELAY_MS = 2000;
-const BUTTON_W = 140;
-const BUTTON_H = 36;
-const BUTTON_Y = LOGICAL_HEIGHT - 52;
+// Auto-return to adventure (no button needed for a pre-literate child)
+const AUTO_RETURN_DELAY_S = 4.0;    // seconds after celebration completes
 
-const HEART_COLOR = '#ff6b8a';
+const HEART_COLORS = ['#ff6b8a', '#ff8fab', '#ff69b4', '#ff7eb3', '#e84393', '#fd79a8'];
 
 // ---- QuestCompleteScene -----------------------------------------------------
 
@@ -77,9 +75,9 @@ export default class QuestCompleteScene {
     // Golden edge glow
     this._goldenAlpha = 0;
 
-    // Button
-    this._buttonVisible = false;
-    this._buttonAlpha = 0;
+    // Auto-return timer (replaces button for pre-literate play)
+    this._autoReturnReady = false;
+    this._autoReturnTimer = 0;
 
     // Narrator played flag
     this._narratorPlayed = false;
@@ -118,8 +116,8 @@ export default class QuestCompleteScene {
     this._companionId = p.companionId || '';
     this._timer = 0;
     this._goldenAlpha = 0;
-    this._buttonVisible = false;
-    this._buttonAlpha = 0;
+    this._autoReturnReady = false;
+    this._autoReturnTimer = 0;
     this._narratorPlayed = false;
     this._bridgeGlowAlpha = 0;
     this._companionBounceTimer = 0;
@@ -198,29 +196,20 @@ export default class QuestCompleteScene {
       this._bridgeGlowAlpha = Math.min((timerMs - 1500) / 800, 1) * 0.7;
     }
 
-    // Button appears after delay (cannot skip)
-    if (timerMs > BUTTON_DELAY_MS && !this._buttonVisible) {
-      this._buttonVisible = true;
+    // Auto-return after celebration finishes (no button needed for 4yo)
+    if (this._narratorPlayed && !this._autoReturnReady) {
+      this._autoReturnReady = true;
+      this._autoReturnTimer = 0;
     }
-    if (this._buttonVisible) {
-      this._buttonAlpha = Math.min(this._buttonAlpha + dt * 2, 1);
-    }
-
-    // Input
-    this._handleInput();
-  }
-
-  _handleInput() {
-    if (!this._buttonVisible || this._buttonAlpha < 0.5) return;
-    if (!this._inputManager || !this._inputManager.tapped) return;
-
-    const tx = this._inputManager.x;
-    const ty = this._inputManager.y;
-    const btnX = ((LOGICAL_WIDTH - BUTTON_W) / 2) | 0;
-
-    if (tx >= btnX && tx <= btnX + BUTTON_W &&
-        ty >= BUTTON_Y && ty <= BUTTON_Y + BUTTON_H) {
-      this._onBackToAdventure();
+    if (this._autoReturnReady) {
+      this._autoReturnTimer += dt;
+      // Also allow tap-anywhere to return early (intuitive for kids)
+      if (this._autoReturnTimer >= AUTO_RETURN_DELAY_S) {
+        this._onBackToAdventure();
+      } else if (this._autoReturnTimer > 1.0 && this._inputManager && this._inputManager.tapped) {
+        // Tap anywhere after a short grace period returns to adventure
+        this._onBackToAdventure();
+      }
     }
   }
 
@@ -259,9 +248,9 @@ export default class QuestCompleteScene {
     // Rainbow Bridge piece glow
     this._drawBridgePiece(ctx);
 
-    // "Back to Adventure" button
-    if (this._buttonVisible) {
-      this._drawButton(ctx);
+    // Sparkle portal indicator (auto-returns, but show visual cue)
+    if (this._autoReturnReady) {
+      this._drawReturnPortal(ctx);
     }
 
     // Transition
@@ -317,28 +306,35 @@ export default class QuestCompleteScene {
       ctx.globalAlpha = Math.min(h.scale, 1);
 
       const size = HEART_SIZE * h.scale;
-      this._drawHeart(ctx, h.x, h.y | 0, size | 0);
+      this._drawHeart(ctx, h.x, h.y | 0, size | 0, i);
 
       ctx.restore();
     }
   }
 
-  _drawHeart(ctx, x, y, size) {
+  _drawHeart(ctx, x, y, size, colorIndex) {
     const cx = x;
     const cy = y;
     const r = size / 4;
+    const color = HEART_COLORS[(colorIndex || 0) % HEART_COLORS.length];
 
-    ctx.fillStyle = HEART_COLOR;
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(cx, cy + r * 1.2);
     ctx.bezierCurveTo(cx + r * 2.2, cy - r * 0.5, cx + r * 1.2, cy - r * 2, cx, cy - r * 0.6);
     ctx.bezierCurveTo(cx - r * 1.2, cy - r * 2, cx - r * 2.2, cy - r * 0.5, cx, cy + r * 1.2);
     ctx.fill();
 
-    // Shine
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    // Shine highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.beginPath();
-    ctx.arc((cx - r * 0.5) | 0, (cy - r * 0.8) | 0, (r * 0.4) | 0 || 1, 0, Math.PI * 2);
+    ctx.arc((cx - r * 0.5) | 0, (cy - r * 0.8) | 0, (r * 0.5) | 0 || 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sparkle dot
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc((cx - r * 0.3) | 0, (cy - r * 1.0) | 0, (r * 0.2) | 0 || 1, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -413,31 +409,46 @@ export default class QuestCompleteScene {
     ctx.restore();
   }
 
-  _drawButton(ctx) {
-    const btnX = ((LOGICAL_WIDTH - BUTTON_W) / 2) | 0;
+  /** Draw a sparkly portal that shows the scene will auto-return. */
+  _drawReturnPortal(ctx) {
+    const cx = (LOGICAL_WIDTH / 2) | 0;
+    const cy = (LOGICAL_HEIGHT - 52) | 0;
+    const fadeIn = Math.min(this._autoReturnTimer / 1.0, 1);
+    const pulse = Math.sin(this._autoReturnTimer * 3) * 0.5 + 0.5;
+    const portalR = 20 + pulse * 4;
 
     ctx.save();
-    ctx.globalAlpha = easeInOutCubic(this._buttonAlpha);
+    ctx.globalAlpha = easeInOutCubic(fadeIn) * 0.7;
 
-    // Background
-    ctx.fillStyle = 'rgba(255, 245, 240, 0.95)';
+    // Outer glow
+    ctx.fillStyle = 'rgba(255, 200, 100, 0.25)';
     ctx.beginPath();
-    this._roundRect(ctx, btnX, BUTTON_Y, BUTTON_W, BUTTON_H, 8);
+    ctx.arc(cx, cy, portalR * 1.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Border
-    ctx.strokeStyle = '#ffb366';
-    ctx.lineWidth = 2;
+    // Portal ring
+    ctx.globalAlpha = easeInOutCubic(fadeIn) * (0.5 + pulse * 0.3);
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    this._roundRect(ctx, btnX, BUTTON_Y, BUTTON_W, BUTTON_H, 8);
+    ctx.arc(cx, cy, portalR, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Text
-    ctx.fillStyle = '#8B6914';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Back to Adventure', (LOGICAL_WIDTH / 2) | 0, (BUTTON_Y + BUTTON_H / 2) | 0);
+    // Inner sparkle
+    ctx.fillStyle = '#fffacd';
+    ctx.beginPath();
+    ctx.arc(cx, cy, (portalR * 0.4) | 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Orbiting sparkle motes
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2 + this._autoReturnTimer * 2;
+      const sx = (cx + Math.cos(angle) * portalR) | 0;
+      const sy = (cy + Math.sin(angle) * portalR) | 0;
+      ctx.globalAlpha = 0.4 + Math.sin(this._autoReturnTimer * 4 + i) * 0.3;
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(sx - 1, sy - 1, 3, 3);
+    }
 
     ctx.restore();
   }

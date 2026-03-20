@@ -138,16 +138,31 @@ export default class OverworldScene {
       this._particles[i] = { active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, color: '#fff', size: 2 };
     }
 
-    // Companion hint timer (30s of no action = hint)
+    // Companion hint timer (5s of standing still = companion looks toward interest)
     this._idleTimer = 0;
     this._hintShown = false;
+    this._companionLookTarget = null;  // {x, y} of nearest interesting thing
 
     // First quest completed flag (for HUD visibility)
     this._firstQuestDone = false;
 
+    // First visit auto-walk demo
+    this._isFirstVisit = true;
+    this._autoWalkTriggered = false;
+    this._autoWalkTimer = 0;
+
     // Camera position (smooth follow)
     this._camX = 0;
     this._camY = 0;
+
+    // Proximity sparkle system for interactables (3-tile range = 48px)
+    this._proximitySparkleTimer = 0;
+
+    // Quest path breadcrumb sparkles
+    this._breadcrumbs = new Array(16);
+    for (let i = 0; i < 16; i++) {
+      this._breadcrumbs[i] = { active: false, x: 0, y: 0, alpha: 0, timer: 0 };
+    }
   }
 
   // ---- Lifecycle ------------------------------------------------------------
@@ -181,7 +196,18 @@ export default class OverworldScene {
     this._activeSillyMoment = null;
     this._idleTimer = 0;
     this._hintShown = false;
+    this._companionLookTarget = null;
+    this._autoWalkTriggered = false;
+    this._autoWalkTimer = 0;
+    this._proximitySparkleTimer = 0;
     this._transition = new TransitionOverlay();
+
+    // Reset breadcrumbs
+    if (this._breadcrumbs) {
+      for (let i = 0; i < this._breadcrumbs.length; i++) {
+        this._breadcrumbs[i].active = false;
+      }
+    }
 
     // Reset particle pool
     for (let i = 0; i < this._particles.length; i++) {
@@ -241,8 +267,17 @@ export default class OverworldScene {
     // HUD
     this._hud.update(dt);
 
-    // Idle hint timer
+    // Idle hint timer (companion looks toward interest after 5s)
     this._updateIdleHint(dt);
+
+    // Proximity sparkle for nearby interactables
+    this._updateProximitySparkles(dt);
+
+    // Quest path breadcrumbs
+    this._updateBreadcrumbs(dt);
+
+    // First visit: auto-walk demo so child sees the princess can move
+    this._updateAutoWalkDemo(dt);
 
     // Handle input
     this._handleInput();
@@ -469,15 +504,122 @@ export default class OverworldScene {
     if (this._player && this._player.isMoving) {
       this._idleTimer = 0;
       this._hintShown = false;
+      this._companionLookTarget = null;
       return;
     }
 
     this._idleTimer += dt;
-    if (this._idleTimer >= 30 && !this._hintShown) {
+
+    // After 5 seconds idle: companion looks toward the nearest interesting thing
+    if (this._idleTimer >= 5 && !this._companionLookTarget) {
+      this._companionLookTarget = this._findNearestInterest();
+    }
+
+    // After 15 seconds idle: companion gives a voice hint
+    if (this._idleTimer >= 15 && !this._hintShown) {
       this._hintShown = true;
-      // Companion gives a gentle hint
       if (this._audioManager) {
         this._audioManager.play('voice_companion_hint');
+      }
+    }
+  }
+
+  /** Find the nearest NPC with quest or sparkly interactable to the player. */
+  _findNearestInterest() {
+    if (!this._player) return null;
+    const px = this._player.x;
+    const py = this._player.y;
+    let bestDist = Infinity;
+    let bestPos = null;
+
+    // Check NPCs with quests
+    for (let i = 0; i < this._npcs.length; i++) {
+      const npc = this._npcs[i];
+      if (!npc.hasQuest) continue;
+      const d = Math.hypot(npc.x - px, npc.y - py);
+      if (d < bestDist) { bestDist = d; bestPos = { x: npc.x, y: npc.y }; }
+    }
+
+    // Check active interactables
+    for (let i = 0; i < this._interactables.length; i++) {
+      const obj = this._interactables[i];
+      if (!obj.active) continue;
+      const ox = obj.x + obj.w / 2;
+      const oy = obj.y + obj.h / 2;
+      const d = Math.hypot(ox - px, oy - py);
+      if (d < bestDist) { bestDist = d; bestPos = { x: ox, y: oy }; }
+    }
+
+    return bestPos;
+  }
+
+  /** Auto-walk demo: on first village visit, walk princess a few tiles to show movement. */
+  _updateAutoWalkDemo(dt) {
+    if (!this._isFirstVisit || this._autoWalkTriggered) return;
+    this._autoWalkTimer += dt;
+
+    // After 2 seconds in the village, auto-walk 3 tiles to the right
+    if (this._autoWalkTimer >= 2 && this._player) {
+      this._autoWalkTriggered = true;
+      this._player.moveTo(this._player.x + 48, this._player.y);
+
+      // Play a gentle sparkle trail SFX to draw attention
+      if (this._audioManager) {
+        this._audioManager.play('sfx_footstep_sparkle');
+      }
+    }
+  }
+
+  /** Emit sparkle particles on interactables within 3 tiles (48px) of the player. */
+  _updateProximitySparkles(dt) {
+    if (!this._player) return;
+    this._proximitySparkleTimer += dt;
+    if (this._proximitySparkleTimer < 0.8) return; // emit every 0.8s
+    this._proximitySparkleTimer = 0;
+
+    const px = this._player.x;
+    const py = this._player.y;
+    const range = 48; // 3 tiles
+
+    for (let i = 0; i < this._interactables.length; i++) {
+      const obj = this._interactables[i];
+      if (!obj.active || obj.cooldown > 0) continue;
+      const ox = obj.x + obj.w / 2;
+      const oy = obj.y + obj.h / 2;
+      const dist = Math.hypot(ox - px, oy - py);
+      if (dist < range) {
+        this._emitParticles(ox, oy - 4, '#ffd700', 2);
+      }
+    }
+  }
+
+  /** Update quest path breadcrumb sparkles. */
+  _updateBreadcrumbs(dt) {
+    for (let i = 0; i < this._breadcrumbs.length; i++) {
+      const bc = this._breadcrumbs[i];
+      if (!bc.active) continue;
+      bc.timer += dt;
+      bc.alpha = 0.3 + Math.sin(bc.timer * 3 + i) * 0.2;
+      if (bc.timer > 5) bc.active = false;
+    }
+  }
+
+  /**
+   * Place breadcrumb sparkles along a path to guide the player visually.
+   * Called by QuestSystem or externally when a quest objective changes.
+   * @param {Array<{x:number,y:number}>} points — world positions along the path
+   */
+  setBreadcrumbPath(points) {
+    for (let i = 0; i < this._breadcrumbs.length; i++) {
+      if (i < points.length) {
+        const bc = this._breadcrumbs[i];
+        bc.active = true;
+        bc.x = points[i].x;
+        bc.y = points[i].y;
+        bc.alpha = 0.3;
+        bc.timer = i * 0.2; // stagger so they twinkle in sequence
+      } else {
+        this._breadcrumbs[i].active = false;
       }
     }
   }
@@ -734,6 +876,12 @@ export default class OverworldScene {
     // Particles (world space)
     this._drawParticles(ctx);
 
+    // Quest path breadcrumb sparkles (world space)
+    this._drawBreadcrumbs(ctx);
+
+    // Companion look-at indicator (world space)
+    this._drawCompanionLookAt(ctx);
+
     // Silly moment overlay (world space)
     if (this._activeSillyMoment) {
       this._drawSillyMoment(ctx);
@@ -817,21 +965,44 @@ export default class OverworldScene {
   }
 
   _drawInteractableHighlights(ctx) {
+    const hasPx = this._player != null;
+    const px = hasPx ? this._player.x : 0;
+    const py = hasPx ? this._player.y : 0;
+
     for (let i = 0; i < this._interactables.length; i++) {
       const obj = this._interactables[i];
       if (!obj.active) continue;
-
-      // Update cooldown
-      // Note: ideally done in update(), but tracked here to avoid extra loop
       if (obj.cooldown > 0) continue;
 
-      // Subtle shimmer outline
-      ctx.save();
-      ctx.globalAlpha = 0.2 + Math.sin(this._sessionTime * 2 + i) * 0.1;
-      ctx.strokeStyle = '#ffd700';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(obj.x | 0, obj.y | 0, obj.w, obj.h);
-      ctx.restore();
+      const ox = obj.x + obj.w / 2;
+      const oy = obj.y + obj.h / 2;
+      const dist = hasPx ? Math.hypot(ox - px, oy - py) : 999;
+
+      // Within 3 tiles: bright sparkle glow to invite tapping
+      if (dist < 48) {
+        const pulse = Math.sin(this._sessionTime * 3 + i * 1.5) * 0.5 + 0.5;
+        ctx.save();
+        // Glow circle
+        ctx.globalAlpha = 0.2 + pulse * 0.2;
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(ox | 0, oy | 0, (obj.w * 0.7) | 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Sparkle outline
+        ctx.globalAlpha = 0.4 + pulse * 0.3;
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(obj.x | 0, obj.y | 0, obj.w, obj.h);
+        ctx.restore();
+      } else {
+        // Far away: very subtle shimmer
+        ctx.save();
+        ctx.globalAlpha = 0.15 + Math.sin(this._sessionTime * 2 + i) * 0.08;
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(obj.x | 0, obj.y | 0, obj.w, obj.h);
+        ctx.restore();
+      }
     }
   }
 
@@ -843,6 +1014,54 @@ export default class OverworldScene {
       ctx.globalAlpha = p.life / p.maxLife;
       ctx.fillStyle = p.color;
       ctx.fillRect((p.x - p.size / 2) | 0, (p.y - p.size / 2) | 0, p.size, p.size);
+    }
+    ctx.restore();
+  }
+
+  _drawBreadcrumbs(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._breadcrumbs.length; i++) {
+      const bc = this._breadcrumbs[i];
+      if (!bc.active) continue;
+      const pulse = Math.sin(bc.timer * 3 + i * 0.7) * 0.5 + 0.5;
+      ctx.globalAlpha = bc.alpha * (0.5 + pulse * 0.5);
+      ctx.fillStyle = '#ffd700';
+      // Small sparkle diamond
+      const s = 3 + pulse * 2;
+      ctx.beginPath();
+      ctx.moveTo(bc.x | 0, (bc.y - s) | 0);
+      ctx.lineTo((bc.x + s) | 0, bc.y | 0);
+      ctx.lineTo(bc.x | 0, (bc.y + s) | 0);
+      ctx.lineTo((bc.x - s) | 0, bc.y | 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  _drawCompanionLookAt(ctx) {
+    if (!this._companionLookTarget || !this._companion) return;
+
+    // Draw a subtle sparkle trail from companion toward the target
+    const cx = this._companion.x || 0;
+    const cy = this._companion.y || 0;
+    const tx = this._companionLookTarget.x;
+    const ty = this._companionLookTarget.y;
+    const dx = tx - cx;
+    const dy = ty - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return;
+
+    ctx.save();
+    // Draw 3 sparkle dots along the direction the companion is looking
+    for (let i = 1; i <= 3; i++) {
+      const t = (i / 4) * Math.min(dist, 32) / dist;
+      const sx = (cx + dx * t) | 0;
+      const sy = (cy + dy * t) | 0;
+      const pulse = Math.sin(this._sessionTime * 3 + i * 1.5) * 0.5 + 0.5;
+      ctx.globalAlpha = 0.3 + pulse * 0.3;
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(sx - 1, sy - 1, 2, 2);
     }
     ctx.restore();
   }

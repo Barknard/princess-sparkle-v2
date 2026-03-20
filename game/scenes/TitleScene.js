@@ -49,11 +49,18 @@ const RAINBOW_CHIMES = [
   'sfx_chime_g', 'sfx_chime_a', 'sfx_chime_high_c'
 ];
 
-// Sparkle config
-const SPARKLE_SIZE = 64;           // logical pixels (touch target)
+// Sparkle config — large, irresistible to touch
+const SPARKLE_SIZE = 80;           // logical pixels (touch target, big for small fingers)
+const SPARKLE_VISUAL_SIZE = 40;    // visual radius (32x32+ visible area)
 const SPARKLE_PULSE_CYCLE = 1.5;   // seconds
-const SPARKLE_MIN_SCALE = 0.85;
+const SPARKLE_MIN_SCALE = 0.82;
 const SPARKLE_MAX_SCALE = 1.0;
+const SPARKLE_BOB_SPEED = 2.0;    // up/down bob speed
+const SPARKLE_BOB_AMOUNT = 6;     // pixels of vertical bob
+const SPARKLE_GLOW_RING_MIN = 1.0;
+const SPARKLE_GLOW_RING_MAX = 1.6; // glow ring expansion range
+const SPARKLE_HALO_COUNT = 8;     // particle halo sparkles
+const SPARKLE_DING_INTERVAL = 3.0; // seconds between attention dings
 
 // Particle pool for sparkle burst
 const MAX_PARTICLES = 48;
@@ -337,20 +344,31 @@ export default class TitleScene {
     if (!this._sparkleActive && !this._sparkleTapped) {
       this._sparkleActive = true;
       this._sparkleTimer = 0;
+      this._sparkleDingTimer = 0;
 
-      // Play "Tap the sparkle" voice
+      // Play "Tap the sparkle" voice (narrator guides with voice, not text)
       this._playNarratorLine(2);
     }
 
     if (this._sparkleActive) {
       this._sparkleTimer += dt;
+      this._sparkleDingTimer = (this._sparkleDingTimer || 0) + dt;
 
-      // Check for tap on sparkle
+      // Gentle repeating ding to draw attention to the sparkle
+      if (this._sparkleDingTimer >= SPARKLE_DING_INTERVAL) {
+        this._sparkleDingTimer = 0;
+        if (this._audioManager) {
+          this._audioManager.play('sfx_sparkle_ding');
+        }
+      }
+
+      // Check for tap on sparkle (generous touch target)
       if (this._inputManager && this._inputManager.tapped) {
         const tx = this._inputManager.x;
         const ty = this._inputManager.y;
         const cx = LOGICAL_WIDTH / 2;
-        const cy = LOGICAL_HEIGHT / 2;
+        const bobY = Math.sin(this._sparkleTimer * SPARKLE_BOB_SPEED) * SPARKLE_BOB_AMOUNT;
+        const cy = LOGICAL_HEIGHT / 2 + bobY;
         const dist = Math.hypot(tx - cx, ty - cy);
 
         if (dist < SPARKLE_SIZE) {
@@ -757,31 +775,68 @@ export default class TitleScene {
 
   _drawLargeSparkle(ctx) {
     const cx = (LOGICAL_WIDTH / 2) | 0;
-    const cy = (LOGICAL_HEIGHT / 2) | 0;
+    const bobY = Math.sin(this._sparkleTimer * SPARKLE_BOB_SPEED) * SPARKLE_BOB_AMOUNT;
+    const cy = ((LOGICAL_HEIGHT / 2) + bobY) | 0;
     const pulse = Math.sin(this._sparkleTimer * Math.PI * 2 / SPARKLE_PULSE_CYCLE) * 0.5 + 0.5;
     const scale = SPARKLE_MIN_SCALE + (SPARKLE_MAX_SCALE - SPARKLE_MIN_SCALE) * pulse;
-    const size = (SPARKLE_SIZE / 2) * scale;
+    const size = SPARKLE_VISUAL_SIZE * scale;
 
     ctx.save();
 
-    // Outer glow
-    ctx.globalAlpha = 0.3 + pulse * 0.2;
-    ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+    // Golden glow ring that expands and contracts
+    const ringScale = SPARKLE_GLOW_RING_MIN + (SPARKLE_GLOW_RING_MAX - SPARKLE_GLOW_RING_MIN) * pulse;
+    ctx.globalAlpha = 0.15 + (1 - pulse) * 0.15;
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(cx, cy, size * 1.5, 0, Math.PI * 2);
+    ctx.arc(cx, cy, size * ringScale * 1.4, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Second, wider glow ring (offset timing)
+    const pulse2 = Math.sin(this._sparkleTimer * Math.PI * 2 / SPARKLE_PULSE_CYCLE + Math.PI * 0.6) * 0.5 + 0.5;
+    ctx.globalAlpha = 0.08 + (1 - pulse2) * 0.1;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * ringScale * 1.8, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Soft radial glow behind everything
+    ctx.globalAlpha = 0.25 + pulse * 0.15;
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.25)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Star shape
-    ctx.globalAlpha = 0.8 + pulse * 0.2;
+    // Particle halo — orbiting sparkle motes
+    for (let i = 0; i < SPARKLE_HALO_COUNT; i++) {
+      const angle = (i / SPARKLE_HALO_COUNT) * Math.PI * 2 + this._sparkleTimer * 1.2;
+      const haloR = size * 1.3 + Math.sin(this._sparkleTimer * 2.5 + i * 1.7) * 4;
+      const hx = (cx + Math.cos(angle) * haloR) | 0;
+      const hy = (cy + Math.sin(angle) * haloR) | 0;
+      const moteAlpha = 0.4 + Math.sin(this._sparkleTimer * 3 + i * 2.3) * 0.3;
+      ctx.globalAlpha = moteAlpha;
+      ctx.fillStyle = (i % 2 === 0) ? '#ffd700' : '#fffacd';
+      ctx.fillRect(hx - 1, hy - 1, 3, 3);
+    }
+
+    // Main star shape (large and prominent)
+    ctx.globalAlpha = 0.85 + pulse * 0.15;
     ctx.fillStyle = '#ffd700';
     ctx.beginPath();
     this._starPath(ctx, cx, cy, size, size * 0.35, 4);
     ctx.fill();
 
     // Inner bright core
+    ctx.globalAlpha = 0.9;
     ctx.fillStyle = '#fffacd';
     ctx.beginPath();
-    ctx.arc(cx, cy, (size * 0.3) | 0, 0, Math.PI * 2);
+    ctx.arc(cx, cy, (size * 0.35) | 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // White hot center
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, (size * 0.15) | 0 || 2, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
