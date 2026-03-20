@@ -338,18 +338,41 @@ She can also play **offline** — the service worker caches everything.
 - Entities & Systems: building (Player, Companions, NPCs, Animals, Quests, Weather, etc.)
 - PWA: service worker, auto-update, Add to Home Screen support
 
+### DONE (Session 2 — 2026-03-20)
+- [x] Full integration: all imports resolved, zero JS errors
+- [x] Kenney Tiny Town + Dungeon tilesets wired into renderer
+- [x] Sparkle Village level built with correct tile IDs (90% green grass)
+- [x] Superdark Fantasy pack: 25 animated characters (princess, NPCs)
+- [x] Superdark Enchanted Forest: 27 animated creatures (wolf, fairy, bear)
+- [x] Anokolisa Pixel Crawler: heroes with 14 animation types
+- [x] Szym Tiny Pack: 96 Kenney-style characters + creatures
+- [x] 6 combined spritesheets built (princess, merchant, townsfolk, wolf, fairy)
+- [x] Walk animations wired: 4-frame walk at 150ms, idle at 400ms, horizontal flip
+- [x] Pre-literate UX: all text removed, visual affordance only, auto-advance
+- [x] Companion select: auto-cycle showcase, escalating nudges, never auto-picks
+- [x] 8 ambient world life systems (grass sway, sparkles, butterflies, bloom, shimmer, trail, tint)
+- [x] SFX name mismatches fixed, voice routing through voiceIndex.js
+- [x] Title cinematic: fluffy clouds, rainbow arc, gentle village pan
+- [x] Auto-discovery for all assets (voice, SFX, sprites, levels)
+- [x] Playwright test loops: 3 rounds, all critical errors resolved
+- [x] 43+ narrator voice recordings wired in
+- [x] 3 custom agents: child-psychologist, game-art-director, map-builder
+- [x] MAP-DESIGN-RULES.md from research (Pokemon/Stardew analysis)
+
 ### TODO
-- [ ] Merge all worktree branches and integrate
-- [ ] Download and integrate pixel art asset pack
-- [ ] Build first playable level (Sparkle Village)
-- [ ] Eddie: Create BGM tracks in Suno
-- [ ] Eddie: Record voice lines from SCRIPT.md
-- [ ] Eddie: Choose pixel art pack (Pocket Creature Tamer recommended)
+- [ ] Eddie: Create BGM tracks in Suno (village theme, forest theme, lullaby)
+- [ ] Eddie: Continue recording voice lines from SCRIPT.md
+- [ ] Eddie: Download animated unicorn/dragon/bunny via PixelLab or PixelBox
 - [ ] Test on physical iPad
-- [ ] Build Whisper Forest level
+- [ ] Build Whisper Forest level (use map-builder agent)
+- [ ] Wire Superdark princess walk animation into overworld (spritesheet ready)
 - [ ] Add companion evolution visuals
 - [ ] Add dress-up/accessory system
 - [ ] Add garden system
+- [ ] Add rainbow return portal mechanic
+- [ ] Add kindness encounter random events
+- [ ] Tile polish: path edge transitions, grass variety blobs
+- [ ] Performance audit on iPad
 - [ ] Visual level editor (future)
 
 ---

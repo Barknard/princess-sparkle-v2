@@ -6,22 +6,29 @@ Tile ID formula: `row * 12 + col` (row-major, zero-indexed)
 
 ---
 
-## Row 0 (IDs 0-11): Tree Canopies & Bushes
+## ⚠️ CRITICAL: GRASS IS TILE 1, NOT TILE 37 ⚠️
+
+**VISUALLY VERIFIED by looking at tilemap_packed.png:**
+- **Tile 1 = GREEN GRASS** (Row 0, Col 1) — this is the MAIN ground tile
+- **Tile 2 = GRASS WITH FLOWERS** (Row 0, Col 2) — grass accent
+- Tile 37 is a path T-junction, NOT grass
+
+## Row 0 (IDs 0-11): Star, GRASS, Trees
 
 | ID | Col | Visual | Description |
 |----|-----|--------|-------------|
-| 0  | 0   | Large green circle (left half) | Tree canopy top-left |
-| 1  | 1   | Large green circle (right half) | Tree canopy top-right |
-| 2  | 2   | Green with yellow dots | Flowering tree canopy |
-| 3  | 3   | Orange/autumn tree top | Autumn tree canopy |
-| 4  | 4   | Dark green triangle | Evergreen/pine tree top |
-| 5  | 5   | Light green round | Small tree canopy |
-| 6  | 6   | Round green bush | Bush (large) |
-| 7  | 7   | Small dark green dome | Bush (small) |
-| 8  | 8   | Green with brown base | Tree trunk with leaves (left) |
-| 9  | 9   | Orange with brown base | Autumn tree trunk |
-| 10 | 10  | Dark shape with eyes | Penguin / dark creature |
-| 11 | 11  | Orange flame shape | Fire / torch flame |
+| 0  | 0   | Yellow star/sparkle | Decorative star |
+| 1  | 1   | **GREEN GRASS (plain)** | **MAIN GROUND TILE — use for 60% of ground** |
+| 2  | 2   | **GRASS WITH TINY FLOWERS** | **Ground accent — use for 30% of ground** |
+| 3  | 3   | Grass-to-dirt transition | Path edge (top) |
+| 4  | 4   | Green round tree top-left | Tree canopy TL (FOREGROUND layer) |
+| 5  | 5   | Green round tree top-right | Tree canopy TR (FOREGROUND layer) |
+| 6  | 6   | Small green round tree | Single-tile tree |
+| 7  | 7   | Orange/autumn tree top-left | Autumn canopy TL |
+| 8  | 8   | Orange/autumn tree top-right | Autumn canopy TR |
+| 9  | 9   | Small orange tree | Single-tile autumn tree |
+| 10 | 10  | Tall pine top | Pine tree top |
+| 11 | 11  | Tree variant | Another tree type |
 
 ## Row 1 (IDs 12-23): Tree Trunks & Plants
 
