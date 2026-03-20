@@ -64,6 +64,7 @@ export default class InputManager {
     this._onTouchMove = this._onTouchMove.bind(this);
     this._onMouseDown = this._onMouseDown.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
+    this._onMouseMove = this._onMouseMove.bind(this);
 
     // Register event listeners
     // Touch events — passive:false so we can preventDefault
@@ -72,9 +73,10 @@ export default class InputManager {
     canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
     canvas.addEventListener('touchcancel', this._onTouchEnd, { passive: false });
 
-    // Mouse fallback for desktop testing
+    // Mouse fallback for desktop testing (point and click)
     canvas.addEventListener('mousedown', this._onMouseDown);
     canvas.addEventListener('mouseup', this._onMouseUp);
+    canvas.addEventListener('mousemove', this._onMouseMove);
 
     // Prevent context menu on long press
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -261,7 +263,14 @@ export default class InputManager {
     }
   }
 
-  // --- Mouse handlers (desktop fallback) ---
+  // --- Mouse handlers (desktop fallback — point and click) ---
+
+  _onMouseMove(e) {
+    // Track cursor position for hover effects and accurate click coords
+    const logical = this._toLogical(e.clientX, e.clientY);
+    this.cursorX = logical.x;
+    this.cursorY = logical.y;
+  }
 
   _onMouseDown(e) {
     // Treat as touch start
@@ -324,5 +333,6 @@ export default class InputManager {
     this._canvas.removeEventListener('touchcancel', this._onTouchEnd);
     this._canvas.removeEventListener('mousedown', this._onMouseDown);
     this._canvas.removeEventListener('mouseup', this._onMouseUp);
+    this._canvas.removeEventListener('mousemove', this._onMouseMove);
   }
 }

@@ -769,10 +769,10 @@ export default class TitleScene {
       ctx.lineCap = 'round';
       ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      // Arc sweeps from left (PI) to right (0), progress controls how far
+      // Arc sweeps from left (PI) to right (0) through the TOP (clockwise on canvas)
       const startAngle = Math.PI;
-      const endAngle = Math.PI - Math.PI * progress; // sweeps left to right
-      ctx.arc(arcCenterX, arcCenterY, r, startAngle, endAngle, true);
+      const endAngle = Math.PI * (1 - progress); // PI→0 as progress goes 0→1
+      ctx.arc(arcCenterX, arcCenterY, r, startAngle, endAngle, false);
       ctx.stroke();
     }
 
