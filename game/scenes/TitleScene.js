@@ -11,7 +11,7 @@
  *   3: Camera pans down revealing village (20–28s)
  *   4: Princess appears with shimmer effect (28–33s)
  *   5: Narrator welcome voice lines (33–42s)
- *   6: "Tap the sparkle" prompt — large 64x64 pulsing sparkle (42s+)
+ *   6: "Tap the sparkle" prompt — large 80px pulsing sparkle (42s+)
  *
  * Continue-Adventure flow is a compressed 3s version.
  *
@@ -39,6 +39,7 @@ const CONTINUE_DURATION = 3; // compressed returning-player intro
 // Colors
 const PINK = '#ffe0ec';
 const SKY_TOP = '#aaddff';
+const SKY_LAVENDER = '#c8b8e8';
 const SKY_BOTTOM = '#ffd6e8';
 const VILLAGE_GROUND = '#a8d8a0';
 
@@ -64,15 +65,74 @@ const SPARKLE_GLOW_RING_MAX = 1.6; // glow ring expansion range
 const SPARKLE_HALO_COUNT = 8;     // particle halo sparkles
 const SPARKLE_DING_INTERVAL = 3.0; // seconds between attention dings
 
-// Particle pool for sparkle burst
-const MAX_PARTICLES = 48;
+// Particle pool for sparkle burst + rainbow trail sparkles
+const MAX_PARTICLES = 80;
 
-// Cloud pool
-const MAX_CLOUDS = 5;
-const CLOUD_SPEED = 0.3; // px per frame at 30fps ≈ 9px/s
+// Cloud pool — fluffy, prominent, varying sizes
+const MAX_CLOUDS = 10;
+const CLOUD_SPEED = 0.3; // base px per frame at 30fps
 
 // Star twinkle pool (magic sparkle stars)
 const MAX_STARS = 12;
+
+// Rainbow trail sparkle pool (separate from burst particles)
+const MAX_RAINBOW_SPARKLES = 24;
+
+// ---- Cloud definition: each cloud is a cluster of 3-5 overlapping circles ---
+
+/**
+ * Cloud sizes:  small 20-30px, medium 40-60px, large 60-90px
+ * Each cloud has puffs (circle clusters) for a fluffy look.
+ */
+function _generateCloudPuffs(size) {
+  // size is the overall width of the cloud
+  const puffs = [];
+  const count = size < 35 ? 3 : size < 55 ? 4 : 5;
+  const halfW = size / 2;
+  const baseR = size * 0.25;
+
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0.5 : i / (count - 1); // 0..1
+    const px = -halfW + t * size;
+    // arc shape: center puffs higher, edges lower
+    const arcH = Math.sin(t * Math.PI) * (size * 0.18);
+    const py = -arcH;
+    // radius: center puffs bigger, edge puffs smaller
+    const rVariance = 0.7 + Math.sin(t * Math.PI) * 0.5;
+    const r = baseR * rVariance * (0.85 + Math.random() * 0.3);
+    puffs.push({ ox: px, oy: py, r: Math.max(r, 6) });
+  }
+  return puffs;
+}
+
+function createCloudPool(count) {
+  const pool = new Array(count);
+  // Distribute sizes: 3 small, 4 medium, 3 large
+  const sizes = [];
+  for (let i = 0; i < count; i++) {
+    if (i < 3) sizes.push(20 + Math.random() * 10);       // small 20-30
+    else if (i < 7) sizes.push(40 + Math.random() * 20);   // medium 40-60
+    else sizes.push(60 + Math.random() * 30);               // large 60-90
+  }
+  // Shuffle sizes
+  for (let i = sizes.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const tmp = sizes[i]; sizes[i] = sizes[j]; sizes[j] = tmp;
+  }
+
+  for (let i = 0; i < count; i++) {
+    const w = sizes[i];
+    pool[i] = {
+      x: Math.random() * (LOGICAL_WIDTH + 100) - 50,
+      y: 15 + Math.random() * 80, // varied vertical positions
+      w: w,
+      speed: CLOUD_SPEED * (0.4 + Math.random() * 0.8), // parallax: different speeds
+      puffs: _generateCloudPuffs(w),
+      alpha: 0.75 + Math.random() * 0.2, // slight alpha variation
+    };
+  }
+  return pool;
+}
 
 // ---- Particle (pre-allocated) -----------------------------------------------
 
@@ -80,20 +140,6 @@ function createParticlePool(size) {
   const pool = new Array(size);
   for (let i = 0; i < size; i++) {
     pool[i] = { active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, color: '#fff', size: 2 };
-  }
-  return pool;
-}
-
-function createCloudPool(count) {
-  const pool = new Array(count);
-  for (let i = 0; i < count; i++) {
-    pool[i] = {
-      x: Math.random() * LOGICAL_WIDTH + LOGICAL_WIDTH * 0.3,
-      y: 20 + Math.random() * 60,
-      w: 24 + (Math.random() * 16) | 0,
-      h: 10 + (Math.random() * 6) | 0,
-      speed: CLOUD_SPEED * (0.7 + Math.random() * 0.6),
-    };
   }
   return pool;
 }
@@ -107,6 +153,15 @@ function createStarPool(count) {
       phase: Math.random() * Math.PI * 2,
       size: 1 + ((Math.random() * 2) | 0),
     };
+  }
+  return pool;
+}
+
+// Rainbow trail sparkle pool
+function createRainbowSparklePool(size) {
+  const pool = new Array(size);
+  for (let i = 0; i < size; i++) {
+    pool[i] = { active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, color: '#fff', size: 2 };
   }
   return pool;
 }
@@ -136,11 +191,17 @@ export default class TitleScene {
     this._particles = createParticlePool(MAX_PARTICLES);
     this._clouds = createCloudPool(MAX_CLOUDS);
     this._stars = createStarPool(MAX_STARS);
+    this._rainbowSparkles = createRainbowSparklePool(MAX_RAINBOW_SPARKLES);
 
     // Rainbow build progress (0..1 per band)
     this._rainbowProgress = new Float32Array(RAINBOW.length);
+    // Track which chimes have played
+    this._rainbowChimePlayed = new Uint8Array(RAINBOW.length);
 
     // Camera pan offset for phase 3 (village reveal)
+    // The "world" is taller than the screen — sky on top, village below.
+    // We render a world that is ~2x screen height: sky fills top half, village fills bottom.
+    // Camera starts looking at sky, pans down to village.
     this._cameraPanY = 0;
     this._cameraPanTarget = 0;
 
@@ -169,6 +230,9 @@ export default class TitleScene {
       'narrator_title_02', // "A world full of kindness is waiting for you."
       'narrator_title_03', // "Tap the sparkle to begin your adventure."
     ];
+
+    // Rainbow glow timer (gentle pulse after fully drawn)
+    this._rainbowGlowTimer = 0;
   }
 
   // ---- Scene lifecycle ------------------------------------------------------
@@ -193,6 +257,7 @@ export default class TitleScene {
     this._phaseTimer = 0;
     this._totalTimer = 0;
     this._cameraPanY = 0;
+    // Pan target: scroll down by 75% of logical height to reveal village below sky
     this._cameraPanTarget = LOGICAL_HEIGHT * 0.75;
     this._princessAlpha = 0;
     this._princessShimmerTimer = 0;
@@ -205,16 +270,26 @@ export default class TitleScene {
     this._burstActive = false;
     this._burstTimer = 0;
     this._transition = new TransitionOverlay();
+    this._rainbowGlowTimer = 0;
 
     // Reset rainbow
     for (let i = 0; i < this._rainbowProgress.length; i++) {
       this._rainbowProgress[i] = 0;
+    }
+    for (let i = 0; i < this._rainbowChimePlayed.length; i++) {
+      this._rainbowChimePlayed[i] = 0;
     }
 
     // Reset particles
     for (let i = 0; i < this._particles.length; i++) {
       this._particles[i].active = false;
     }
+    for (let i = 0; i < this._rainbowSparkles.length; i++) {
+      this._rainbowSparkles[i].active = false;
+    }
+
+    // Regenerate clouds for variety each time
+    this._clouds = createCloudPool(MAX_CLOUDS);
 
     // Check for save data
     this._isContinue = this._hasSaveData();
@@ -272,16 +347,22 @@ export default class TitleScene {
 
     // Update particles
     this._updateParticles(dt);
+    this._updateRainbowSparkles(dt);
 
     // Update clouds (phases 1+)
     if (this._phase >= 1) {
       this._updateClouds(dt);
     }
+
+    // Update rainbow glow timer (after rainbow is fully drawn)
+    if (this._phase >= 3) {
+      this._rainbowGlowTimer += dt;
+    }
   }
 
   // ---- Phase updates --------------------------------------------------------
 
-  /** Phase 0: Soft pink screen, single sparkle pulses. */
+  /** Phase 0: Soft pink screen, single warm-gold sparkle pulses. */
   _updatePhase0(dt) {
     // Sparkle pulse is handled in draw via timer
   }
@@ -291,24 +372,31 @@ export default class TitleScene {
     // Clouds handled in _updateClouds
   }
 
-  /** Phase 2: Rainbow builds one color at a time. */
+  /** Phase 2: Rainbow builds one color at a time with sparkle trail. */
   _updatePhase2(dt) {
     const bandDuration = PHASE_DURATIONS[2] / RAINBOW.length; // ~1.67s each
     for (let i = 0; i < RAINBOW.length; i++) {
       const bandStart = i * bandDuration;
       const localT = this._phaseTimer - bandStart;
       if (localT > 0) {
+        const prevProgress = this._rainbowProgress[i];
         this._rainbowProgress[i] = Math.min(localT / bandDuration, 1);
 
-        // Play chime when band starts
-        if (localT < dt * 2 && this._audioManager) {
+        // Play chime when band starts (only once)
+        if (!this._rainbowChimePlayed[i] && this._audioManager) {
+          this._rainbowChimePlayed[i] = 1;
           this._audioManager.playSFX(RAINBOW_CHIMES[i]);
+        }
+
+        // Emit sparkle trail particles at the leading edge of the arc
+        if (this._rainbowProgress[i] < 1 && this._rainbowProgress[i] > prevProgress) {
+          this._emitRainbowTrailSparkle(i, this._rainbowProgress[i]);
         }
       }
     }
   }
 
-  /** Phase 3: Camera pans down revealing village. */
+  /** Phase 3: Camera pans down revealing village — smooth ease-in-out over 8s. */
   _updatePhase3(dt) {
     const t = Math.min(this._phaseTimer / PHASE_DURATIONS[3], 1);
     this._cameraPanY = this._cameraPanTarget * easeInOutCubic(t);
@@ -449,7 +537,7 @@ export default class TitleScene {
     // ---- Phase 0+: Pink background ------------------------------------------
     renderer.fillBackground(PINK);
 
-    // ---- Phase 1+: Sky gradient ---------------------------------------------
+    // ---- Phase 1+: Sky gradient + clouds + stars ----------------------------
     if (this._phase >= 1) {
       const skyAlpha = this._phase === 1
         ? Math.min(this._phaseTimer / 2, 1) // fade in over 2s
@@ -458,17 +546,21 @@ export default class TitleScene {
       ctx.save();
       ctx.globalAlpha = skyAlpha;
 
-      const grad = ctx.createLinearGradient(0, 0, 0, LOGICAL_HEIGHT);
-      grad.addColorStop(0, SKY_TOP);
-      grad.addColorStop(0.6, SKY_BOTTOM);
-      grad.addColorStop(1, VILLAGE_GROUND);
+      // Extended sky gradient: light blue -> lavender -> pink -> soft green
+      const grad = ctx.createLinearGradient(0, -this._cameraPanY, 0, LOGICAL_HEIGHT * 2 - this._cameraPanY);
+      grad.addColorStop(0, SKY_TOP);          // light blue at very top
+      grad.addColorStop(0.25, SKY_LAVENDER);  // lavender through middle
+      grad.addColorStop(0.4, SKY_BOTTOM);     // pink at horizon area
+      grad.addColorStop(0.5, '#d4e8c2');      // transition to green
+      grad.addColorStop(0.55, VILLAGE_GROUND); // soft green ground
+      grad.addColorStop(1, '#8bc37a');         // slightly deeper green at bottom
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
-      // Stars (magic sparkle stars)
+      // Stars (magic sparkle stars) — only visible in upper sky
       this._drawStars(ctx);
 
-      // Clouds
+      // Clouds — fluffy and prominent
       this._drawClouds(ctx);
 
       ctx.restore();
@@ -477,6 +569,7 @@ export default class TitleScene {
     // ---- Phase 2+: Rainbow --------------------------------------------------
     if (this._phase >= 2) {
       this._drawRainbow(ctx);
+      this._drawRainbowSparkles(ctx);
     }
 
     // ---- Phase 3+: Village (camera pan) -------------------------------------
@@ -489,7 +582,7 @@ export default class TitleScene {
       this._drawPrincess(ctx);
     }
 
-    // ---- Phase 0: Center sparkle pulse (before sky) -------------------------
+    // ---- Phase 0: Center sparkle pulse (warm gold, before sky) --------------
     if (this._phase === 0) {
       this._drawCenterSparkle(ctx, this._phaseTimer);
     }
@@ -517,8 +610,10 @@ export default class TitleScene {
     // Sky with rainbow already formed
     const grad = ctx.createLinearGradient(0, 0, 0, LOGICAL_HEIGHT);
     grad.addColorStop(0, SKY_TOP);
-    grad.addColorStop(0.6, SKY_BOTTOM);
-    grad.addColorStop(1, VILLAGE_GROUND);
+    grad.addColorStop(0.3, SKY_LAVENDER);
+    grad.addColorStop(0.5, SKY_BOTTOM);
+    grad.addColorStop(0.7, VILLAGE_GROUND);
+    grad.addColorStop(1, '#8bc37a');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
@@ -540,19 +635,36 @@ export default class TitleScene {
 
   // ---- Draw helpers ---------------------------------------------------------
 
+  /** Phase 0 sparkle: warm gold pulsing star, not white. */
   _drawCenterSparkle(ctx, timer) {
     const cx = (LOGICAL_WIDTH / 2) | 0;
     const cy = (LOGICAL_HEIGHT / 2) | 0;
     const pulse = Math.sin(timer * Math.PI * 2 / 1.5) * 0.5 + 0.5; // 0..1
-    const size = 4 + pulse * 4;
+    const size = 5 + pulse * 5;
 
     ctx.save();
-    ctx.globalAlpha = 0.6 + pulse * 0.4;
+
+    // Soft warm glow behind the sparkle
+    ctx.globalAlpha = 0.15 + pulse * 0.15;
     ctx.fillStyle = '#ffd700';
     ctx.beginPath();
-    // 4-point star
+    ctx.arc(cx, cy, size * 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main warm gold sparkle
+    ctx.globalAlpha = 0.7 + pulse * 0.3;
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
     this._starPath(ctx, cx, cy, size, size * 0.35, 4);
     ctx.fill();
+
+    // Bright core
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = '#fff3c4';
+    ctx.beginPath();
+    ctx.arc(cx, cy, (size * 0.3) | 0 || 1, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 
@@ -568,56 +680,182 @@ export default class TitleScene {
     ctx.globalAlpha = 1;
   }
 
+  /**
+   * Draw fluffy clouds as clusters of overlapping white/light-grey circles.
+   * Each cloud has 3-5 puffs of varying size for a puffy, prominent look.
+   * Visible against both pink and blue sky backgrounds.
+   */
   _drawClouds(ctx) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.save();
     for (let i = 0; i < this._clouds.length; i++) {
       const c = this._clouds[i];
-      // Simple cloud: 2-3 overlapping ellipses
       const cx = c.x | 0;
       const cy = c.y | 0;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, (c.w / 2) | 0, (c.h / 2) | 0, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse((cx - c.w * 0.25) | 0, (cy + 2) | 0, (c.w * 0.35) | 0, (c.h * 0.4) | 0, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse((cx + c.w * 0.25) | 0, (cy + 1) | 0, (c.w * 0.3) | 0, (c.h * 0.45) | 0, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
 
-  _drawRainbow(ctx) {
-    const bandWidth = 4;
-    const startX = -20;
-    const endX = LOGICAL_WIDTH + 20;
-    const arcCenterY = -40;
-    const arcRadius = 200;
+      // Soft shadow underneath (light grey, offset down)
+      ctx.globalAlpha = c.alpha * 0.25;
+      ctx.fillStyle = '#c0c8d8';
+      for (let j = 0; j < c.puffs.length; j++) {
+        const p = c.puffs[j];
+        ctx.beginPath();
+        ctx.arc((cx + p.ox) | 0, (cy + p.oy + 3) | 0, (p.r * 0.9) | 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-    ctx.save();
-    for (let i = 0; i < RAINBOW.length; i++) {
-      const progress = this._rainbowProgress[i];
-      if (progress <= 0) continue;
+      // Main cloud body — white with high opacity
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = c.alpha;
+      for (let j = 0; j < c.puffs.length; j++) {
+        const p = c.puffs[j];
+        ctx.beginPath();
+        ctx.arc((cx + p.ox) | 0, (cy + p.oy) | 0, p.r | 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-      ctx.strokeStyle = RAINBOW[i];
-      ctx.lineWidth = bandWidth;
-      ctx.globalAlpha = 0.75;
-      ctx.beginPath();
-      // Arc from left to right
-      const startAngle = Math.PI;
-      const endAngle = Math.PI + Math.PI * progress;
-      ctx.arc(
-        (LOGICAL_WIDTH / 2) | 0,
-        arcCenterY + i * (bandWidth + 1),
-        arcRadius - i * (bandWidth + 1),
-        startAngle,
-        endAngle
-      );
-      ctx.stroke();
+      // Highlight on top puffs (slightly brighter white, smaller)
+      ctx.globalAlpha = c.alpha * 0.5;
+      ctx.fillStyle = '#f8fcff';
+      for (let j = 0; j < c.puffs.length; j++) {
+        const p = c.puffs[j];
+        ctx.beginPath();
+        ctx.arc((cx + p.ox) | 0, (cy + p.oy - 2) | 0, (p.r * 0.55) | 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.restore();
   }
 
+  /**
+   * Draw the rainbow as a prominent arc spanning 80%+ of screen width.
+   * Each band is 3-4px thick. Proper curved arc using canvas arc.
+   * After fully drawn, the rainbow glows gently.
+   */
+  _drawRainbow(ctx) {
+    const bandWidth = 4;
+    const bandGap = 1;               // tiny gap between bands for definition
+    const totalBandStep = bandWidth + bandGap;
+    const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
+    // Place arc center below the screen top so the arc spans most of the width
+    const arcCenterY = (LOGICAL_HEIGHT * 0.65) | 0;
+    // Radius chosen so the arc feet are at ~10% and ~90% of screen width
+    const outerRadius = (LOGICAL_WIDTH * 0.45) | 0;
+
+    ctx.save();
+
+    // If rainbow is fully drawn and we're past phase 2, add a gentle glow
+    const allDone = this._phase >= 3;
+    if (allDone && this._rainbowGlowTimer > 0) {
+      const glowPulse = Math.sin(this._rainbowGlowTimer * 1.5) * 0.5 + 0.5;
+      const glowAlpha = 0.06 + glowPulse * 0.08;
+      // Draw a wide, soft glow behind the rainbow
+      for (let i = 0; i < RAINBOW.length; i++) {
+        const r = outerRadius - i * totalBandStep;
+        ctx.strokeStyle = RAINBOW[i];
+        ctx.lineWidth = bandWidth + 6;
+        ctx.globalAlpha = glowAlpha;
+        ctx.beginPath();
+        ctx.arc(arcCenterX, arcCenterY, r, Math.PI, 0);
+        ctx.stroke();
+      }
+    }
+
+    // Draw each color band
+    for (let i = 0; i < RAINBOW.length; i++) {
+      const progress = this._rainbowProgress[i];
+      if (progress <= 0) continue;
+
+      const r = outerRadius - i * totalBandStep;
+      ctx.strokeStyle = RAINBOW[i];
+      ctx.lineWidth = bandWidth;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      // Arc sweeps from left (PI) to right (0), progress controls how far
+      const startAngle = Math.PI;
+      const endAngle = Math.PI - Math.PI * progress; // sweeps left to right
+      ctx.arc(arcCenterX, arcCenterY, r, startAngle, endAngle, true);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Emit a sparkle particle at the leading edge of a rainbow band.
+   */
+  _emitRainbowTrailSparkle(bandIndex, progress) {
+    // Find an inactive sparkle
+    let sparkle = null;
+    for (let i = 0; i < this._rainbowSparkles.length; i++) {
+      if (!this._rainbowSparkles[i].active) {
+        sparkle = this._rainbowSparkles[i];
+        break;
+      }
+    }
+    if (!sparkle) return;
+
+    const bandWidth = 4;
+    const bandGap = 1;
+    const totalBandStep = bandWidth + bandGap;
+    const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
+    const arcCenterY = (LOGICAL_HEIGHT * 0.65) | 0;
+    const outerRadius = (LOGICAL_WIDTH * 0.45) | 0;
+    const r = outerRadius - bandIndex * totalBandStep;
+
+    // Position at the leading edge of the arc
+    const angle = Math.PI - Math.PI * progress;
+    const sx = arcCenterX + Math.cos(angle) * r;
+    const sy = arcCenterY + Math.sin(angle) * r;
+
+    sparkle.active = true;
+    sparkle.x = sx;
+    sparkle.y = sy;
+    sparkle.vx = (Math.random() - 0.5) * 20;
+    sparkle.vy = -10 - Math.random() * 15;
+    sparkle.life = 0.6 + Math.random() * 0.4;
+    sparkle.maxLife = sparkle.life;
+    sparkle.color = RAINBOW[bandIndex];
+    sparkle.size = 1 + ((Math.random() * 2) | 0);
+  }
+
+  _updateRainbowSparkles(dt) {
+    for (let i = 0; i < this._rainbowSparkles.length; i++) {
+      const p = this._rainbowSparkles[i];
+      if (!p.active) continue;
+      p.life -= dt;
+      if (p.life <= 0) {
+        p.active = false;
+        continue;
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 15 * dt; // very gentle gravity
+    }
+  }
+
+  _drawRainbowSparkles(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._rainbowSparkles.length; i++) {
+      const p = this._rainbowSparkles[i];
+      if (!p.active) continue;
+      const lifeRatio = p.life / p.maxLife;
+      ctx.globalAlpha = lifeRatio * 0.8;
+      ctx.fillStyle = p.color;
+      // Draw as tiny 4-point star for sparkle effect
+      const s = p.size;
+      const px = p.x | 0;
+      const py = p.y | 0;
+      ctx.fillRect(px - s, py, s * 2 + 1, 1);
+      ctx.fillRect(px, py - s, 1, s * 2 + 1);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw village with camera pan.
+   * During phase 3, the camera smoothly scrolls down from sky to village.
+   * The entire scene is rendered as a tall world and we translate by cameraPanY.
+   */
   _drawVillage(ctx) {
     const panProgress = this._phase === 3
       ? Math.min(this._phaseTimer / PHASE_DURATIONS[3], 1)
@@ -632,95 +870,179 @@ export default class TitleScene {
 
   /** Draws placeholder village shapes (real tiles loaded from TileMap later). */
   _drawVillageShapes(ctx, revealProgress) {
-    const baseY = LOGICAL_HEIGHT * 0.6;
+    // Village sits below the visible sky area.
+    // baseY is where the ground starts in the extended world.
+    const baseY = LOGICAL_HEIGHT + LOGICAL_HEIGHT * 0.15;
 
     ctx.save();
     ctx.globalAlpha = Math.min(revealProgress * 1.5, 1);
 
-    // Ground
-    ctx.fillStyle = '#a8d8a0';
+    // Ground — lush green grass
+    ctx.fillStyle = VILLAGE_GROUND;
     ctx.fillRect(0, baseY | 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
-    // Path
+    // Subtle grass texture (slightly different green strips)
+    ctx.fillStyle = '#9ed094';
+    for (let gy = 0; gy < LOGICAL_HEIGHT; gy += 8) {
+      if (gy % 16 === 0) {
+        ctx.fillRect(0, (baseY + gy) | 0, LOGICAL_WIDTH, 2);
+      }
+    }
+
+    // Dirt path
     ctx.fillStyle = '#d4b896';
-    ctx.fillRect(200, baseY | 0, 80, LOGICAL_HEIGHT - baseY);
+    ctx.fillRect(200, baseY | 0, 80, LOGICAL_HEIGHT);
+    // Path edge highlights
+    ctx.fillStyle = '#c9a87c';
+    ctx.fillRect(198, baseY | 0, 2, LOGICAL_HEIGHT);
+    ctx.fillRect(280, baseY | 0, 2, LOGICAL_HEIGHT);
 
     // Houses (simple colored rectangles with roofs)
     const houses = [
-      { x: 60, w: 50, h: 36, roof: '#ff9999', wall: '#fff5ee' },
-      { x: 140, w: 44, h: 32, roof: '#99ccff', wall: '#fff8f0' },
-      { x: 310, w: 48, h: 38, roof: '#ffcc99', wall: '#fdf5e6' },
-      { x: 390, w: 42, h: 30, roof: '#cc99ff', wall: '#faf0ff' },
+      { x: 50,  w: 52, h: 38, roof: '#ff9999', wall: '#fff5ee', door: '#8B6914' },
+      { x: 130, w: 46, h: 34, roof: '#99ccff', wall: '#fff8f0', door: '#7a5a2e' },
+      { x: 310, w: 50, h: 40, roof: '#ffcc99', wall: '#fdf5e6', door: '#8B6914' },
+      { x: 400, w: 44, h: 32, roof: '#cc99ff', wall: '#faf0ff', door: '#6e4a8a' },
     ];
 
     for (let i = 0; i < houses.length; i++) {
       const h = houses[i];
       const hy = (baseY - h.h + 10) | 0;
+
       // Wall
       ctx.fillStyle = h.wall;
       ctx.fillRect(h.x | 0, hy, h.w, h.h);
+
+      // Door
+      ctx.fillStyle = h.door;
+      const doorW = 8;
+      const doorH = 14;
+      ctx.fillRect((h.x + h.w / 2 - doorW / 2) | 0, (hy + h.h - doorH) | 0, doorW, doorH);
+
+      // Window(s)
+      ctx.fillStyle = '#add8e6';
+      ctx.fillRect((h.x + 6) | 0, (hy + 8) | 0, 7, 6);
+      if (h.w > 44) {
+        ctx.fillRect((h.x + h.w - 13) | 0, (hy + 8) | 0, 7, 6);
+      }
+
       // Roof (triangle)
       ctx.fillStyle = h.roof;
       ctx.beginPath();
       ctx.moveTo(h.x - 4, hy);
-      ctx.lineTo((h.x + h.w / 2) | 0, (hy - 16) | 0);
+      ctx.lineTo((h.x + h.w / 2) | 0, (hy - 18) | 0);
       ctx.lineTo(h.x + h.w + 4, hy);
       ctx.closePath();
       ctx.fill();
+
+      // Chimney on first house (with curling smoke)
+      if (i === 0) {
+        ctx.fillStyle = '#8B7355';
+        ctx.fillRect((h.x + h.w - 12) | 0, (hy - 22) | 0, 6, 10);
+        // Smoke wisps
+        const smokeT = this._totalTimer;
+        ctx.globalAlpha = Math.min(revealProgress * 1.5, 1) * 0.3;
+        ctx.fillStyle = '#d0d0d0';
+        for (let s = 0; s < 3; s++) {
+          const sxOff = Math.sin(smokeT * 0.8 + s * 1.5) * 4;
+          const sy = (hy - 24 - s * 7) | 0;
+          const sr = 3 + s * 1.5;
+          ctx.beginPath();
+          ctx.arc((h.x + h.w - 9 + sxOff) | 0, sy, sr | 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = Math.min(revealProgress * 1.5, 1);
+      }
     }
 
-    // Trees
+    // Trees — more detailed with trunk and layered canopy
     ctx.fillStyle = '#5a8a3c';
-    const treePositions = [30, 120, 290, 430, 460];
+    const treePositions = [20, 110, 170, 285, 360, 440, 465];
     for (let i = 0; i < treePositions.length; i++) {
       const tx = treePositions[i];
-      const ty = (baseY - 10) | 0;
+      const ty = (baseY - 8) | 0;
       // Trunk
       ctx.fillStyle = '#8B6914';
-      ctx.fillRect((tx + 4) | 0, ty, 4, 12);
-      // Canopy
+      ctx.fillRect((tx + 3) | 0, ty, 5, 14);
+      // Canopy layers for depth
+      ctx.fillStyle = '#4a7a2c';
+      ctx.beginPath();
+      ctx.arc((tx + 5) | 0, (ty - 3) | 0, 12, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = '#5a8a3c';
       ctx.beginPath();
-      ctx.arc((tx + 6) | 0, (ty - 4) | 0, 10, 0, Math.PI * 2);
+      ctx.arc((tx + 6) | 0, (ty - 6) | 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#6a9a4c';
+      ctx.beginPath();
+      ctx.arc((tx + 4) | 0, (ty - 5) | 0, 7, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Flowers (small colored dots)
-    ctx.fillStyle = '#ff69b4';
-    const flowerX = [80, 160, 350, 410, 250];
+    // Flowers (small colored dots with gentle sway)
+    const flowerColors = ['#ff69b4', '#ff9ecb', '#ffdd57', '#ff7eb3', '#c8a2ff'];
+    const flowerX = [75, 155, 250, 345, 420, 100, 380, 260];
+    const swayT = this._totalTimer;
     for (let i = 0; i < flowerX.length; i++) {
-      ctx.fillRect(flowerX[i] | 0, (baseY + 4) | 0, 3, 3);
+      const sway = Math.sin(swayT * 1.2 + i * 2.1) * 1.5;
+      ctx.fillStyle = flowerColors[i % flowerColors.length];
+      ctx.fillRect((flowerX[i] + sway) | 0, (baseY + 3 + Math.sin(i) * 2) | 0, 3, 3);
+      // Stem
+      ctx.fillStyle = '#5a8a3c';
+      ctx.fillRect((flowerX[i] + 1 + sway) | 0, (baseY + 6 + Math.sin(i) * 2) | 0, 1, 4);
     }
 
-    // Broken Rainbow Bridge (grey arch at far edge)
-    ctx.strokeStyle = 'rgba(150,150,150,0.5)';
-    ctx.lineWidth = 6;
+    // Small pond
+    ctx.fillStyle = '#87ceeb';
+    ctx.globalAlpha = Math.min(revealProgress * 1.5, 1) * 0.7;
     ctx.beginPath();
-    ctx.arc(LOGICAL_WIDTH - 30, baseY | 0, 40, Math.PI, 0);
+    ctx.ellipse(260, (baseY + 30) | 0, 18, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Pond edge
+    ctx.strokeStyle = '#6bb8d9';
+    ctx.lineWidth = 1;
     ctx.stroke();
+    ctx.globalAlpha = Math.min(revealProgress * 1.5, 1);
+
+    // Broken Rainbow Bridge (grey arch at far edge — no color yet)
+    ctx.strokeStyle = 'rgba(140,140,140,0.55)';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(LOGICAL_WIDTH - 25, (baseY - 2) | 0, 44, Math.PI, 0);
+    ctx.stroke();
+    // Bridge posts
+    ctx.fillStyle = 'rgba(140,140,140,0.5)';
+    ctx.fillRect((LOGICAL_WIDTH - 70) | 0, (baseY - 4) | 0, 5, 20);
+    ctx.fillRect((LOGICAL_WIDTH + 18) | 0, (baseY - 4) | 0, 5, 20);
 
     ctx.restore();
   }
 
   _drawPrincess(ctx) {
+    // After camera pan, princess is in the village area
+    const baseY = LOGICAL_HEIGHT + LOGICAL_HEIGHT * 0.15;
     const cx = (LOGICAL_WIDTH / 2) | 0;
-    const cy = (LOGICAL_HEIGHT * 0.55) | 0;
+    // Position princess relative to village, offset by camera pan
+    const worldCy = (baseY - 20) | 0;
+    const screenCy = worldCy - (this._cameraPanY | 0);
 
     ctx.save();
     ctx.globalAlpha = this._princessAlpha;
 
     // Shimmer effect — sparkles around princess
     if (this._princessShimmerTimer > 0) {
-      const shimmerCount = 6;
+      const shimmerCount = 8;
       for (let i = 0; i < shimmerCount; i++) {
         const angle = (i / shimmerCount) * Math.PI * 2 + this._princessShimmerTimer * 2;
-        const radius = 14 + Math.sin(this._princessShimmerTimer * 3 + i) * 4;
+        const radius = 16 + Math.sin(this._princessShimmerTimer * 3 + i) * 5;
         const sx = cx + (Math.cos(angle) * radius) | 0;
-        const sy = cy + (Math.sin(angle) * radius) | 0;
+        const sy = screenCy + (Math.sin(angle) * radius) | 0;
         const sparkleAlpha = 0.4 + Math.sin(this._princessShimmerTimer * 4 + i * 2) * 0.3;
         ctx.globalAlpha = this._princessAlpha * sparkleAlpha;
         ctx.fillStyle = '#ffd700';
-        ctx.fillRect(sx - 1, sy - 1, 2, 2);
+        // Draw as tiny star shape for shimmer
+        ctx.fillRect(sx - 1, sy, 3, 1);
+        ctx.fillRect(sx, sy - 1, 1, 3);
       }
       ctx.globalAlpha = this._princessAlpha;
     }
@@ -728,7 +1050,7 @@ export default class TitleScene {
     // Princess sprite (16x16 from Kenney Tiny Dungeon, drawn at 2x)
     const spriteSize = 32;
     const px = (cx - spriteSize / 2) | 0;
-    const py = (cy - spriteSize / 2) | 0;
+    const py = (screenCy - spriteSize / 2) | 0;
 
     if (spriteSheets.loaded && spriteSheets.getSpriteRect('princess')) {
       // Draw real sprite at 2x scale
@@ -775,12 +1097,20 @@ export default class TitleScene {
     this._starPath(ctx, boxX + 20, boxY + boxH / 2, 8, 3, 4);
     ctx.fill();
 
-    // Pulsing glow to show voice is playing
+    // Gentle pulsing glow to show voice is playing
     const pulse = Math.sin(this._phaseTimer * Math.PI * 2 / 1.2) * 0.5 + 0.5;
-    ctx.globalAlpha = 0.2 + pulse * 0.2;
+    ctx.globalAlpha = 0.15 + pulse * 0.25;
     ctx.fillStyle = 'rgba(255, 200, 230, 0.5)';
     ctx.beginPath();
     this._roundRect(ctx, boxX + 2, boxY + 2, boxW - 4, boxH - 4, 6);
+    ctx.fill();
+
+    // Secondary inner pulse (slightly offset timing for gentle breathing effect)
+    const pulse2 = Math.sin(this._phaseTimer * Math.PI * 2 / 1.8 + 0.5) * 0.5 + 0.5;
+    ctx.globalAlpha = 0.08 + pulse2 * 0.12;
+    ctx.fillStyle = 'rgba(255, 215, 180, 0.4)';
+    ctx.beginPath();
+    this._roundRect(ctx, boxX + 4, boxY + 4, boxW - 8, boxH - 8, 4);
     ctx.fill();
 
     ctx.restore();
@@ -908,10 +1238,12 @@ export default class TitleScene {
   _updateClouds(dt) {
     for (let i = 0; i < this._clouds.length; i++) {
       const c = this._clouds[i];
-      c.x -= c.speed * dt * 30; // speed is per-frame at 30fps, convert to per-second
-      if (c.x + c.w < -10) {
-        c.x = LOGICAL_WIDTH + 20 + Math.random() * 40;
-        c.y = 20 + Math.random() * 60;
+      // Drift left to right at slightly different speeds (parallax feel)
+      c.x += c.speed * dt * 30;
+      // Wrap around when cloud drifts off the right edge
+      if (c.x - c.w > LOGICAL_WIDTH + 20) {
+        c.x = -(c.w + 20 + Math.random() * 40);
+        c.y = 15 + Math.random() * 80;
       }
     }
   }
