@@ -116,6 +116,7 @@ export default class CompanionSelectScene {
 
     // === Auto-cycle showcase state ===
     this._showcaseActive = false;     // true while auto-cycling (stops on player tap)
+    this._playerEngaged = false;      // true once player taps ANY companion — auto-cycle NEVER resumes
     this._showcaseIndex = -1;         // which companion is currently showcased (-1 = none yet)
     this._showcaseTimer = 0;          // time into current showcase step
     this._showcaseCycle = 0;          // how many full cycles completed
@@ -204,6 +205,7 @@ export default class CompanionSelectScene {
 
     // Reset showcase
     this._showcaseActive = false;
+    this._playerEngaged = false;
     this._showcaseIndex = -1;
     this._showcaseTimer = 0;
     this._showcaseCycle = 0;
@@ -271,13 +273,19 @@ export default class CompanionSelectScene {
       }
     }
 
+    // Handle input FIRST (before showcase) so taps immediately stop auto-cycle
+    if (this._introPhase >= 2 && !this._confirmAnimating) {
+      this._handleInput();
+    }
+
     // === Auto-cycle showcase ===
-    if (this._showcaseActive && this._selectedIndex === -1 && !this._confirmAnimating) {
+    // Only run if player hasn't tapped anything yet
+    if (this._showcaseActive && !this._playerEngaged && this._selectedIndex === -1 && !this._confirmAnimating) {
       this._updateShowcase(dt);
     }
 
     // === Escalation timer (counts up after first full cycle) ===
-    if (this._showcaseCycle >= 1 && this._showcaseActive) {
+    if (this._showcaseCycle >= 1 && this._showcaseActive && !this._playerEngaged) {
       this._showcaseEscalationTime += dt;
     }
 
@@ -292,7 +300,7 @@ export default class CompanionSelectScene {
       // Base bob — amplitude depends on escalation
       let bobAmp = 3;
       let bobSpeed = 2.0 + i * 0.3;
-      if (tier >= 2 && this._showcaseActive) {
+      if (tier >= 2 && this._showcaseActive && !this._playerEngaged) {
         bobAmp = 6;
         bobSpeed = 2.5 + i * 0.3;
       }
@@ -339,8 +347,9 @@ export default class CompanionSelectScene {
     // Confirmation animation
     if (this._confirmAnimating) {
       this._confirmTimer += dt;
-      if (this._confirmTimer > 3) {
-        // Transition to Overworld via iris wipe
+      if (this._confirmTimer > 3 && !this._transition.active) {
+        // Transition to Overworld via iris wipe (fire once)
+        this._confirmAnimating = false;
         this._transition.start('iris', {
           duration: 800,
           onHalf: () => {
@@ -354,11 +363,6 @@ export default class CompanionSelectScene {
           },
         });
       }
-    }
-
-    // Handle input (only after intro, always — even during showcase)
-    if (this._introPhase >= 2 && !this._confirmAnimating) {
-      this._handleInput();
     }
 
     // Particles
@@ -505,8 +509,9 @@ export default class CompanionSelectScene {
   }
 
   _onCompanionTapped(index) {
-    // Player tapped a companion — stop auto-cycle showcase
+    // Player tapped a companion — stop auto-cycle showcase PERMANENTLY
     this._showcaseActive = false;
+    this._playerEngaged = true;  // never resume auto-cycle
 
     // Reset all pick-me dances from showcase
     for (let i = 0; i < this._companionStates.length; i++) {
