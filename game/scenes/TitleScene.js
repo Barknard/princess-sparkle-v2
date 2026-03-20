@@ -735,9 +735,9 @@ export default class TitleScene {
     const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
     // Place arc center high enough that the full arc is visible in the upper sky
     // Arc center below the screen so the arc curves UP into the visible viewport
-    const arcCenterY = (LOGICAL_HEIGHT * 1.1) | 0;
+    const arcCenterY = (LOGICAL_HEIGHT * 0.85) | 0;
     // Smaller radius so the full arch fits on screen (peak in upper third of sky)
-    const outerRadius = (LOGICAL_WIDTH * 0.4) | 0;
+    const outerRadius = (LOGICAL_WIDTH * 0.48) | 0;
 
     ctx.save();
 
@@ -797,8 +797,8 @@ export default class TitleScene {
     const bandGap = 1;
     const totalBandStep = bandWidth + bandGap;
     const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
-    const arcCenterY = (LOGICAL_HEIGHT * 1.1) | 0;
-    const outerRadius = (LOGICAL_WIDTH * 0.4) | 0;
+    const arcCenterY = (LOGICAL_HEIGHT * 0.85) | 0;
+    const outerRadius = (LOGICAL_WIDTH * 0.48) | 0;
     const r = outerRadius - bandIndex * totalBandStep;
 
     // Position at the leading edge of the arc
