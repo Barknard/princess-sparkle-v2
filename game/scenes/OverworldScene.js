@@ -1307,13 +1307,10 @@ export default class OverworldScene {
   _updateCursorFeedback() {
     if (!this._canvas || !this._inputManager) return;
 
-    // Only on desktop (check if pointer events are available, not touch-only)
-    const mx = this._inputManager.x;
-    const my = this._inputManager.y;
-    if (mx === undefined || my === undefined) {
-      this._canvas.style.cursor = 'default';
-      return;
-    }
+    // Use cursorX/cursorY which track the mouse continuously (desktop only)
+    const mx = this._inputManager.cursorX;
+    const my = this._inputManager.cursorY;
+    if (mx === undefined || my === undefined) return;
 
     const worldX = mx + this._camX;
     const worldY = my + this._camY;
