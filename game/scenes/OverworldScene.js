@@ -391,7 +391,7 @@ export default class OverworldScene {
           companionName = savedId.charAt(0).toUpperCase() + savedId.slice(1);
           const spriteMap = {
             shimmer: 'unicorn', ember: 'dragon', breeze: 'butterfly',
-            pip: 'bunny', petal: 'fairy'
+            petal: 'bunny', pip: 'fox'
           };
           companionSprite = spriteMap[savedId] || 'unicorn';
         }
