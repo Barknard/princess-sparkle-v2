@@ -1,42 +1,31 @@
 /**
  * level-sparkle-village.js — Sparkle Village for Princess Sparkle V2
  *
- * 30x20 tile grid (480x320 pixels — exactly one screen).
+ * 60x40 tile grid (960x640 pixels — 4x the viewport, camera scrolls).
+ * Viewport is 30x20 tiles (480x320 pixels).
  *
  * Tile IDs reference the Kenney Tiny Town tileset (tilemap_packed.png):
  *   192x176 PNG, 12 columns x 11 rows of 16x16 tiles = 132 tiles.
  *   Tile ID = row * 12 + col.
  *
- * ╔═══════════════════════════════════════════════════════════════════════╗
- * ║  ASCII MAP — SPARKLE VILLAGE (30 wide x 20 tall)                    ║
- * ╠═══════════════════════════════════════════════════════════════════════╣
- * ║                                                                      ║
- * ║  Col: 0         1         2         3                                ║
- * ║       0123456789012345678901234567890                                ║
- * ║  Row 0:  TT..~.......TT....PP..........TT  Tree border top         ║
- * ║  Row 1:  TT..........TT....PP..........TT  Trees + path            ║
- * ║  Row 2:  ...RRRRR.........PP..........~~  Grandma roof             ║
- * ║  Row 3:  ...WWDWW.........PP..........~~  Grandma walls            ║
- * ║  Row 4:  ...FF-FF...M.....PP..............  Grandma fence          ║
- * ║  Row 5:  .......G..B......PP..............  Garden, barrel         ║
- * ║  Row 6:  TT...............PP..........TT  Trees, path             ║
- * ║  Row 7:  TT...............PP..........TT  Trees, path             ║
- * ║  Row 8:  ........S..W.PPPPPPPPPP..........  Sign, well, E-W path  ║
- * ║  Row 9:  PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP   E-W path row            ║
- * ║  Row 10: ........S..w.PPPPPPPPPP..........  Sign, well base       ║
- * ║  Row 11: ...RcR.......PP......B...........  Baker roof, bench     ║
- * ║  Row 12: ...SDS.......PP..............TT  Baker walls             ║
- * ║  Row 13: ...F-F.......PP......RRRR....TT  Baker fence, Lily roof ║
- * ║  Row 14: .............PP......WWDW........  Lily walls             ║
- * ║  Row 15: ......BC..wwwPP......FF-F........  Barrel,crate,pond     ║
- * ║  Row 16: ..........wWwPP......................  Pond mid           ║
- * ║  Row 17: ..........wwwPP......B...........  Pond bottom, bench    ║
- * ║  Row 18: ...b..........PP..b..............  Bushes, path          ║
- * ║  Row 19: TT..~.........PP..........~..TT  South border, exit     ║
- * ║                                                                      ║
- * ╚═══════════════════════════════════════════════════════════════════════╝
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║  ASCII MAP — SPARKLE VILLAGE (60 wide x 40 tall)                       ║
+ * ╠═══════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                         ║
+ * ║  Rows 0-2:   Tree border top (staggered, natural gaps)                 ║
+ * ║  Rows 3-7:   Open meadow with scattered flowers                       ║
+ * ║  Rows 8-15:  Grandma's area (cols 5-20) — cottage, yard, garden       ║
+ * ║  Rows 14-17: N-S path connecting to village square                     ║
+ * ║  Rows 18-25: Village Square (cols 20-40) — well, benches, hub         ║
+ * ║  Rows 25-32: Baker's area (cols 5-15) — shop, barrels, cat            ║
+ * ║  Rows 28-35: Pond & Nature (cols 35-50) — large pond, frogs           ║
+ * ║  Rows 30-38: Lily's area (cols 20-35) — house, laundry, flowers       ║
+ * ║  Rows 35-39: Finn's playground (cols 42-55)                           ║
+ * ║  Rows 38-39: Tree border bottom, south exit cols 28-31                ║
+ * ║                                                                         ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  *
- * DESIGN: ~89% green grass, ~11% path → OVERWHELMINGLY GREEN
+ * DESIGN: ~90% green grass, ~10% paths → OVERWHELMINGLY GREEN
  * Grass mix: 60% plain (tile 1), 30% variant (tile 2)
  * Paths are THIN 2-tile LINES through a GREEN WORLD.
  *
@@ -125,232 +114,376 @@ const BNC = 105;   // bench
 const CRT = 106;   // crate
 const BRL = 107;   // barrel
 const SGN = 116;   // signpost
+const LNT = 93;    // lantern
 
-// ── GROUND LAYER ──────────────────────────────────────────────────────────
-// Every cell filled. ~89% grass (GR/GR2), ~11% path (DP/DPL/DPR).
-// Grass mix: 60% GR (plain green 1), 30% GR2 (variant 2).
-// N-S path at cols 14-15 (full length).
-// E-W path at row 9 (full width).
-// N-S: col 14 = DPL (left edge), col 15 = DPR (right edge).
-// E-W: row 8 = DPL (top edge), row 9 = DP center pair, row 10 = DPR (bottom edge) — but only where E-W branch runs.
-// Actually: E-W path is a single row (row 9), 2 tiles tall not needed. Use row 9 as center.
-// For simplicity: row 9 all DP. N-S cols 14=DPL, 15=DPR except at intersection (row 9) = DP.
+// ── HELPER: make a row of 60 tiles ──────────────────────────────────────────
+// r() fills a 60-wide row. Pass an array of 60 values.
+// For ground: every cell must be GR or GR2 or a path tile.
+
+// ── GROUND LAYER (60x40 = 2400 tiles) ──────────────────────────────────────
+// Every cell filled. ~90% grass, ~10% path.
+// N-S main path at cols 29-30 (runs rows 8 to 39).
+// E-W path at rows 20-21 (runs cols 8-50, village square crossroads).
+// Secondary paths branch to each building.
+//
+// Path layout:
+//   N-S: col 29 = DPL, col 30 = DPR (except at intersections = DP)
+//   E-W: row 20 = DPL (top), row 21 = DPR (bottom) for the branch
+//   Intersections at row 20-21, cols 29-30 = DP
 
 // prettier-ignore
 const ground = grid([
-  // Row 0: tree border top
-  [GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
-  // Row 1: trees + path
-  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
-  // Row 2: Grandma roof area
-  [GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR2,GR, GR, GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR],
-  // Row 3: Grandma walls
-  [GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2],
-  // Row 4: Grandma fence + garden
-  [GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
-  // Row 5: garden / open grass
-  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
-  // Row 6: trees left/right, path
-  [GR, GR, GR2,GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR],
-  // Row 7: trees, path
-  [GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR2,GR, GR],
-  // Row 8: E-W path top edge (cols 6-21), well area
-  [GR, GR2,GR, GR, GR2,GR, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DP, DP, DPL,DPL,DPL,DPL,DPL,DPL,GR, GR2,GR, GR2,GR, GR, GR2,GR],
-  // Row 9: E-W path center (cols 6-21) + N-S intersection
-  [GR, GR2,GR, GR2,GR, GR, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, GR, GR, GR2,GR, GR2,GR, GR, GR2],
-  // Row 10: E-W path bottom edge (cols 6-21)
-  [GR, GR, GR2,GR, GR, GR2,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DP, DP, DPR,DPR,DPR,DPR,DPR,DPR,GR, GR, GR2,GR, GR2,GR, GR, GR2],
-  // Row 11: Baker roof area
-  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
-  // Row 12: Baker walls
-  [GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,DPL,DPR,GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR],
-  // Row 13: Baker fence, Lily roof area
-  [GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
-  // Row 14: Lily walls
-  [GR, GR, GR2,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR2,GR, GR, GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR],
-  // Row 15: Pond top, Lily fence
-  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
-  // Row 16: Pond mid
-  [GR, GR, GR2,GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, DPL,DPR,GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR],
-  // Row 17: Pond bottom, bench
-  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR],
-  // Row 18: bushes, path
-  [GR, GR, GR2,GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR],
-  // Row 19: tree border south, exit at 14-15
-  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR2,GR, GR],
+  // Row 0: top tree border
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 1: tree border
+  [GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 2: tree border thinning
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR],
+  // Row 3: open meadow
+  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR],
+  // Row 4: meadow with flowers
+  [GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2],
+  // Row 5: meadow
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 6: meadow
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2],
+  // Row 7: meadow, path starts going south from row 8
+  [GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 8: path starts, goes south to village square. Also path branch east to Grandma's
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 9: N-S path + branch west to Grandma (E-W at cols 12-29)
+  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DP, DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 10: E-W path bottom edge (cols 12-29) + N-S continues
+  [GR, GR, GR2,GR, GR2,GR, GR, GR, GR, GR2,GR, GR, DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DP, DPR,GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 11: Grandma's cottage area — roof row. N-S path continues.
+  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 12: Grandma's walls row
+  [GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2],
+  // Row 13: Grandma's fence row
+  [GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 14: below Grandma's, yard area
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 15: open grass, path south
+  [GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR2],
+  // Row 16: open grass
+  [GR, GR, GR2,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 17: open grass, approaching village square
+  [GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2],
+  // Row 18: approaching village square
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 19: E-W path top edge (village square, cols 10-48)
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DP, DP, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 20: E-W path center (village square main road, cols 10-48)
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, DP, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 21: E-W path bottom edge (cols 10-48)
+  [GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DP, DP, DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 22: below village square path, N-S continues south. Branch paths to Baker (west) and Pond (east).
+  [GR, GR, GR2,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 23: branch path west to Baker (cols 10-29)
+  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DP, DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR],
+  // Row 24: branch path bottom edge west + N-S + branch east to pond (cols 29-42)
+  [GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DP, DP, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,DPL,GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 25: below branches, path continues south. Branch east bottom edge.
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, DPL,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,DPR,GR, GR, GR2,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR],
+  // Row 26: Baker's area starts. Path south.
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR],
+  // Row 27: Baker's roof row
+  [GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR],
+  // Row 28: Baker's walls row
+  [GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 29: Baker's fence row. Pond area to the east.
+  [GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 30: Below baker. Lily's area + pond area. Path south continues.
+  [GR, GR, GR2,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 31: path south + branch east to Lily (cols 29-26... wait, Lily at cols 22-26)
+  [GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, DPL,DPL,DPL,DPL,DPL,DPL,DPL,DP, DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR],
+  // Row 32: branch bottom edge + Lily roof row
+  [GR, GR, GR2,GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR, DPR,DPR,DPR,DPR,DPR,DPR,DPR,DP, DPR,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 33: Lily walls row
+  [GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR, GR, GR2,GR, GR, GR, DPL,DPR,GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 34: Lily fence row
+  [GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, DPL,DPR,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR],
+  // Row 35: Finn playground area, path continues south
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR, GR2,GR, GR, GR2,GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR],
+  // Row 36: path continues, approaching south border
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 37: approaching tree border
+  [GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR],
+  // Row 38: tree border
+  [GR, GR, GR2,GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, DPL,DPR,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR],
+  // Row 39: bottom tree border — exit at cols 28-31
+  [GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, DPL,DPR,GR, GR2,GR, GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR, GR2,GR, GR, GR2,GR, GR, GR],
 ]);
 
-// ── OBJECTS LAYER ─────────────────────────────────────────────────────────
+// ── OBJECTS LAYER (60x40 = 2400 tiles) ─────────────────────────────────────
 // Buildings, tree trunks, fences, water, decorations.
 // -1 = empty (E). Tree trunks go HERE; canopies go in foreground.
 //
-// Building layouts (per user-specified templates):
-//   Grandma's Cottage (5-wide, cols 3-7):
-//     Row 2: RFL, RFM, RFM, RFM, RFR         (roof)
-//     Row 3: WLL, WLW, WLD, WLW, WLM         (walls, door at col 5)
-//     Row 4: FNL, FNM, E,   FNM, FNR         (fence, gate at col 5)
+// Building layouts:
+//   Grandma's Cottage (5-wide, cols 7-11, rows 11-13):
+//     Row 11: RFL, RFM, RFM, RFM, RFR         (roof)
+//     Row 12: WLL, WLW, WLD, WLW, WLM         (walls, door at col 9)
+//     Row 13: FNL, FNM, E,   FNM, FNR         (fence, gate at col 9)
 //
-//   Baker's Shop (3-wide, cols 3-5):
-//     Row 11: RFL, RFP, RFR                   (roof with chimney)
-//     Row 12: SWL, SWD, SWM                   (stone walls, door at col 4)
-//     Row 13: FNL, E,   FNR                   (fence, gate at col 4)
+//   Baker's Shop (4-wide, cols 10-13, rows 27-29):
+//     Row 27: RFL, RFP, RFM, RFR              (roof with chimney)
+//     Row 28: SWL, SWW, SWD, SWM              (stone walls, door at col 12)
+//     Row 29: FNL, FNM, E,   FNR              (fence, gate at col 12)
 //
-//   Lily's House (4-wide, cols 20-23):
-//     Row 13: RFL, RFM, RFM, RFR             (roof)
-//     Row 14: WLL, WLW, WLD, WLM             (walls, door at col 22)
-//     Row 15: FNL, FNM, E,   FNR             (fence, gate at col 22)
+//   Lily's House (5-wide, cols 23-27, rows 32-34):
+//     Row 32: RFL, RFM, RFM, RFM, RFR         (roof)
+//     Row 33: WLL, WLW, WLD, WLW, WLM         (walls, door at col 25)
+//     Row 34: FNL, FNM, E,   FNM, FNR         (fence, gate at col 25)
 //
-// Water pond (3x3 at cols 10-12, rows 15-17)
-// Trees: staggered at edges, canopy/trunk pairs
+// Water pond (5x4 at cols 38-42, rows 29-32)
+// Trees: staggered at edges, with gaps
 
 // prettier-ignore
 const objects = grid([
-  // Row 0: tree border — staggered, mixed types with gaps and bushes
-  [TB1,TB2,E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
-  // Row 1: more trees at edges
-  [TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
-  // Row 2: Grandma's cottage roof (cols 3-7)
-  [E,  E,  E,  RFL,RFM,RFM,RFM,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E  ],
-  // Row 3: Grandma's walls (cols 3-7): WLL, WLW, WLD, WLW, WLM — door at col 5
-  [E,  E,  E,  WLL,WLW,WLD,WLW,WLM,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E  ],
-  // Row 4: Grandma's fence (cols 3-7): FNL, FNM, gate(-1), FNM, FNR — gate at col 5
-  [E,  E,  E,  FNL,FNM,E,  FNM,FNR,E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 5: garden plot at col 7, barrel at col 8, bench nearby
-  [E,  E,  E,  E,  E,  E,  E,  E,  BRL,E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 6: tree trunks left side
-  [TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
-  // Row 7: tree trunks left side (staggered)
-  [TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
-  // Row 8: well top at col 13, signpost at col 9
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  WEL,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 9: E-W path row — mostly clear, well base at col 13, bench at col 17
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WEB,E,  E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 10: below path — bench at col 12
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 11: Baker's shop roof (cols 3-5): RFL, RFP, RFR
-  [E,  E,  E,  RFL,RFP,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 12: Baker's walls (cols 3-5): SWL, SWD, SWM — door at col 4, trees right
-  [E,  E,  E,  SWL,SWD,SWM,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
-  // Row 13: Baker's fence (cols 3-5): FNL, gate, FNR. Lily's roof (cols 20-23): RFL, RFM, RFM, RFR. Trees right.
-  [E,  E,  E,  FNL,E,  FNR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  RFL,RFM,RFM,RFR,E,  E,  E,  E,  TB1,TB2],
-  // Row 14: Lily's walls (cols 20-23): WLL, WLW, WLD, WLM — door at col 22
-  [E,  E,  E,  E,  E,  E,  BRL,CRT,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WLL,WLW,WLD,WLM,E,  E,  E,  E,  E,  E  ],
-  // Row 15: Lily's fence (cols 20-23): FNL, FNM, gate, FNR. Pond top (cols 10-12).
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WTL,WTM,WTR,E,  E,  E,  E,  E,  E,  E,  FNL,FNM,E,  FNR,E,  E,  E,  E,  E,  E  ],
-  // Row 16: Pond mid (cols 10-12), bench at col 15 facing pond
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,WML,WMM,WMR,E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 17: Pond bottom (cols 10-12), bench at col 15
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WBL,WBM,WBR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  E,  E  ],
-  // Row 18: bushes scattered, open
-  [E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 19: tree border south — exit gap at cols 14-15
-  [TB1,TB2,E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  TB1,TB2],
+  // Row 0: top tree border — staggered trunks with gaps and bushes
+  [TB1,TB2,E,  E,  BSH,E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2],
+  // Row 1: more tree trunks staggered
+  [E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E],
+  // Row 2: sparse trees, bushes
+  [E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 3: open meadow — mostly empty with a bush
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 4: meadow with trees on sides
+  [TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
+  // Row 5: meadow, scattered bushes
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 6: meadow, trees on east side
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E],
+  // Row 7: open
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 8: signpost near path start
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 9: E-W path to Grandma — no objects on path
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 10: below path, Grandma's signpost/mailbox area
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 11: Grandma's cottage ROOF (cols 7-11)
+  [E,  E,  E,  E,  E,  E,  E,  RFL,RFM,RFM,RFM,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 12: Grandma's WALLS (cols 7-11): WLL, WLW, WLD, WLW, WLM — door at col 9
+  [E,  E,  E,  E,  E,  E,  E,  WLL,WLW,WLD,WLW,WLM,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 13: Grandma's FENCE (cols 7-11): FNL, FNM, gate, FNM, FNR — gate at col 9
+  [E,  E,  E,  E,  E,  E,  E,  FNL,FNM,E,  FNM,FNR,E,  E,  E,  E,  BRL,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 14: Grandma's yard — garden plot, bench
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 15: open with bush
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 16: trees on west side
+  [TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
+  // Row 17: trees staggered
+  [E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E],
+  // Row 18: approaching village square, trees on sides
+  [TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2],
+  // Row 19: village square — well top, signpost
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  E,  WEL,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 20: village square main road — well base, benches
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BNC,E,  E,  E,  E,  WEB,E,  E,  E,  E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 21: below path — signpost, bench
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SGN,E,  E,  E,  E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 22: open, path south
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 23: branch path west — no objects on path itself
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 24: branch path east to pond + crates near baker approach
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 25: below branch path
+  [E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 26: Baker area approach, barrels/crates near shop
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BRL,CRT,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 27: Baker's ROOF (cols 10-13): RFL, RFP, RFM, RFR
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  RFL,RFP,RFM,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 28: Baker's WALLS (cols 10-13): SWL, SWW, SWD, SWM — door at col 12
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  SWL,SWW,SWD,SWM,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 29: Baker's FENCE (cols 10-13): FNL, FNM, gate, FNR — gate at col 12. POND NW area starts (cols 38-42)
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  FNL,FNM,E,  FNR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WTL,WTM,WTM,WTM,WTR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 30: pond west edge + center. Baker's yard below.
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,WML,WMM,WMM,WMM,WMR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 31: pond continues. Path branch to Lily.
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WML,WMM,WMM,WMM,WMR,E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 32: Lily's ROOF (cols 23-27). Pond bottom.
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  RFL,RFM,RFM,RFM,RFR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WBL,WBM,WBM,WBM,WBR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 33: Lily's WALLS (cols 23-27): WLL, WLW, WLD, WLW, WLM — door at col 25
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  WLL,WLW,WLD,WLW,WLM,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 34: Lily's FENCE (cols 23-27): FNL, FNM, gate, FNM, FNR — gate at col 25
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  FNL,FNM,E,  FNM,FNR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 35: Lily's yard area. Finn playground on east. Trees.
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BNC,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 36: open, scattered bushes
+  [E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 37: approaching south border
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 38: tree border south — staggered trunks
+  [TB1,TB2,E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  TB1,TB2,E,  E,  TB1,TB2],
+  // Row 39: south border trunks — exit gap at cols 28-31
+  [E,  E,  E,  TB1,TB2,E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  BSH,E,  E,  E,  E,  BSH,E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  TB1,TB2,E],
 ]);
 
-// ── COLLISION LAYER ───────────────────────────────────────────────────────
+// ── COLLISION LAYER (60x40 = 2400 tiles) ───────────────────────────────────
 // 0 = walkable, 1 = blocked
 // Buildings (roof+walls), fences (except gate gaps), tree trunks, well, water, some decorations = blocked
-// Doors have collision=1 (visual only per TILE-BUILDING-RULES), gates in fences are walkable (0)
 
 // prettier-ignore
 const collision = grid([
-  // Row 0: trees(0-1), bush(4), trees(12-13), trees(28-29)
-  [1,1,0,0,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 1: trees(0-1), trees(12-13), trees(28-29)
-  [1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 2: Grandma roof blocked(3-7), bush(25)
-  [0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],
-  // Row 3: Grandma walls blocked(3-7), door at 5 blocked (visual only), bush(26)
-  [0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
-  // Row 4: fence(3-4,6-7) blocked, gate at 5 walkable, signpost(11)
-  [0,0,0,1,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 5: barrel(8) blocked, bench(10)
-  [0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 6: trees(0-1), trees(28-29)
-  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 7: trees(0-1), trees(28-29)
-  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 8: signpost(9), well top(13)
-  [0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 9: well base(13), bench(17)
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 10: bench(12)
-  [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 11: Baker roof blocked(3-5)
-  [0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 12: Baker walls blocked(3-5), door at 4 blocked, trees(28-29)
-  [0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
-  // Row 13: Baker fence(3,5) gate at 4 walkable, Lily roof blocked(20-23), trees(28-29)
-  [0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1],
-  // Row 14: barrel(6), crate(7), Lily walls blocked(20-23), door at 22 blocked
-  [0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
-  // Row 15: pond water blocked(10-12), Lily fence(20-21,23) gate at 22 walkable
-  [0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0],
-  // Row 16: bush(9), pond water blocked(10-12), bench(15)
-  [0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 17: pond water blocked(10-12), signpost(24)
-  [0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
-  // Row 18: bush(3), bush(18)
-  [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
-  // Row 19: trees(0-1), bush(4), bush(25), trees(28-29)
-  [1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1],
+  // Row 0: trees at 0-1, bush at 4, trees at 8-9, 16-17, 24-25, 34-35, 42-43, 50-51, 58-59
+  [1,1,0,0,1,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1],
+  // Row 1: trees at 3-4, 12-13, 21-22, 33-34, 39-40, 47-48, 55-56
+  [0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0],
+  // Row 2: trees at 7-8, bush at 51
+  [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
+  // Row 3: open
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 4: trees at 0-1, 58-59
+  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+  // Row 5: bush at 27
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 6: trees at 55-56
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0],
+  // Row 7: open
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 8: signpost at 27
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 9: path row, no collision on path
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 10: signpost at 14
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 11: Grandma roof blocked (7-11)
+  [0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 12: Grandma walls blocked (7-11), door at 9 blocked (visual)
+  [0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 13: fence(7-8, 10-11) blocked, gate at 9 walkable, barrel at 16
+  [0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 14: bench at 13
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 15: bush at 18
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 16: trees at 0-1, 58-59
+  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+  // Row 17: trees at 3-4, 55-56
+  [0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0],
+  // Row 18: trees at 0-1, 58-59
+  [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+  // Row 19: signpost at 21, well top at 28
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 20: bench at 23, well base at 28, bench at 34
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 21: signpost at 36, bench at 42
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 22: open
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 23: path row
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 24: path row
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 25: bush at 8
+  [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 26: barrel at 14, crate at 15
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 27: Baker roof blocked (10-13)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 28: Baker walls blocked (10-13)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 29: Baker fence (10-11, 13), gate at 12 walkable. Pond water blocked (38-42)
+  [0,0,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 30: pond water blocked (38-42), bush at 37
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 31: pond water blocked (38-42), bench at 45
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 32: Lily roof blocked (23-27), pond water blocked (38-42)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 33: Lily walls blocked (23-27)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 34: Lily fence (23-24, 26-27), gate at 25 walkable
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 35: bench at 43
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 36: bush at 4, bush at 47
+  [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 37: open
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 38: south tree border trunks
+  [1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,1,1],
+  // Row 39: south border trunks — exit gap at cols 28-31
+  [0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,1,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,0],
 ]);
 
-// ── FOREGROUND LAYER ──────────────────────────────────────────────────────
-// Tree canopies drawn OVER entities. When the princess walks under a tree,
-// the canopy covers her sprite — THIS is what makes the world feel 3D.
-// Canopies placed ONE ROW ABOVE trunks so they overlap entities at trunk level.
+// ── FOREGROUND LAYER (60x40 = 2400 tiles) ──────────────────────────────────
+// Tree canopies drawn OVER entities. Canopies placed ONE ROW ABOVE trunks.
 // Green canopy: CAN_GL(4), CAN_GR(5). Autumn canopy: CAN_AL(7), CAN_AR(8).
 
 // prettier-ignore
 const foreground = grid([
-  // Row 0: canopies for row 0 trunks (cols 0-1, 12-13, 28-29) — placed ON trunk row since no row above
-  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
-  // Row 1: canopies for row 1 trunks (cols 0-1, 12-13, 28-29)
-  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 2-5: no foreground
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 5: canopies for row 6 trunks (cols 0-1, 28-29)
-  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 6: canopies for row 7 trunks (cols 0-1, 28-29)
-  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
-  // Row 7: canopies for row 7 trunks overlap
-  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 8-10: no foreground
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 11: no foreground
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 12: canopy for row 12 trees (cols 28-29) — placed on trunk row
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
-  // Row 13: canopy for row 13 trees (cols 28-29)
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 14-18: no foreground
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E  ],
-  // Row 18: canopies for row 19 trunks (cols 0-1, 28-29)
-  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 19: canopy on trunk row for south border trees
-  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
+  // Row 0: canopies for row 0 trunks (placed on trunk row since no row above for some)
+  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
+  // Row 1: canopies for row 1 trunks + canopies for row 2 trunks (at 7-8)
+  [E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E],
+  // Row 2: canopy for row 2 trunks (7-8 only)
+  [E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 3: canopies for row 4 trunks (0-1, 58-59)
+  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
+  // Row 4: trunk row, canopy on trunk row (no room above for these)
+  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
+  // Row 5: canopy for row 6 trunks (55-56)
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E],
+  // Row 6: canopy on trunk row for 55-56
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E],
+  // Row 7-10: no foreground
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 11-14: no foreground (building area, no trees)
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 15: canopies for row 16 trunks (0-1, 58-59)
+  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
+  // Row 16: canopies for row 17 trunks (3-4, 55-56) + trunk row canopy (0-1, 58-59)
+  [CAN_AL,CAN_AR,E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  CAN_GL,CAN_GR],
+  // Row 17: canopies for row 18 trunks (0-1, 58-59). Trunk row canopy for 3-4, 55-56.
+  [CAN_GL,CAN_GR,E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  CAN_AL,CAN_AR],
+  // Row 18: trunk row canopy for trees at 0-1, 58-59
+  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
+  // Row 19-36: no foreground (village area, buildings)
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 37: canopies for row 38 south border trunks
+  [CAN_GL,CAN_GR,E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  CAN_GL,CAN_GR],
+  // Row 38: canopies for row 39 trunks + trunk-row canopy for row 38 trunks
+  [CAN_AL,CAN_AR,E,  CAN_GL,CAN_GR,E,  CAN_GL,CAN_GR,E,  CAN_AL,CAN_AR,E,  E,  CAN_AL,CAN_AR,E,  CAN_GL,CAN_GR,E,  E,  CAN_GL,CAN_GR,E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  CAN_GL,CAN_GR,E,  E,  CAN_AL,CAN_AR,E,  CAN_AL,CAN_AR,E,  CAN_GL,CAN_GR,E,  CAN_AL,CAN_AR,E],
+  // Row 39: trunk-row canopy for south border trees
+  [E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  CAN_AL,CAN_AR,E],
 ]);
 
 // ── NPCs ──────────────────────────────────────────────────────────────────
 // All homeX/homeY positions verified on walkable tiles (collision=0).
-// Updated to match new building positions.
+// Spread across the larger map for exploration feel.
 
 const npcs = [
   {
     id: 'grandma-rose',
     name: 'Grandma Rose',
     spriteName: 'npc_grandma',
-    homeX: 5,       // at her door (col 5, row 5 — walkable via gate)
-    homeY: 5,       // yard grass below fence gate
-    wanderRadius: 3,
+    homeX: 9,       // at her door (col 9, row 14 — walkable via gate)
+    homeY: 14,      // yard grass below fence gate
+    wanderRadius: 4,
     personality: 'warm',
     dialogueId: 'grandma-rose-greeting',
     ambientLines: [
@@ -364,9 +497,9 @@ const npcs = [
     id: 'neighbor-lily',
     name: 'Neighbor Lily',
     spriteName: 'npc_lily',
-    homeX: 22,      // at her door (col 22, row 16 — walkable via gate)
-    homeY: 16,      // below fence gate on walkable ground
-    wanderRadius: 2,
+    homeX: 25,      // at her door (col 25, row 35 — walkable via gate)
+    homeY: 35,      // below fence gate on walkable ground
+    wanderRadius: 3,
     personality: 'cheerful',
     dialogueId: 'lily-greeting',
     ambientLines: [
@@ -379,9 +512,9 @@ const npcs = [
     id: 'little-finn',
     name: 'Little Finn',
     spriteName: 'npc_finn',
-    homeX: 16,      // near the village square, on walkable ground
-    homeY: 16,      // near the pond / playground area
-    wanderRadius: 3,
+    homeX: 44,      // Finn's playground area (east side)
+    homeY: 36,      // open grass near bench
+    wanderRadius: 4,
     personality: 'playful',
     dialogueId: 'finn-greeting',
     ambientLines: [
@@ -394,9 +527,9 @@ const npcs = [
     id: 'baker-maple',
     name: 'Baker Maple',
     spriteName: 'npc_baker',
-    homeX: 4,       // at his door (col 4, row 14 — walkable via gate)
-    homeY: 14,      // below fence gate on walkable ground
-    wanderRadius: 2,
+    homeX: 12,      // at his door (col 12, row 30 — walkable via gate)
+    homeY: 30,      // below fence gate on walkable ground
+    wanderRadius: 3,
     personality: 'jolly',
     dialogueId: 'baker-maple-greeting',
     ambientLines: [
@@ -408,86 +541,104 @@ const npcs = [
 ];
 
 // ── World Objects (tappable) ──────────────────────────────────────────────
-// 24 objects distributed so every screen area has 3-5 tappable things.
-// Positions updated for new layout.
+// 35 objects distributed across the 60x40 map. Each area has multiple tappable things.
 
 const worldObjects = [
-  // ── Grandma's area (upper-left) — 5 objects ──
-  { type: 'WIND_CHIMES',   x: 4,  y: 2,  id: 'wind-chimes-01' },
-  { type: 'GARDEN_PLOT',   x: 7,  y: 5,  id: 'garden-plot-01' },
-  { type: 'FLOWER_BIG',    x: 25, y: 2,  id: 'flower-big-01' },
-  { type: 'FLOWER_BIG',    x: 26, y: 3,  id: 'flower-big-02' },
-  { type: 'MAILBOX',       x: 11, y: 4,  id: 'mailbox-grandma' },
+  // ── Grandma's area (upper area, cols 5-20, rows 8-15) — 6 objects ──
+  { type: 'WIND_CHIMES',   x: 8,  y: 11, id: 'wind-chimes-01' },
+  { type: 'GARDEN_PLOT',   x: 11, y: 14, id: 'garden-plot-01' },
+  { type: 'FLOWER_BIG',    x: 6,  y: 14, id: 'flower-big-01' },
+  { type: 'FLOWER_BIG',    x: 15, y: 13, id: 'flower-big-02' },
+  { type: 'MAILBOX',       x: 14, y: 10, id: 'mailbox-grandma' },
+  { type: 'LANTERN',       x: 6,  y: 12, id: 'lantern-grandma' },
 
-  // ── Village square / well area (center) — 5 objects ──
-  { type: 'WELL',          x: 13, y: 8,  id: 'village-well' },
-  { type: 'SIGNPOST',      x: 9,  y: 8,  id: 'signpost-01' },
-  { type: 'SIGNPOST',      x: 11, y: 4,  id: 'signpost-north' },
-  { type: 'BENCH',         x: 17, y: 9,  id: 'bench-square-01' },
-  { type: 'BENCH',         x: 12, y: 10, id: 'bench-square-02' },
+  // ── Meadow flowers (top area, rows 3-7) — 4 objects ──
+  { type: 'FLOWER_SMALL',  x: 10, y: 4,  id: 'flower-meadow-01' },
+  { type: 'FLOWER_SMALL',  x: 20, y: 5,  id: 'flower-meadow-02' },
+  { type: 'FLOWER_SMALL',  x: 35, y: 3,  id: 'flower-meadow-03' },
+  { type: 'DANDELION',     x: 45, y: 6,  id: 'dandelion-meadow-01' },
 
-  // ── East meadow flowers — 3 objects ──
-  { type: 'FLOWER_SMALL',  x: 25, y: 2,  id: 'flower-east-01' },
-  { type: 'FLOWER_SMALL',  x: 26, y: 3,  id: 'flower-east-02' },
-  { type: 'FLOWER_SMALL',  x: 24, y: 17, id: 'flower-east-03' },
+  // ── Village square / well area (center, rows 18-22) — 7 objects ──
+  { type: 'WELL',          x: 28, y: 19, id: 'village-well' },
+  { type: 'SIGNPOST',      x: 21, y: 19, id: 'signpost-square-01' },
+  { type: 'SIGNPOST',      x: 36, y: 21, id: 'signpost-square-02' },
+  { type: 'BENCH',         x: 23, y: 20, id: 'bench-square-01' },
+  { type: 'BENCH',         x: 34, y: 20, id: 'bench-square-02' },
+  { type: 'BENCH',         x: 42, y: 21, id: 'bench-square-03' },
+  { type: 'LANTERN',       x: 26, y: 19, id: 'lantern-square' },
 
-  // ── Baker's area (left-center) — 4 objects ──
-  { type: 'APPLE_BASKET',  x: 7,  y: 14, id: 'apple-basket-baker' },
-  { type: 'FLOWER_SMALL',  x: 2,  y: 13, id: 'flower-baker-01' },
-  { type: 'DANDELION',     x: 8,  y: 14, id: 'dandelion-baker' },
-  { type: 'LANTERN',       x: 2,  y: 11, id: 'lantern-path-01' },
+  // ── Baker's area (cols 8-16, rows 25-31) — 5 objects ──
+  { type: 'APPLE_BASKET',  x: 15, y: 26, id: 'apple-basket-baker' },
+  { type: 'FLOWER_SMALL',  x: 8,  y: 28, id: 'flower-baker-01' },
+  { type: 'DANDELION',     x: 16, y: 29, id: 'dandelion-baker' },
+  { type: 'LANTERN',       x: 9,  y: 27, id: 'lantern-baker' },
+  { type: 'FLOWER_SMALL',  x: 7,  y: 30, id: 'flower-baker-02' },
 
-  // ── Lily's area (right-center) — 3 objects ──
-  { type: 'HANGING_LAUNDRY', x: 24, y: 14, id: 'laundry-lily' },
-  { type: 'MAILBOX',       x: 24, y: 17, id: 'mailbox-lily' },
-  { type: 'FLOWER_SMALL',  x: 19, y: 15, id: 'flower-lily-area' },
+  // ── Lily's area (cols 20-30, rows 31-36) — 4 objects ──
+  { type: 'HANGING_LAUNDRY', x: 28, y: 33, id: 'laundry-lily' },
+  { type: 'MAILBOX',       x: 22, y: 34, id: 'mailbox-lily' },
+  { type: 'FLOWER_SMALL',  x: 21, y: 35, id: 'flower-lily-01' },
+  { type: 'FLOWER_BIG',    x: 27, y: 35, id: 'flower-lily-02' },
 
-  // ── Pond area (lower-center) — 3 objects ──
-  { type: 'POND',          x: 11, y: 16, id: 'village-pond' },
-  { type: 'BENCH',         x: 15, y: 16, id: 'bench-pond' },
-  { type: 'FLOWER_SMALL',  x: 9,  y: 17, id: 'flower-pond-01' },
+  // ── Pond area (cols 36-45, rows 28-33) — 4 objects ──
+  { type: 'POND',          x: 40, y: 30, id: 'village-pond' },
+  { type: 'BENCH',         x: 45, y: 31, id: 'bench-pond' },
+  { type: 'FLOWER_SMALL',  x: 37, y: 33, id: 'flower-pond-01' },
+  { type: 'FLOWER_SMALL',  x: 43, y: 28, id: 'flower-pond-02' },
+
+  // ── Finn's playground (cols 40-55, rows 34-38) — 2 objects ──
+  { type: 'BENCH',         x: 43, y: 35, id: 'bench-finn' },
+  { type: 'DANDELION',     x: 48, y: 36, id: 'dandelion-finn' },
 
   // ── Scattered for discovery — 3 more ──
-  { type: 'DANDELION',     x: 9,  y: 5,  id: 'dandelion-meadow' },
-  { type: 'FLOWER_SMALL',  x: 4,  y: 0,  id: 'flower-west-01' },
-  { type: 'FLOWER_SMALL',  x: 25, y: 19, id: 'flower-center-east' },
+  { type: 'FLOWER_SMALL',  x: 52, y: 5,  id: 'flower-east-01' },
+  { type: 'FLOWER_SMALL',  x: 3,  y: 37, id: 'flower-south-01' },
+  { type: 'SIGNPOST',      x: 27, y: 8,  id: 'signpost-north' },
 ];
 
 // ── Ambient Animals ───────────────────────────────────────────────────────
-// 12 animals distributed to fill the world with life. Each has a roaming zone.
+// 16 animals distributed across the large map. Each has a roaming zone.
 
 const animals = [
-  // Butterflies — near flowers (3 total)
-  { type: 'BUTTERFLY', x: 3,  y: 3,  spriteName: 'butterfly', zone: { x: 1, y: 1, w: 8, h: 5 } },
-  { type: 'BUTTERFLY', x: 22, y: 3,  spriteName: 'butterfly', zone: { x: 20, y: 1, w: 6, h: 5 } },
-  { type: 'BUTTERFLY', x: 9,  y: 17, spriteName: 'butterfly', zone: { x: 8, y: 15, w: 8, h: 4 } },
+  // Butterflies — near flowers (4 total)
+  { type: 'BUTTERFLY', x: 10,  y: 5,   spriteName: 'butterfly', zone: { x: 5,  y: 3,  w: 15, h: 6 } },
+  { type: 'BUTTERFLY', x: 36,  y: 4,   spriteName: 'butterfly', zone: { x: 30, y: 2,  w: 15, h: 6 } },
+  { type: 'BUTTERFLY', x: 22,  y: 35,  spriteName: 'butterfly', zone: { x: 20, y: 33, w: 10, h: 5 } },
+  { type: 'BUTTERFLY', x: 48,  y: 36,  spriteName: 'butterfly', zone: { x: 43, y: 34, w: 12, h: 5 } },
 
-  // Birds — near trees (2 total)
-  { type: 'BIRD', x: 2,  y: 6,  spriteName: 'bird', zone: { x: 0, y: 5, w: 6, h: 4 } },
-  { type: 'BIRD', x: 27, y: 7,  spriteName: 'bird', zone: { x: 25, y: 6, w: 5, h: 4 } },
+  // Birds — near trees (3 total)
+  { type: 'BIRD', x: 3,   y: 3,   spriteName: 'bird', zone: { x: 0,  y: 1,  w: 10, h: 6 } },
+  { type: 'BIRD', x: 55,  y: 5,   spriteName: 'bird', zone: { x: 50, y: 3,  w: 10, h: 6 } },
+  { type: 'BIRD', x: 5,   y: 18,  spriteName: 'bird', zone: { x: 2,  y: 16, w: 8,  h: 5 } },
 
-  // Cat — sleeping near village square
-  { type: 'CAT', x: 11, y: 8,  spriteName: 'cat', zone: { x: 9, y: 7, w: 6, h: 5 } },
+  // Cat — sleeping near baker's shop
+  { type: 'CAT', x: 15,  y: 30,  spriteName: 'cat', zone: { x: 10, y: 28, w: 10, h: 5 } },
 
   // Frogs — near pond (2 total)
-  { type: 'FROG', x: 9,  y: 16, spriteName: 'frog', zone: { x: 8, y: 15, w: 6, h: 4 } },
-  { type: 'FROG', x: 13, y: 17, spriteName: 'frog', zone: { x: 10, y: 16, w: 6, h: 3 } },
+  { type: 'FROG', x: 37,  y: 31,  spriteName: 'frog', zone: { x: 35, y: 29, w: 10, h: 5 } },
+  { type: 'FROG', x: 43,  y: 32,  spriteName: 'frog', zone: { x: 38, y: 30, w: 8,  h: 4 } },
 
   // Ducks — on/near pond
-  { type: 'DUCK', x: 11, y: 15, spriteName: 'duck', zone: { x: 10, y: 15, w: 4, h: 3 } },
+  { type: 'DUCK', x: 40,  y: 30,  spriteName: 'duck', zone: { x: 38, y: 29, w: 6,  h: 4 } },
 
-  // Dog — near Finn / village square
-  { type: 'DOG', x: 16, y: 17, spriteName: 'dog', zone: { x: 14, y: 16, w: 6, h: 3 } },
+  // Dog — near Finn / playground
+  { type: 'DOG', x: 46,  y: 37,  spriteName: 'dog', zone: { x: 42, y: 35, w: 10, h: 4 } },
 
   // Squirrel — near tree groves
-  { type: 'SQUIRREL', x: 3, y: 12, spriteName: 'squirrel', zone: { x: 1, y: 11, w: 5, h: 4 } },
+  { type: 'SQUIRREL', x: 5,  y: 17, spriteName: 'squirrel', zone: { x: 2, y: 15, w: 8, h: 5 } },
 
   // Ladybug — near Lily's flowers
-  { type: 'LADYBUG', x: 24, y: 16, spriteName: 'ladybug', zone: { x: 20, y: 14, w: 6, h: 4 } },
+  { type: 'LADYBUG', x: 26,  y: 36, spriteName: 'ladybug', zone: { x: 22, y: 33, w: 8, h: 5 } },
+
+  // Bunny — in meadow
+  { type: 'BUNNY', x: 25,  y: 5,  spriteName: 'bunny', zone: { x: 20, y: 3, w: 12, h: 5 } },
+
+  // Extra bird near south trees
+  { type: 'BIRD', x: 50,  y: 37, spriteName: 'bird', zone: { x: 45, y: 35, w: 10, h: 4 } },
 ];
 
 // ── Quests ────────────────────────────────────────────────────────────────
-// Two full quests with multi-stage dialogue trees.
+// Two full quests with multi-stage dialogue trees. Positions updated for 60x40 map.
 
 const quests = [
   // QUEST 1: "Sharing is Caring"
@@ -510,8 +661,8 @@ const quests = [
       {
         type: 'PICKUP',
         targetId: 'cookies-item',
-        pickupX: 7,
-        pickupY: 5,
+        pickupX: 11,
+        pickupY: 14,
         itemId: 'cookies',
         dialogueId: 'sharing-pickup',
         description: 'voice_quest_sharing_pickup',
@@ -533,7 +684,7 @@ const quests = [
   },
 
   // QUEST 2: "Being Brave Together"
-  // Find Little Finn sitting near the well. Talk to him,
+  // Find Little Finn sitting near the playground. Talk to him,
   // encourage him, and he tries climbing the big rock. Bravery + empathy.
   {
     id: 'being-brave-together',
@@ -557,7 +708,7 @@ const quests = [
       },
       {
         type: 'OBSERVE',
-        targetId: 'bench-square-01',
+        targetId: 'bench-finn',
         dialogueId: 'brave-observe',
         description: 'voice_quest_brave_observe',
       },
@@ -895,9 +1046,9 @@ const transitions = [
     targetSpawnX: 15,
     targetSpawnY: 1,
     label: 'Whisper Forest',
-    // Transition zone: bottom row path gap at cols 14-15
-    zoneStartX: 14,
-    zoneEndX: 15,
+    // Transition zone: bottom row path gap at cols 28-31
+    zoneStartX: 28,
+    zoneEndX: 31,
   },
 ];
 
@@ -920,16 +1071,16 @@ const animatedTiles = [
 export default {
   id: 'sparkle-village',
   name: 'Sparkle Village',
-  width: 30,
-  height: 20,
+  width: 60,
+  height: 40,
   tileSize: 16,
   tilesetPath: './sprites/town/tilemap_packed.png',
 
-  // Player spawn — on the main path near the village square
-  spawnX: 14,
-  spawnY: 9,
+  // Player spawn — center of village square
+  spawnX: 30,
+  spawnY: 20,
 
-  // Tile layers (each exactly 600 values for 30x20)
+  // Tile layers (each exactly 2400 values for 60x40)
   ground,
   objects,
   collision,

@@ -62,6 +62,9 @@ const tileMap = new TileMap();
 // Define water animation (tile 122 cycles through nearby water tiles)
 townTileset.defineAnimation(122, [122, 110, 122, 109]);
 
+// ── Wire voice system to AudioContext for Web Audio fallback ──────────────
+setAudioContext(audioManager.context);
+
 // ── iOS audio unlock on first tap ──────────────────────────────────────────
 
 inputManager.on(InputEvent.TAP, function unlockAudio() {

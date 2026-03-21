@@ -33,7 +33,7 @@ function easeInOutCubic(t) {
 // ---- Constants --------------------------------------------------------------
 
 // Phase durations in seconds
-const PHASE_DURATIONS = [3, 7, 10, 8, 5, 9, 5]; // phase 6 auto-advances after 5s (tap speeds it up)
+const PHASE_DURATIONS = [0.8, 7, 10, 8, 5, 9, 5]; // phase 0: brief dawn glow (0.8s) that fades into the sky
 const CONTINUE_DURATION = 3; // compressed returning-player intro
 
 // Colors
@@ -68,70 +68,180 @@ const SPARKLE_DING_INTERVAL = 3.0; // seconds between attention dings
 // Particle pool for sparkle burst + rainbow trail sparkles
 const MAX_PARTICLES = 80;
 
-// Cloud pool — fluffy, prominent, varying sizes
-const MAX_CLOUDS = 10;
-const CLOUD_SPEED = 0.3; // base px per frame at 30fps
-
 // Star twinkle pool (magic sparkle stars)
 const MAX_STARS = 12;
 
-// Rainbow trail sparkle pool (separate from burst particles)
-const MAX_RAINBOW_SPARKLES = 24;
-
-// ---- Cloud definition: each cloud is a cluster of 3-5 overlapping circles ---
+// ---- Dynamic Cloud Particle System -----------------------------------------
 
 /**
- * Cloud sizes:  small 20-30px, medium 40-60px, large 60-90px
- * Each cloud has puffs (circle clusters) for a fluffy look.
+ * Generate a single cloud as a cluster of 50-200 soft circular particles.
+ * Particles are distributed with a Gaussian-ish falloff from center.
+ * Returns flat typed arrays for cache-friendly rendering.
  */
-function _generateCloudPuffs(size) {
-  // size is the overall width of the cloud
-  const puffs = [];
-  const count = size < 35 ? 3 : size < 55 ? 4 : 5;
-  const halfW = size / 2;
-  const baseR = size * 0.25;
+function generateCloud(centerX, centerY, size, particleCount) {
+  const xs = new Float32Array(particleCount);
+  const ys = new Float32Array(particleCount);
+  const rs = new Float32Array(particleCount);      // radii (3-15px)
+  const colors = new Float32Array(particleCount);   // brightness 230-255
+  const alphas = new Float32Array(particleCount);   // 0.4-0.9
 
-  for (let i = 0; i < count; i++) {
-    const t = count === 1 ? 0.5 : i / (count - 1); // 0..1
-    const px = -halfW + t * size;
-    // arc shape: center puffs higher, edges lower
-    const arcH = Math.sin(t * Math.PI) * (size * 0.18);
-    const py = -arcH;
-    // radius: center puffs bigger, edge puffs smaller
-    const rVariance = 0.7 + Math.sin(t * Math.PI) * 0.5;
-    const r = baseR * rVariance * (0.85 + Math.random() * 0.3);
-    puffs.push({ ox: px, oy: py, r: Math.max(r, 6) });
+  for (let i = 0; i < particleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * Math.random() * size; // cluster toward center
+    xs[i] = centerX + Math.cos(angle) * dist;
+    ys[i] = centerY + Math.sin(angle) * dist * 0.6; // squash vertically
+    rs[i] = 3 + Math.random() * 12;
+    colors[i] = 230 + Math.random() * 25;
+    alphas[i] = 0.4 + Math.random() * 0.5;
   }
-  return puffs;
+
+  return { xs, ys, rs, colors, alphas, count: particleCount };
 }
 
-function createCloudPool(count) {
-  const pool = new Array(count);
-  // Distribute sizes: 3 small, 4 medium, 3 large
-  const sizes = [];
-  for (let i = 0; i < count; i++) {
-    if (i < 3) sizes.push(20 + Math.random() * 10);       // small 20-30
-    else if (i < 7) sizes.push(40 + Math.random() * 20);   // medium 40-60
-    else sizes.push(60 + Math.random() * 30);               // large 60-90
-  }
-  // Shuffle sizes
-  for (let i = sizes.length - 1; i > 0; i--) {
+/**
+ * Generate a full set of dynamic clouds (6-10 clouds of varying sizes).
+ * Ensures at least one cloud in left, center, and right thirds of screen.
+ */
+function generateAllClouds() {
+  const cloudCount = 6 + ((Math.random() * 5) | 0); // 6-10
+  const clouds = [];
+
+  const categories = [];
+  const largeCt = 2 + ((Math.random() * 2) | 0);    // 2-3
+  const smallCt = 2 + ((Math.random() * 2) | 0);    // 2-3
+  const medCt = Math.max(0, cloudCount - largeCt - smallCt);
+
+  for (let i = 0; i < largeCt; i++) categories.push('large');
+  for (let i = 0; i < medCt; i++) categories.push('medium');
+  for (let i = 0; i < smallCt; i++) categories.push('small');
+
+  // Shuffle
+  for (let i = categories.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
-    const tmp = sizes[i]; sizes[i] = sizes[j]; sizes[j] = tmp;
+    const tmp = categories[i]; categories[i] = categories[j]; categories[j] = tmp;
   }
 
-  for (let i = 0; i < count; i++) {
-    const w = sizes[i];
-    pool[i] = {
-      x: Math.random() * (LOGICAL_WIDTH + 100) - 50,
-      y: 15 + Math.random() * 80, // varied vertical positions
-      w: w,
-      speed: CLOUD_SPEED * (0.4 + Math.random() * 0.8), // parallax: different speeds
-      puffs: _generateCloudPuffs(w),
-      alpha: 0.75 + Math.random() * 0.2, // slight alpha variation
-    };
+  // Ensure spatial coverage: at least one in left, center, right thirds
+  const thirdW = LOGICAL_WIDTH / 3;
+  const regionCenters = [
+    thirdW * 0.5,
+    thirdW * 1.5,
+    thirdW * 2.5,
+  ];
+
+  for (let i = 0; i < categories.length; i++) {
+    let size, particleCount;
+    const cat = categories[i];
+    if (cat === 'large') {
+      size = 80 + Math.random() * 40;
+      particleCount = 150 + ((Math.random() * 51) | 0);
+    } else if (cat === 'medium') {
+      size = 40 + Math.random() * 30;
+      particleCount = 80 + ((Math.random() * 41) | 0);
+    } else {
+      size = 20 + Math.random() * 15;
+      particleCount = 30 + ((Math.random() * 31) | 0);
+    }
+
+    let cx;
+    if (i < 3) {
+      cx = regionCenters[i] + (Math.random() - 0.5) * thirdW * 0.6;
+    } else {
+      cx = Math.random() * LOGICAL_WIDTH;
+    }
+
+    const cy = 15 + Math.random() * (LOGICAL_HEIGHT * 0.35);
+    const speed = 0.1 + Math.random() * 0.4; // 0.1-0.5 px/s
+
+    const cloud = generateCloud(cx, cy, size, particleCount);
+    cloud.baseX = cx;
+    cloud.baseY = cy;
+    cloud.speed = speed;
+    cloud.driftX = 0;
+    cloud.size = size;
+
+    clouds.push(cloud);
   }
-  return pool;
+
+  return clouds;
+}
+
+// ---- Rainbow Particle System -----------------------------------------------
+
+/**
+ * Pre-generate all rainbow particles for all 6 bands.
+ * Each band has 200-500 particles arranged along an arc with slight jitter.
+ */
+function generateRainbowParticles(strength) {
+  const bandWidth = 2 + strength * 3;
+  const particleDensity = (200 + strength * 300) | 0;
+  const baseAlpha = 0.3 + strength * 0.4;
+
+  const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
+  const arcCenterY = (LOGICAL_HEIGHT * 0.85) | 0;
+  const outerRadius = (LOGICAL_WIDTH * 0.48) | 0;
+
+  const bands = [];
+  for (let b = 0; b < RAINBOW.length; b++) {
+    const r = outerRadius - b * (bandWidth + 1);
+    const count = particleDensity;
+    const xs = new Float32Array(count);
+    const ys = new Float32Array(count);
+    const sizes = new Float32Array(count);
+    const alphas = new Float32Array(count);
+    const angles = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+      const t = i / count + (Math.random() - 0.5) * (1 / count);
+      angles[i] = Math.max(0, Math.min(1, t));
+      const arcAngle = Math.PI * (1 - angles[i]);
+      const jitterR = (Math.random() - 0.5) * 4;
+      xs[i] = arcCenterX + Math.cos(arcAngle) * (r + jitterR);
+      ys[i] = arcCenterY + Math.sin(arcAngle) * (r + jitterR);
+      sizes[i] = 1 + Math.random() * 2;
+      alphas[i] = baseAlpha + (Math.random() - 0.5) * 0.3;
+      if (alphas[i] < 0.2) alphas[i] = 0.2;
+      if (alphas[i] > 0.9) alphas[i] = 0.9;
+    }
+
+    bands.push({ xs, ys, sizes, alphas, angles, count, radius: r });
+  }
+
+  // Glow particles: larger, very low alpha, behind each band
+  const glowBands = [];
+  for (let b = 0; b < RAINBOW.length; b++) {
+    const r = outerRadius - b * (bandWidth + 1);
+    const glowCount = (particleDensity * 0.3) | 0;
+    const xs = new Float32Array(glowCount);
+    const ys = new Float32Array(glowCount);
+    const sizes = new Float32Array(glowCount);
+
+    for (let i = 0; i < glowCount; i++) {
+      const t = i / glowCount;
+      const arcAngle = Math.PI * (1 - t);
+      const jitterR = (Math.random() - 0.5) * 8;
+      xs[i] = arcCenterX + Math.cos(arcAngle) * (r + jitterR);
+      ys[i] = arcCenterY + Math.sin(arcAngle) * (r + jitterR);
+      sizes[i] = 3 + Math.random() * 4;
+    }
+
+    glowBands.push({ xs, ys, sizes, count: glowCount });
+  }
+
+  // Sparkle emission pool (pre-allocated)
+  const sparklePool = [];
+  for (let i = 0; i < 30; i++) {
+    sparklePool.push({
+      active: false, x: 0, y: 0, vx: 0, vy: 0,
+      life: 0, maxLife: 0, color: '#fff', size: 2
+    });
+  }
+
+  return {
+    bands, glowBands, sparklePool,
+    strength, bandWidth, baseAlpha,
+    arcCenterX, arcCenterY, outerRadius,
+  };
 }
 
 // ---- Particle (pre-allocated) -----------------------------------------------
@@ -153,15 +263,6 @@ function createStarPool(count) {
       phase: Math.random() * Math.PI * 2,
       size: 1 + ((Math.random() * 2) | 0),
     };
-  }
-  return pool;
-}
-
-// Rainbow trail sparkle pool
-function createRainbowSparklePool(size) {
-  const pool = new Array(size);
-  for (let i = 0; i < size; i++) {
-    pool[i] = { active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, color: '#fff', size: 2 };
   }
   return pool;
 }
@@ -189,9 +290,12 @@ export default class TitleScene {
 
     // Pre-allocated pools
     this._particles = createParticlePool(MAX_PARTICLES);
-    this._clouds = createCloudPool(MAX_CLOUDS);
+    this._clouds = generateAllClouds();
     this._stars = createStarPool(MAX_STARS);
-    this._rainbowSparkles = createRainbowSparklePool(MAX_RAINBOW_SPARKLES);
+
+    // Rainbow: randomize strength each load for visual variety
+    this._rainbowStrength = 0.5 + Math.random() * 0.5;
+    this._rainbowData = generateRainbowParticles(this._rainbowStrength);
 
     // Rainbow build progress (0..1 per band)
     this._rainbowProgress = new Float32Array(RAINBOW.length);
@@ -291,12 +395,17 @@ export default class TitleScene {
     for (let i = 0; i < this._particles.length; i++) {
       this._particles[i].active = false;
     }
-    for (let i = 0; i < this._rainbowSparkles.length; i++) {
-      this._rainbowSparkles[i].active = false;
-    }
 
     // Regenerate clouds for variety each time
-    this._clouds = createCloudPool(MAX_CLOUDS);
+    this._clouds = generateAllClouds();
+
+    // Regenerate rainbow with new random strength
+    this._rainbowStrength = 0.5 + Math.random() * 0.5;
+    this._rainbowData = generateRainbowParticles(this._rainbowStrength);
+    // Reset rainbow sparkle pool
+    for (let i = 0; i < this._rainbowData.sparklePool.length; i++) {
+      this._rainbowData.sparklePool[i].active = false;
+    }
 
     // Check for save data
     this._isContinue = this._hasSaveData();
@@ -384,7 +493,7 @@ export default class TitleScene {
 
     // Update particles
     this._updateParticles(dt);
-    this._updateRainbowSparkles(dt);
+    this._updateRainbowArcSparkles(dt);
 
     // Update clouds (phases 1+)
     if (this._phase >= 1) {
@@ -427,7 +536,7 @@ export default class TitleScene {
 
         // Emit sparkle trail particles at the leading edge of the arc
         if (this._rainbowProgress[i] < 1 && this._rainbowProgress[i] > prevProgress) {
-          this._emitRainbowTrailSparkle(i, this._rainbowProgress[i]);
+          this._emitRainbowArcSparkle(i, this._rainbowProgress[i]);
         }
       }
     }
@@ -606,7 +715,7 @@ export default class TitleScene {
     // ---- Phase 2+: Rainbow --------------------------------------------------
     if (this._phase >= 2) {
       this._drawRainbow(ctx);
-      this._drawRainbowSparkles(ctx);
+      this._drawRainbowArcSparkles(ctx);
     }
 
     // ---- Phase 3+: Village (camera pan) -------------------------------------
@@ -718,44 +827,52 @@ export default class TitleScene {
   }
 
   /**
-   * Draw fluffy clouds as clusters of overlapping white/light-grey circles.
-   * Each cloud has 3-5 puffs of varying size for a puffy, prominent look.
-   * Visible against both pink and blue sky backgrounds.
+   * Draw dynamic particle-based clouds.
+   * Each cloud is rendered in 3 passes: shadow, body, highlights.
    */
   _drawClouds(ctx) {
     ctx.save();
-    for (let i = 0; i < this._clouds.length; i++) {
-      const c = this._clouds[i];
-      const cx = c.x | 0;
-      const cy = c.y | 0;
+    for (let ci = 0; ci < this._clouds.length; ci++) {
+      const c = this._clouds[ci];
+      const dx = c.driftX;
 
-      // Soft shadow underneath (light grey, offset down)
-      ctx.globalAlpha = c.alpha * 0.25;
-      ctx.fillStyle = '#c0c8d8';
-      for (let j = 0; j < c.puffs.length; j++) {
-        const p = c.puffs[j];
+      // Pass 1: Shadow — offset 2px down, darker grey, lower alpha
+      for (let i = 0; i < c.count; i++) {
+        const px = (c.xs[i] + dx) | 0;
+        const py = (c.ys[i] + 2) | 0;
+        const r = (c.rs[i] * 0.9) | 0;
+        ctx.globalAlpha = c.alphas[i] * 0.25;
+        ctx.fillStyle = 'rgb(200,200,210)';
         ctx.beginPath();
-        ctx.arc((cx + p.ox) | 0, (cy + p.oy + 3) | 0, (p.r * 0.9) | 0, 0, Math.PI * 2);
+        ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Main cloud body — white with high opacity
-      ctx.fillStyle = '#ffffff';
-      ctx.globalAlpha = c.alpha;
-      for (let j = 0; j < c.puffs.length; j++) {
-        const p = c.puffs[j];
+      // Pass 2: Body — main white/light particles
+      for (let i = 0; i < c.count; i++) {
+        const px = (c.xs[i] + dx) | 0;
+        const py = c.ys[i] | 0;
+        const r = c.rs[i] | 0;
+        const b = c.colors[i] | 0;
+        ctx.globalAlpha = c.alphas[i];
+        ctx.fillStyle = `rgb(${b},${b},${b})`;
         ctx.beginPath();
-        ctx.arc((cx + p.ox) | 0, (cy + p.oy) | 0, p.r | 0, 0, Math.PI * 2);
+        ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Highlight on top puffs (slightly brighter white, smaller)
-      ctx.globalAlpha = c.alpha * 0.5;
-      ctx.fillStyle = '#f8fcff';
-      for (let j = 0; j < c.puffs.length; j++) {
-        const p = c.puffs[j];
+      // Pass 3: Highlights — top-left subset, brighter, smaller
+      // Only draw the upper ~40% of particles (those with y < cloud center)
+      for (let i = 0; i < c.count; i++) {
+        if (c.ys[i] > c.baseY) continue; // skip lower particles
+        const px = (c.xs[i] + dx - 1) | 0;
+        const py = (c.ys[i] - 1) | 0;
+        const r = (c.rs[i] * 0.5) | 0;
+        if (r < 1) continue;
+        ctx.globalAlpha = Math.min(c.alphas[i] * 1.2, 0.9);
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc((cx + p.ox) | 0, (cy + p.oy - 2) | 0, (p.r * 0.55) | 0, 0, Math.PI * 2);
+        ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -763,87 +880,103 @@ export default class TitleScene {
   }
 
   /**
-   * Draw the rainbow as a prominent arc spanning 80%+ of screen width.
-   * Each band is 3-4px thick. Proper curved arc using canvas arc.
-   * After fully drawn, the rainbow glows gently.
+   * Draw the rainbow as a particle-based arc.
+   * Each color band is made of hundreds of tiny particles with slight jitter.
+   * After fully drawn, glow particles pulse behind and sparkles emit.
    */
   _drawRainbow(ctx) {
-    const bandWidth = 4;
-    const bandGap = 1;               // tiny gap between bands for definition
-    const totalBandStep = bandWidth + bandGap;
-    const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
-    // Place arc center high enough that the full arc is visible in the upper sky
-    // Arc center below the screen so the arc curves UP into the visible viewport
-    const arcCenterY = (LOGICAL_HEIGHT * 0.85) | 0;
-    // Smaller radius so the full arch fits on screen (peak in upper third of sky)
-    const outerRadius = (LOGICAL_WIDTH * 0.48) | 0;
+    const rd = this._rainbowData;
 
     ctx.save();
 
-    // If rainbow is fully drawn and we're past phase 2, add a gentle glow
+    // If rainbow is fully drawn and we're past phase 2, draw glow particles behind
     const allDone = this._phase >= 3;
     if (allDone && this._rainbowGlowTimer > 0) {
-      const glowPulse = Math.sin(this._rainbowGlowTimer * 1.5) * 0.5 + 0.5;
-      const glowAlpha = 0.06 + glowPulse * 0.08;
-      // Draw a wide, soft glow behind the rainbow
-      for (let i = 0; i < RAINBOW.length; i++) {
-        const r = outerRadius - i * totalBandStep;
-        ctx.strokeStyle = RAINBOW[i];
-        ctx.lineWidth = bandWidth + 6;
-        ctx.globalAlpha = glowAlpha;
-        ctx.beginPath();
-        ctx.arc(arcCenterX, arcCenterY, r, Math.PI, 0);
-        ctx.stroke();
+      // Pulsing glow alpha (2s sine cycle)
+      const glowPulse = Math.sin(this._rainbowGlowTimer * Math.PI) * 0.5 + 0.5;
+      const glowAlpha = 0.05 + glowPulse * 0.08;
+
+      for (let b = 0; b < RAINBOW.length; b++) {
+        const glow = rd.glowBands[b];
+        ctx.fillStyle = RAINBOW[b];
+        for (let i = 0; i < glow.count; i++) {
+          ctx.globalAlpha = glowAlpha;
+          const s = glow.sizes[i] | 0;
+          ctx.beginPath();
+          ctx.arc(glow.xs[i] | 0, glow.ys[i] | 0, s, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
-    // Draw each color band
-    for (let i = 0; i < RAINBOW.length; i++) {
-      const progress = this._rainbowProgress[i];
+    // Draw each color band as particles
+    for (let b = 0; b < RAINBOW.length; b++) {
+      const progress = this._rainbowProgress[b];
       if (progress <= 0) continue;
 
-      const r = outerRadius - i * totalBandStep;
-      ctx.strokeStyle = RAINBOW[i];
-      ctx.lineWidth = bandWidth;
-      ctx.lineCap = 'round';
-      ctx.globalAlpha = 0.85;
-      ctx.beginPath();
-      // Arc sweeps from left (PI) to right (0) through the TOP (clockwise on canvas)
-      const startAngle = Math.PI;
-      const endAngle = Math.PI * (1 - progress); // PI→0 as progress goes 0→1
-      ctx.arc(arcCenterX, arcCenterY, r, startAngle, endAngle, false);
-      ctx.stroke();
+      const band = rd.bands[b];
+      ctx.fillStyle = RAINBOW[b];
+
+      for (let i = 0; i < band.count; i++) {
+        // Only draw particles whose arc position is within the current progress
+        if (band.angles[i] > progress) continue;
+
+        ctx.globalAlpha = band.alphas[i];
+        const s = band.sizes[i];
+        const px = band.xs[i] | 0;
+        const py = band.ys[i] | 0;
+
+        if (s <= 1.5) {
+          // Small particles: use fillRect for speed
+          ctx.fillRect(px, py, (s + 0.5) | 0, (s + 0.5) | 0);
+        } else {
+          ctx.beginPath();
+          ctx.arc(px, py, s | 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // After fully drawn, emit occasional sparkles from random arc points
+    if (allDone && this._rainbowGlowTimer > 0) {
+      // Sparkle emission handled in update; draw active sparkles here
+      const pool = rd.sparklePool;
+      for (let i = 0; i < pool.length; i++) {
+        const sp = pool[i];
+        if (!sp.active) continue;
+        const lifeRatio = sp.life / sp.maxLife;
+        ctx.globalAlpha = lifeRatio * 0.8;
+        ctx.fillStyle = sp.color;
+        const s = sp.size;
+        const px = sp.x | 0;
+        const py = sp.y | 0;
+        // Draw as tiny 4-point star
+        ctx.fillRect(px - s, py, s * 2 + 1, 1);
+        ctx.fillRect(px, py - s, 1, s * 2 + 1);
+      }
     }
 
     ctx.restore();
   }
 
   /**
-   * Emit a sparkle particle at the leading edge of a rainbow band.
+   * Emit a sparkle particle at the leading edge of a rainbow band during build.
    */
-  _emitRainbowTrailSparkle(bandIndex, progress) {
-    // Find an inactive sparkle
+  _emitRainbowArcSparkle(bandIndex, progress) {
+    const rd = this._rainbowData;
     let sparkle = null;
-    for (let i = 0; i < this._rainbowSparkles.length; i++) {
-      if (!this._rainbowSparkles[i].active) {
-        sparkle = this._rainbowSparkles[i];
+    for (let i = 0; i < rd.sparklePool.length; i++) {
+      if (!rd.sparklePool[i].active) {
+        sparkle = rd.sparklePool[i];
         break;
       }
     }
     if (!sparkle) return;
 
-    const bandWidth = 4;
-    const bandGap = 1;
-    const totalBandStep = bandWidth + bandGap;
-    const arcCenterX = (LOGICAL_WIDTH / 2) | 0;
-    const arcCenterY = (LOGICAL_HEIGHT * 0.85) | 0;
-    const outerRadius = (LOGICAL_WIDTH * 0.48) | 0;
-    const r = outerRadius - bandIndex * totalBandStep;
-
-    // Position at the leading edge of the arc
-    const angle = Math.PI - Math.PI * progress;
-    const sx = arcCenterX + Math.cos(angle) * r;
-    const sy = arcCenterY + Math.sin(angle) * r;
+    const band = rd.bands[bandIndex];
+    const angle = Math.PI * (1 - progress);
+    const sx = rd.arcCenterX + Math.cos(angle) * band.radius;
+    const sy = rd.arcCenterY + Math.sin(angle) * band.radius;
 
     sparkle.active = true;
     sparkle.x = sx;
@@ -856,9 +989,15 @@ export default class TitleScene {
     sparkle.size = 1 + ((Math.random() * 2) | 0);
   }
 
-  _updateRainbowSparkles(dt) {
-    for (let i = 0; i < this._rainbowSparkles.length; i++) {
-      const p = this._rainbowSparkles[i];
+  /**
+   * Update rainbow arc sparkles (trail during build + ambient sparkles after).
+   */
+  _updateRainbowArcSparkles(dt) {
+    const rd = this._rainbowData;
+    const pool = rd.sparklePool;
+
+    for (let i = 0; i < pool.length; i++) {
+      const p = pool[i];
       if (!p.active) continue;
       p.life -= dt;
       if (p.life <= 0) {
@@ -867,19 +1006,49 @@ export default class TitleScene {
       }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += 15 * dt; // very gentle gravity
+      p.vy += 15 * dt;
+    }
+
+    // After rainbow is fully built, occasionally emit ambient sparkles
+    if (this._phase >= 3 && this._rainbowGlowTimer > 0) {
+      // ~2 sparkles per second on average
+      if (Math.random() < dt * 2) {
+        const bandIdx = (Math.random() * RAINBOW.length) | 0;
+        const band = rd.bands[bandIdx];
+        const pIdx = (Math.random() * band.count) | 0;
+
+        let sparkle = null;
+        for (let i = 0; i < pool.length; i++) {
+          if (!pool[i].active) { sparkle = pool[i]; break; }
+        }
+        if (sparkle) {
+          sparkle.active = true;
+          sparkle.x = band.xs[pIdx];
+          sparkle.y = band.ys[pIdx];
+          sparkle.vx = (Math.random() - 0.5) * 10;
+          sparkle.vy = -5 - Math.random() * 10;
+          sparkle.life = 0.5 + Math.random() * 0.5;
+          sparkle.maxLife = sparkle.life;
+          sparkle.color = RAINBOW[bandIdx];
+          sparkle.size = 1 + ((Math.random() * 2) | 0);
+        }
+      }
     }
   }
 
-  _drawRainbowSparkles(ctx) {
+  /**
+   * Draw rainbow arc sparkles (trail sparkles emitted during build).
+   * These are drawn separately from the main rainbow so they layer on top.
+   */
+  _drawRainbowArcSparkles(ctx) {
+    const pool = this._rainbowData.sparklePool;
     ctx.save();
-    for (let i = 0; i < this._rainbowSparkles.length; i++) {
-      const p = this._rainbowSparkles[i];
+    for (let i = 0; i < pool.length; i++) {
+      const p = pool[i];
       if (!p.active) continue;
       const lifeRatio = p.life / p.maxLife;
       ctx.globalAlpha = lifeRatio * 0.8;
       ctx.fillStyle = p.color;
-      // Draw as tiny 4-point star for sparkle effect
       const s = p.size;
       const px = p.x | 0;
       const py = p.y | 0;
@@ -1295,12 +1464,25 @@ export default class TitleScene {
   _updateClouds(dt) {
     for (let i = 0; i < this._clouds.length; i++) {
       const c = this._clouds[i];
-      // Drift left to right at slightly different speeds (parallax feel)
-      c.x += c.speed * dt * 30;
-      // Wrap around when cloud drifts off the right edge
-      if (c.x - c.w > LOGICAL_WIDTH + 20) {
-        c.x = -(c.w + 20 + Math.random() * 40);
-        c.y = 15 + Math.random() * 80;
+      // Drift at slightly different speeds (0.1-0.5 px/s)
+      c.driftX += c.speed * dt;
+
+      // Wrap around when cloud drifts far off the right edge
+      // Check if the rightmost particle is off-screen
+      if (c.driftX > LOGICAL_WIDTH + c.size * 2) {
+        // Reset drift and regenerate position on the left
+        const newX = -(c.size + 20 + Math.random() * 40);
+        const newY = 15 + Math.random() * (LOGICAL_HEIGHT * 0.35);
+        const offsetX = newX - c.baseX;
+        const offsetY = newY - c.baseY;
+        // Shift all particle positions
+        for (let j = 0; j < c.count; j++) {
+          c.xs[j] += offsetX;
+          c.ys[j] += offsetY;
+        }
+        c.baseX = newX;
+        c.baseY = newY;
+        c.driftX = 0;
       }
     }
   }
