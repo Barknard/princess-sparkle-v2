@@ -16,6 +16,7 @@ import SaveManager from './engine/SaveManager.js';
 import TransitionOverlay from './engine/TransitionOverlay.js';
 import TileSet from './world/TileSet.js';
 import TileMap from './world/TileMap.js';
+import { SFX } from './data/sfxIndex.js';
 import TitleScene from './scenes/TitleScene.js';
 import CompanionSelectScene from './scenes/CompanionSelectScene.js';
 import OverworldScene from './scenes/OverworldScene.js';
@@ -144,6 +145,29 @@ async function boot() {
     console.log('Sprite sheets loaded for characters and creatures');
   } catch (err) {
     console.warn('Failed to load sprite sheets (using placeholders):', err);
+  }
+
+  // Load all SFX into AudioManager buffers
+  try {
+    const sfxEntries = Object.entries(SFX);
+    let loaded = 0;
+    await Promise.allSettled(sfxEntries.map(async ([name, path]) => {
+      try {
+        const response = await fetch(path);
+        if (!response.ok) return;
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioManager.decodeAudio(arrayBuffer);
+        if (audioBuffer) {
+          audioManager.registerBuffer(name, audioBuffer);
+          loaded++;
+        }
+      } catch (e) {
+        // Silently skip missing SFX — auto-discovery handles this
+      }
+    }));
+    console.log(`SFX loaded: ${loaded}/${sfxEntries.length}`);
+  } catch (err) {
+    console.warn('SFX loading error (continuing without sound):', err);
   }
 
   // Pre-load the first level into the TileMap
