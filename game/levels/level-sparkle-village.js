@@ -71,7 +71,7 @@ const TB1 = 12;    // tree trunk left
 const TB2 = 13;    // tree trunk right
 
 // BUSHES AND SMALL PLANTS
-const BSH = 14;    // bush
+const BSH = 28;    // bush (green oval hedge — tile 28, NOT 14 which is peach block)
 
 // ROOFS — RED/ORANGE
 const RFL = 63;    // red roof left slope
@@ -240,12 +240,12 @@ const ground = grid([
 
 // prettier-ignore
 const objects = grid([
-  // Row 0: top tree border — staggered trunks with gaps and bushes
+  // Row 0: top tree border — canopy-only row (canopies for row 1 trunks)
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 1: tree trunks — staggered, with gaps for light
   [TB1,TB2,E,  E,  BSH,E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2],
-  // Row 1: more tree trunks staggered
-  [E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E],
-  // Row 2: sparse trees, bushes
-  [E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  BSH,E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 2: more staggered trunks + sparse bushes
+  [E,  E,  E,  TB1,TB2,E,  E,  TB1,TB2,E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  TB1,TB2,E,  E,  E,  E,  E,  E,  TB1,TB2,E,  E,  BSH,E,  E,  E,  TB1,TB2,E,  E,  E],
   // Row 3: open meadow — mostly empty with a bush
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   // Row 4: meadow with trees on sides
@@ -328,12 +328,12 @@ const objects = grid([
 
 // prettier-ignore
 const collision = grid([
-  // Row 0: trees at 0-1, bush at 4, trees at 8-9, 16-17, 24-25, 34-35, 42-43, 50-51, 58-59
+  // Row 0: empty (no trunks at row 0, canopy-only row)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // Row 1: trees at 0-1, bush at 4, trees at 8-9, 16-17, 24-25, 34-35, 42-43, 50-51, 58-59
   [1,1,0,0,1,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1],
-  // Row 1: trees at 3-4, 12-13, 21-22, 33-34, 39-40, 47-48, 55-56
-  [0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0],
-  // Row 2: trees at 7-8, bush at 51
-  [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
+  // Row 2: trees at 3-4, 7-8, 12-13, 21-22, 33-34, 39-40, 47-48, 55-56, bush at 51
+  [0,0,0,1,1,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,0],
   // Row 3: open
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
   // Row 4: trees at 0-1, 58-59
@@ -416,20 +416,20 @@ const collision = grid([
 
 // prettier-ignore
 const foreground = grid([
-  // Row 0: canopies for row 0 trunks (placed on trunk row since no row above for some)
+  // Row 0: canopies for row 1 trunks (canopy one row ABOVE trunk)
   [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 1: canopies for row 1 trunks + canopies for row 2 trunks (at 7-8)
-  [E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E],
-  // Row 2: canopy for row 2 trunks (7-8 only)
-  [E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
+  // Row 1: canopies for row 2 trunks
+  [E,  E,  E,  CAN_AL,CAN_AR,E,  E,  CAN_GL,CAN_GR,E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E],
+  // Row 2: no canopies needed (row 2 trunks have canopies at row 1)
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   // Row 3: canopies for row 4 trunks (0-1, 58-59)
   [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 4: trunk row, canopy on trunk row (no room above for these)
-  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
+  // Row 4: empty — canopies for row 4 trunks are at row 3
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   // Row 5: canopy for row 6 trunks (55-56)
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E],
-  // Row 6: canopy on trunk row for 55-56
-  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  E,  E],
+  // Row 6: empty — canopies for row 6 trunks are at row 5
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   // Row 7-10: no foreground
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
@@ -442,12 +442,12 @@ const foreground = grid([
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   // Row 15: canopies for row 16 trunks (0-1, 58-59)
   [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
-  // Row 16: canopies for row 17 trunks (3-4, 55-56) + trunk row canopy (0-1, 58-59)
-  [CAN_AL,CAN_AR,E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  CAN_GL,CAN_GR],
-  // Row 17: canopies for row 18 trunks (0-1, 58-59). Trunk row canopy for 3-4, 55-56.
-  [CAN_GL,CAN_GR,E,  CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR,E,  CAN_AL,CAN_AR],
-  // Row 18: trunk row canopy for trees at 0-1, 58-59
-  [CAN_AL,CAN_AR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR],
+  // Row 16: canopies for row 17 trunks (3-4, 55-56). Row 16 trunks (0-1, 58-59) have canopies at row 15.
+  [E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_GL,CAN_GR,E,  E,  E],
+  // Row 17: canopies for row 18 trunks (0-1, 58-59). Row 17 trunks (3-4, 55-56) have canopies at row 16.
+  [CAN_GL,CAN_GR,E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  CAN_AL,CAN_AR],
+  // Row 18: empty — row 18 trunks (0-1, 58-59) have canopies at row 17
+  [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   // Row 19-36: no foreground (village area, buildings)
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
   [E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E,  E],
