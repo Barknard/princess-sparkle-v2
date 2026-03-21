@@ -390,12 +390,8 @@ export default class Player {
         const idleFrame = this.animFrame % IDLE_FRAMES;
         spriteSheets.drawIdleFrame(ctx, 'princess', idleFrame, drawX, drawY + (yOffset | 0), flipX);
       }
-    } else if (this.state === PlayerState.WALKING && spriteSheets.loaded) {
-      // Legacy fallback: walk animation from RPG 8-bit sheet
-      const frame = this.animFrame % 3;
-      spriteSheets.drawWalk(ctx, drawX, drawY + (yOffset | 0), this.direction, frame, flipX);
     } else {
-      // Static sprite from Kenney dungeon sheet
+      // Fallback: static Kenney princess sprite (same art style, no jarring mismatch)
       spriteSheets.draw(ctx, 'princess', drawX, drawY + (yOffset | 0), { flipX });
     }
 

@@ -244,6 +244,23 @@ export default class OverworldScene {
 
     // Global elapsed time for ambient animations (grass sway, etc.)
     this._worldTime = 0;
+
+    // ---- Tap feedback state -------------------------------------------------
+
+    // Tap ripple effect (golden expanding circle at tap position)
+    this._tapRipple = null; // { x, y, timer, duration }
+
+    // Destination marker (pulsing circle where the princess is walking to)
+    this._destMarker = null; // { x, y, timer }
+
+    // Movement path sparkle dots (3-4 dots from princess to destination)
+    this._pathDots = new Array(4);
+    for (let i = 0; i < 4; i++) {
+      this._pathDots[i] = { active: false, x: 0, y: 0, timer: 0, passed: false };
+    }
+
+    // Canvas reference for cursor changes (set in draw)
+    this._canvas = null;
   }
 
   // ---- Lifecycle ------------------------------------------------------------
@@ -321,6 +338,13 @@ export default class OverworldScene {
 
     // Reset world time
     this._worldTime = 0;
+
+    // Reset tap feedback
+    this._tapRipple = null;
+    this._destMarker = null;
+    for (let i = 0; i < this._pathDots.length; i++) {
+      this._pathDots[i].active = false;
+    }
 
     // Load real sprite sheets (async, non-blocking — placeholders show until loaded)
     spriteSheets.load().then(() => {
@@ -440,8 +464,14 @@ export default class OverworldScene {
     // First visit: auto-walk demo so child sees the princess can move
     this._updateAutoWalkDemo(dt);
 
+    // Tap feedback (ripple, destination marker, path dots)
+    this._updateTapFeedback(dt);
+
     // Handle input
     this._handleInput();
+
+    // Cursor feedback (desktop hover)
+    this._updateCursorFeedback();
 
     // Check wind-down trigger
     if (this._sessionTime >= SESSION_WINDDOWN_S) {
@@ -1026,6 +1056,9 @@ export default class OverworldScene {
     this._idleTimer = 0;
     this._hintShown = false;
 
+    // Tap ripple feedback at every tap position
+    this._tapRipple = { x: worldX, y: worldY, timer: 0, duration: 0.4 };
+
     // 1. Check NPC interactions first
     for (let i = 0; i < this._npcs.length; i++) {
       const npc = this._npcs[i];
@@ -1072,6 +1105,21 @@ export default class OverworldScene {
     // 5. Pathfind to tap position
     if (this._player) {
       this._player.moveTo(worldX, worldY);
+
+      // Set destination marker
+      this._destMarker = { x: worldX, y: worldY, timer: 0 };
+
+      // Set path sparkle dots (4 evenly spaced dots from player to destination)
+      const startX = this._player.x;
+      const startY = this._player.y;
+      for (let i = 0; i < this._pathDots.length; i++) {
+        const t = (i + 1) / (this._pathDots.length + 1);
+        this._pathDots[i].active = true;
+        this._pathDots[i].x = startX + (worldX - startX) * t;
+        this._pathDots[i].y = startY + (worldY - startY) * t;
+        this._pathDots[i].timer = 0;
+        this._pathDots[i].passed = false;
+      }
     }
   }
 
@@ -1209,6 +1257,180 @@ export default class OverworldScene {
     this._emitParticles(animal.x, animal.y, '#ffb6c1', 4);
   }
 
+  // ---- Tap Feedback Systems -------------------------------------------------
+
+  _updateTapFeedback(dt) {
+    // Update tap ripple timer
+    if (this._tapRipple) {
+      this._tapRipple.timer += dt;
+      if (this._tapRipple.timer >= this._tapRipple.duration) {
+        this._tapRipple = null;
+      }
+    }
+
+    // Update destination marker timer
+    if (this._destMarker) {
+      this._destMarker.timer += dt;
+      // Remove destination marker when player arrives (or after 10s safety timeout)
+      if (this._player && !this._player.isMoving) {
+        this._destMarker = null;
+      }
+      if (this._destMarker && this._destMarker.timer > 10) {
+        this._destMarker = null;
+      }
+    }
+
+    // Update path dots — fade out as princess passes them
+    if (this._player) {
+      const px = this._player.x;
+      const py = this._player.y;
+      for (let i = 0; i < this._pathDots.length; i++) {
+        const dot = this._pathDots[i];
+        if (!dot.active) continue;
+        dot.timer += dt;
+        // Mark as passed when princess is within 8px
+        if (!dot.passed && Math.hypot(dot.x - px, dot.y - py) < 8) {
+          dot.passed = true;
+        }
+        // Fade out quickly after being passed
+        if (dot.passed && dot.timer > 0.3) {
+          dot.active = false;
+        }
+        // Also deactivate all dots when player stops moving
+        if (!this._player.isMoving) {
+          dot.active = false;
+        }
+      }
+    }
+  }
+
+  _updateCursorFeedback() {
+    if (!this._canvas || !this._inputManager) return;
+
+    // Only on desktop (check if pointer events are available, not touch-only)
+    const mx = this._inputManager.x;
+    const my = this._inputManager.y;
+    if (mx === undefined || my === undefined) {
+      this._canvas.style.cursor = 'default';
+      return;
+    }
+
+    const worldX = mx + this._camX;
+    const worldY = my + this._camY;
+
+    // Check NPCs
+    for (let i = 0; i < this._npcs.length; i++) {
+      const npc = this._npcs[i];
+      if (Math.hypot(worldX - npc.x, worldY - npc.y) < 20) {
+        this._canvas.style.cursor = 'pointer';
+        return;
+      }
+    }
+
+    // Check interactables
+    for (let i = 0; i < this._interactables.length; i++) {
+      const obj = this._interactables[i];
+      if (!obj.active || obj.cooldown > 0) continue;
+      if (worldX >= obj.x && worldX <= obj.x + obj.w &&
+          worldY >= obj.y && worldY <= obj.y + obj.h) {
+        this._canvas.style.cursor = 'pointer';
+        return;
+      }
+    }
+
+    // Check animals
+    for (let i = 0; i < this._animals.length; i++) {
+      const a = this._animals[i];
+      if (!a.active) continue;
+      if (Math.hypot(worldX - a.x, worldY - a.y) < 16) {
+        this._canvas.style.cursor = 'pointer';
+        return;
+      }
+    }
+
+    this._canvas.style.cursor = 'default';
+  }
+
+  // ---- Tap Feedback Drawing ------------------------------------------------
+
+  _drawTapRipple(ctx) {
+    if (!this._tapRipple) return;
+    const r = this._tapRipple;
+    const t = r.timer / r.duration; // 0→1
+    const radius = t * 20;
+    const alpha = 1 - t;
+
+    // Expanding golden ring
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(r.x | 0, r.y | 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // White center dot
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(r.x | 0, r.y | 0, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawDestinationMarker(ctx) {
+    if (!this._destMarker) return;
+    const m = this._destMarker;
+
+    // Pulsing golden circle (scale 1.0→1.3 over 800ms cycle)
+    const pulseT = (m.timer % 0.8) / 0.8;
+    const scale = 1.0 + easeInOutCubic(pulseT < 0.5 ? pulseT * 2 : 2 - pulseT * 2) * 0.3;
+    const baseRadius = 6;
+
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(m.x | 0, m.y | 0, baseRadius * scale, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner fill
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.arc(m.x | 0, m.y | 0, baseRadius * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawPathDots(ctx) {
+    ctx.save();
+    for (let i = 0; i < this._pathDots.length; i++) {
+      const dot = this._pathDots[i];
+      if (!dot.active) continue;
+
+      // Twinkle animation
+      const twinkle = Math.sin(dot.timer * 8 + i * 2) * 0.3 + 0.7;
+      const fadeAlpha = dot.passed ? Math.max(0, 1 - (dot.timer / 0.3)) : 1;
+
+      ctx.globalAlpha = twinkle * fadeAlpha * 0.7;
+      ctx.fillStyle = '#ffd700';
+
+      // Draw tiny diamond shape (3px)
+      const dx = dot.x | 0;
+      const dy = dot.y | 0;
+      ctx.beginPath();
+      ctx.moveTo(dx, dy - 3);
+      ctx.lineTo(dx + 3, dy);
+      ctx.lineTo(dx, dy + 3);
+      ctx.lineTo(dx - 3, dy);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // ---- Wind down trigger ----------------------------------------------------
 
   _triggerWindDown() {
@@ -1333,6 +1555,11 @@ export default class OverworldScene {
     const camX = this._camX | 0;
     const camY = this._camY | 0;
 
+    // Capture canvas ref for cursor feedback (desktop)
+    if (!this._canvas && ctx.canvas) {
+      this._canvas = ctx.canvas;
+    }
+
     // ---- Sky gradient (time-of-day aware) -----------------------------------
     const grad = ctx.createLinearGradient(0, 0, 0, LOGICAL_HEIGHT);
     grad.addColorStop(0, colorToHex(this._skyTopColor));
@@ -1388,6 +1615,11 @@ export default class OverworldScene {
 
     // Particles (world space)
     this._drawParticles(ctx);
+
+    // Tap feedback (world space)
+    this._drawTapRipple(ctx);
+    this._drawDestinationMarker(ctx);
+    this._drawPathDots(ctx);
 
     // Quest path breadcrumb sparkles (world space)
     this._drawBreadcrumbs(ctx);
