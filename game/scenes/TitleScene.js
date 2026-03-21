@@ -1527,15 +1527,10 @@ export default class TitleScene {
     if (index >= this._narratorLines.length) return;
 
     const voiceId = this._narratorLines[index];
-
-    if (this._userTapped || isVoiceUnlocked()) {
-      // Audio is unlocked — play immediately
-      playVoice(voiceId);
-    } else {
-      // No user gesture yet — defer this voice line
-      console.log(`[TitleScene] Deferring narrator line "${voiceId}" (no user gesture yet)`);
-      this._deferredNarratorLines.push(voiceId);
-    }
+    // Always attempt to play — the voice system handles autoplay blocking
+    // internally (tries HTML Audio → Web Audio → queues for user gesture)
+    console.log(`[TitleScene] Playing narrator line: ${voiceId}`);
+    playVoice(voiceId);
   }
 
   _hasSaveData() {
