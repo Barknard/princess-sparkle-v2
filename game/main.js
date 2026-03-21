@@ -14,6 +14,7 @@ import AssetLoader from './engine/AssetLoader.js';
 import Camera from './engine/Camera.js';
 import SaveManager from './engine/SaveManager.js';
 import TransitionOverlay from './engine/TransitionOverlay.js';
+import { setAudioContext, unlockVoiceAudio } from './data/voiceIndex.js';
 import TileSet from './world/TileSet.js';
 import TileMap from './world/TileMap.js';
 import { SFX } from './data/sfxIndex.js';
@@ -39,6 +40,11 @@ const renderer = new Renderer(canvas);
 const audioManager = new AudioManager();
 audioManager.init();
 
+// Wire AudioContext into voice system for Web Audio fallback
+if (audioManager._ctx) {
+  setAudioContext(audioManager._ctx);
+}
+
 const assetLoader = new AssetLoader(audioManager);
 const camera = new Camera();
 const saveManager = new SaveManager();
@@ -60,8 +66,7 @@ townTileset.defineAnimation(122, [122, 110, 122, 109]);
 
 inputManager.on(InputEvent.TAP, function unlockAudio() {
   audioManager.unlock();
-  // Only need to do this once, but keeping the listener is harmless
-  // since unlock() is a no-op after the first call.
+  unlockVoiceAudio(); // Unlock voice playback too
 });
 
 // ── Expose engine systems as a global game object ──────────────────────────

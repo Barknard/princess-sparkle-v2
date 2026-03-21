@@ -10,14 +10,77 @@
  *
  * Eddie just drops MP3 files in that folder with the script ID as filename.
  * No code changes needed. The game figures it out.
+ *
+ * AUDIO PLAYBACK STRATEGY:
+ *   1. Try HTML Audio element first (simple, works after user gesture)
+ *   2. If autoplay blocks HTML Audio, fall back to Web Audio API
+ *      (fetch + decodeAudioData) which works once AudioContext is unlocked
+ *   3. If both fail, log the error and return 0 (game continues)
  */
 
 const VOICE_BASE = './voice-script/audio/voice/';
 const VOICE_EXT = '.mp3';
 
 // Cache of voice lines we've confirmed exist (or confirmed missing)
-const _cache = {};  // id → { path, exists: true/false/null }
+const _cache = {};  // id → HTMLAudioElement | null
 const _audioElements = {};  // id → HTMLAudioElement (reused)
+
+// Web Audio API fallback cache
+const _webAudioBuffers = {};  // id → AudioBuffer (decoded)
+
+// Shared AudioContext reference (set via setAudioContext)
+let _audioCtx = null;
+let _voiceGain = null;
+
+// Track whether user has interacted (for autoplay policy)
+let _userHasInteracted = false;
+
+// Queue of voice IDs that were blocked by autoplay — replay on unlock
+const _pendingVoices = [];
+
+/**
+ * Register the AudioContext from AudioManager for Web Audio fallback.
+ * Call once during game init, after AudioManager.init().
+ * @param {AudioContext} ctx
+ */
+export function setAudioContext(ctx) {
+  _audioCtx = ctx;
+  if (_audioCtx) {
+    _voiceGain = _audioCtx.createGain();
+    _voiceGain.gain.value = 0.85; // voice volume (slightly louder than BGM)
+    _voiceGain.connect(_audioCtx.destination);
+  }
+}
+
+/**
+ * Notify the voice system that a user gesture has occurred.
+ * Unlocks HTML Audio autoplay and resumes AudioContext.
+ * Call this on the first tap/click/touch anywhere.
+ */
+export function unlockVoiceAudio() {
+  if (_userHasInteracted) return;
+  _userHasInteracted = true;
+  console.log('[Voice] Audio unlocked by user gesture');
+
+  // Resume AudioContext if suspended
+  if (_audioCtx && _audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
+  }
+
+  // Replay any pending voice lines that were blocked
+  if (_pendingVoices.length > 0) {
+    const nextId = _pendingVoices.shift();
+    console.log(`[Voice] Replaying blocked voice: ${nextId}`);
+    playVoice(nextId);
+    // Clear remaining pending (only replay the most recent one)
+    _pendingVoices.length = 0;
+  }
+}
+
+/** @returns {boolean} Whether user has interacted (audio unlocked) */
+export function isVoiceUnlocked() {
+  return _userHasInteracted;
+}
 
 /**
  * Get the expected file path for a voice line ID.
@@ -51,9 +114,10 @@ export function loadVoice(id) {
       resolve(audio);
     }
 
-    function onErr() {
+    function onErr(e) {
       audio.removeEventListener('canplaythrough', onLoad);
       audio.removeEventListener('error', onErr);
+      console.warn(`[Voice] Failed to load "${id}" from ${getVoicePath(id)}:`, e.type || e);
       _cache[id] = null;
       resolve(null);
     }
@@ -67,26 +131,124 @@ export function loadVoice(id) {
 }
 
 /**
+ * Load a voice line as a Web Audio buffer (fetch + decodeAudioData).
+ * Used as fallback when HTML Audio autoplay is blocked.
+ * @param {string} id
+ * @returns {Promise<AudioBuffer|null>}
+ */
+async function _loadWebAudioBuffer(id) {
+  if (_webAudioBuffers[id] !== undefined) {
+    return _webAudioBuffers[id];
+  }
+  if (!_audioCtx) {
+    console.warn(`[Voice] No AudioContext for Web Audio fallback (voice: ${id})`);
+    return null;
+  }
+
+  try {
+    const path = getVoicePath(id);
+    const response = await fetch(path);
+    if (!response.ok) {
+      console.warn(`[Voice] Web Audio fetch failed for "${id}": HTTP ${response.status}`);
+      _webAudioBuffers[id] = null;
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await _audioCtx.decodeAudioData(arrayBuffer);
+    _webAudioBuffers[id] = audioBuffer;
+    return audioBuffer;
+  } catch (e) {
+    console.warn(`[Voice] Web Audio decode failed for "${id}":`, e.message || e);
+    _webAudioBuffers[id] = null;
+    return null;
+  }
+}
+
+/**
+ * Play a voice line via Web Audio API (fallback path).
+ * @param {AudioBuffer} buffer
+ * @returns {number} duration in ms
+ */
+function _playViaWebAudio(buffer) {
+  if (!_audioCtx || !_voiceGain) return 0;
+
+  // Stop previous Web Audio voice if playing
+  if (_currentWebAudioSource) {
+    try { _currentWebAudioSource.stop(); } catch (_) {}
+  }
+
+  const source = _audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(_voiceGain);
+  source.start(0);
+  _currentWebAudioSource = source;
+  source.onended = () => {
+    if (_currentWebAudioSource === source) {
+      _currentWebAudioSource = null;
+    }
+  };
+
+  return (buffer.duration || 0) * 1000;
+}
+
+let _currentWebAudioSource = null;
+
+/**
  * Play a voice line by ID.
  * If the file exists, plays it and returns the duration in ms.
  * If not, returns 0 (game continues without pause).
+ *
+ * Strategy:
+ *   1. Try HTML Audio .play()
+ *   2. If autoplay blocked, try Web Audio API fallback
+ *   3. If both fail, queue for replay on next user gesture
  *
  * Usage in scenes/dialogue:
  *   const duration = await playVoice('narrator_title_01');
  *   // wait duration ms, then continue
  */
 export async function playVoice(id) {
-  const audio = await loadVoice(id);
-  if (!audio) return 0;
+  console.log(`[Voice] playVoice("${id}") called — unlocked: ${_userHasInteracted}`);
 
+  const audio = await loadVoice(id);
+  if (!audio) {
+    console.log(`[Voice] "${id}" not found or failed to load — skipping`);
+    return 0;
+  }
+
+  // Strategy 1: Try HTML Audio element
   try {
     audio.currentTime = 0;
     await audio.play();
-    return (audio.duration || 0) * 1000; // return ms
+    console.log(`[Voice] Playing "${id}" via HTML Audio (${((audio.duration || 0) * 1000).toFixed(0)}ms)`);
+    return (audio.duration || 0) * 1000;
   } catch (e) {
-    // Autoplay blocked or other error — skip gracefully
-    return 0;
+    console.warn(`[Voice] HTML Audio blocked for "${id}": ${e.name} — trying Web Audio fallback`);
   }
+
+  // Strategy 2: Web Audio API fallback (works if AudioContext is unlocked)
+  if (_audioCtx && _audioCtx.state === 'running') {
+    try {
+      const buffer = await _loadWebAudioBuffer(id);
+      if (buffer) {
+        const durationMs = _playViaWebAudio(buffer);
+        console.log(`[Voice] Playing "${id}" via Web Audio API (${durationMs.toFixed(0)}ms)`);
+        return durationMs;
+      }
+    } catch (e) {
+      console.warn(`[Voice] Web Audio fallback failed for "${id}":`, e.message || e);
+    }
+  }
+
+  // Strategy 3: Queue for replay after user gesture
+  if (!_userHasInteracted) {
+    console.log(`[Voice] Queuing "${id}" for replay after user gesture`);
+    // Only keep the latest pending voice (don't pile up)
+    _pendingVoices.length = 0;
+    _pendingVoices.push(id);
+  }
+
+  return 0;
 }
 
 /**
@@ -101,7 +263,7 @@ export function stopVoice(id) {
 }
 
 /**
- * Stop ALL playing voice lines.
+ * Stop ALL playing voice lines (both HTML Audio and Web Audio).
  */
 export function stopAllVoice() {
   for (const id in _audioElements) {
@@ -110,6 +272,11 @@ export function stopAllVoice() {
       audio.pause();
       audio.currentTime = 0;
     }
+  }
+  // Stop Web Audio voice if playing
+  if (_currentWebAudioSource) {
+    try { _currentWebAudioSource.stop(); } catch (_) {}
+    _currentWebAudioSource = null;
   }
 }
 

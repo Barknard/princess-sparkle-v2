@@ -21,7 +21,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
-import { playVoice, preloadVoices, SCENE_VOICES } from '../data/voiceIndex.js';
+import { playVoice, preloadVoices, SCENE_VOICES, unlockVoiceAudio, isVoiceUnlocked } from '../data/voiceIndex.js';
 import spriteSheets from '../data/SpriteSheetManager.js';
 
 // ---- Easing -----------------------------------------------------------------
@@ -214,6 +214,11 @@ export default class TitleScene {
     this._narratorWaitTimer = 0;
     this._narratorDone = false;
 
+    // User interaction tracking for audio unlock
+    // Narrator voices are deferred until user taps (autoplay policy)
+    this._userTapped = false;
+    this._deferredNarratorLines = []; // lines queued before user gesture
+
     // Sparkle prompt state
     this._sparkleActive = false;
     this._sparkleTimer = 0;
@@ -264,6 +269,8 @@ export default class TitleScene {
     this._narratorLineIndex = 0;
     this._narratorWaitTimer = 0;
     this._narratorDone = false;
+    this._userTapped = false;
+    this._deferredNarratorLines = [];
     this._sparkleActive = false;
     this._sparkleTimer = 0;
     this._sparkleTapped = false;
@@ -325,6 +332,29 @@ export default class TitleScene {
     if (this._isContinue) {
       this._updateContinueFlow(dt);
       return;
+    }
+
+    // ---- Detect ANY tap during cinematic to unlock audio -----------------
+    if (!this._userTapped && this._inputManager && this._inputManager.tapped) {
+      this._userTapped = true;
+      console.log('[TitleScene] User tapped during cinematic — unlocking audio');
+
+      // Unlock voice audio system (enables HTML Audio + Web Audio)
+      unlockVoiceAudio();
+
+      // Unlock AudioManager's AudioContext too
+      if (this._audioManager) {
+        this._audioManager.unlock();
+      }
+
+      // Play any deferred narrator lines now that audio is unlocked
+      if (this._deferredNarratorLines.length > 0) {
+        console.log(`[TitleScene] Playing ${this._deferredNarratorLines.length} deferred narrator line(s)`);
+        // Play the last deferred line (most relevant to current moment)
+        const lastLine = this._deferredNarratorLines[this._deferredNarratorLines.length - 1];
+        playVoice(lastLine);
+        this._deferredNarratorLines = [];
+      }
     }
 
     // ---- First-time cinematic phases ------------------------------------
@@ -491,6 +521,15 @@ export default class TitleScene {
 
   _updateContinueFlow(dt) {
     this._continueTimer += dt;
+
+    // Detect tap during continue flow to unlock audio
+    if (!this._userTapped && this._inputManager && this._inputManager.tapped) {
+      this._userTapped = true;
+      unlockVoiceAudio();
+      if (this._audioManager) {
+        this._audioManager.unlock();
+      }
+    }
 
     // Play "Welcome back!" narrator voice once, shortly after the scene starts
     if (!this._continueWelcomePlayed && this._continueTimer >= 0.5) {
@@ -1274,6 +1313,15 @@ export default class TitleScene {
     this._burstActive = true;
     this._burstTimer = 0;
 
+    // Ensure audio is unlocked (this is a user gesture)
+    if (!this._userTapped) {
+      this._userTapped = true;
+      unlockVoiceAudio();
+      if (this._audioManager) {
+        this._audioManager.unlock();
+      }
+    }
+
     // Emit rainbow burst at sparkle's visual position (screen center)
     this._emitBurst(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
 
@@ -1294,8 +1342,17 @@ export default class TitleScene {
   }
 
   _playNarratorLine(index) {
-    if (index < this._narratorLines.length) {
-      playVoice(this._narratorLines[index]);
+    if (index >= this._narratorLines.length) return;
+
+    const voiceId = this._narratorLines[index];
+
+    if (this._userTapped || isVoiceUnlocked()) {
+      // Audio is unlocked — play immediately
+      playVoice(voiceId);
+    } else {
+      // No user gesture yet — defer this voice line
+      console.log(`[TitleScene] Deferring narrator line "${voiceId}" (no user gesture yet)`);
+      this._deferredNarratorLines.push(voiceId);
     }
   }
 
