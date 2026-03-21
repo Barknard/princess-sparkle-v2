@@ -33,7 +33,7 @@ function easeInOutCubic(t) {
 // ---- Constants --------------------------------------------------------------
 
 // Phase durations in seconds
-const PHASE_DURATIONS = [0.8, 7, 10, 8, 5, 9, 5]; // phase 0: brief dawn glow (0.8s) that fades into the sky
+const PHASE_DURATIONS = [0.5, 3, 4, 3, 2, 4, 3]; // compressed intro (~20s): 4yo patience = 10s before touching
 const CONTINUE_DURATION = 3; // compressed returning-player intro
 
 // Colors
@@ -443,26 +443,36 @@ export default class TitleScene {
       return;
     }
 
-    // ---- Detect ANY tap during cinematic to unlock audio -----------------
-    if (!this._userTapped && this._inputManager && this._inputManager.tapped) {
-      this._userTapped = true;
-      console.log('[TitleScene] User tapped during cinematic — unlocking audio');
+    // ---- Detect ANY tap during cinematic — unlock audio + skip phase -----
+    if (this._inputManager && this._inputManager.tapped) {
+      // First tap: unlock audio
+      if (!this._userTapped) {
+        this._userTapped = true;
+        console.log('[TitleScene] User tapped during cinematic — unlocking audio');
 
-      // Unlock voice audio system (enables HTML Audio + Web Audio)
-      unlockVoiceAudio();
+        // Unlock voice audio system (enables HTML Audio + Web Audio)
+        unlockVoiceAudio();
 
-      // Unlock AudioManager's AudioContext too
-      if (this._audioManager) {
-        this._audioManager.unlock();
+        // Unlock AudioManager's AudioContext too
+        if (this._audioManager) {
+          this._audioManager.unlock();
+        }
+
+        // Play any deferred narrator lines now that audio is unlocked
+        if (this._deferredNarratorLines.length > 0) {
+          console.log(`[TitleScene] Playing ${this._deferredNarratorLines.length} deferred narrator line(s)`);
+          // Play the last deferred line (most relevant to current moment)
+          const lastLine = this._deferredNarratorLines[this._deferredNarratorLines.length - 1];
+          playVoice(lastLine);
+          this._deferredNarratorLines = [];
+        }
       }
 
-      // Play any deferred narrator lines now that audio is unlocked
-      if (this._deferredNarratorLines.length > 0) {
-        console.log(`[TitleScene] Playing ${this._deferredNarratorLines.length} deferred narrator line(s)`);
-        // Play the last deferred line (most relevant to current moment)
-        const lastLine = this._deferredNarratorLines[this._deferredNarratorLines.length - 1];
-        playVoice(lastLine);
-        this._deferredNarratorLines = [];
+      // Every tap during phases 0-5: skip ahead to next phase immediately
+      // Phase 6 has its own tap handling (sparkle tap → burst → companion select)
+      if (this._phase < 6) {
+        console.log(`[TitleScene] Tap skip: phase ${this._phase} → ${this._phase + 1}`);
+        this._advancePhase();
       }
     }
 

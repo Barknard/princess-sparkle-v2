@@ -110,10 +110,10 @@ const WBR = 113;   // SE corner
 // DECORATIONS & FURNITURE
 const WEL = 92;    // well top
 const WEB = 104;   // well base
-const BNC = 105;   // bench
-const CRT = 106;   // crate
+const BNC = 19;    // bench → purple/pink flower bush (tile 19) — tile 105 was too dark, read as "bomb" in QA
+const CRT = 107;   // crate → barrel (tile 107) — tile 106 was dark/round, read as "bomb" in QA
 const BRL = 107;   // barrel
-const SGN = 116;   // signpost
+const SGN = 93;    // signpost → lantern post (tile 93) — tile 116 had fork/trident shape, read as "weapon" in QA
 const LNT = 93;    // lantern
 
 // ── HELPER: make a row of 60 tiles ──────────────────────────────────────────
@@ -477,15 +477,15 @@ const foreground = grid([
 
 // ── NPCs ──────────────────────────────────────────────────────────────────
 // All homeX/homeY positions verified on walkable tiles (collision=0).
-// Spread across the larger map for exploration feel.
+// NPCs positioned near village square so they're visible from spawn (30,20).
 
 const npcs = [
   {
     id: 'grandma-rose',
     name: 'Grandma Rose',
     spriteName: 'npc_grandma',
-    homeX: 9,       // at her door (col 9, row 14 — walkable via gate)
-    homeY: 14,      // yard grass below fence gate
+    homeX: 17,      // south of cottage, on path toward village square (walkable)
+    homeY: 17,      // visible from spawn — within initial camera viewport
     wanderRadius: 4,
     personality: 'warm',
     dialogueId: 'grandma-rose-greeting',
@@ -500,8 +500,8 @@ const npcs = [
     id: 'neighbor-lily',
     name: 'Neighbor Lily',
     spriteName: 'npc_lily',
-    homeX: 25,      // at her door (col 25, row 35 — walkable via gate)
-    homeY: 35,      // below fence gate on walkable ground
+    homeX: 25,      // near her house area, moved north toward village square
+    homeY: 28,      // visible from spawn — within initial camera viewport
     wanderRadius: 3,
     personality: 'cheerful',
     dialogueId: 'lily-greeting',
@@ -515,8 +515,8 @@ const npcs = [
     id: 'little-finn',
     name: 'Little Finn',
     spriteName: 'npc_finn',
-    homeX: 44,      // Finn's playground area (east side)
-    homeY: 36,      // open grass near bench
+    homeX: 38,      // east side of village square, near playground path
+    homeY: 22,      // visible from spawn — within initial camera viewport
     wanderRadius: 4,
     personality: 'playful',
     dialogueId: 'finn-greeting',
@@ -530,8 +530,8 @@ const npcs = [
     id: 'baker-maple',
     name: 'Baker Maple',
     spriteName: 'npc_baker',
-    homeX: 12,      // at his door (col 12, row 30 — walkable via gate)
-    homeY: 30,      // below fence gate on walkable ground
+    homeX: 17,      // near baker's area, moved north toward village square
+    homeY: 24,      // visible from spawn — within initial camera viewport
     wanderRadius: 3,
     personality: 'jolly',
     dialogueId: 'baker-maple-greeting',

@@ -112,9 +112,14 @@ ALL 9 edge tiles required. Never water adjacent to buildings (2+ tiles gap).
 ## DECORATIONS
 - 92 = well (top)
 - 104 = well (bottom) — place directly below 92
-- 105 = bench
-- 106 = crate
-- 107 = barrel
-- 116 = signpost/lantern
-- 93 = lantern
-- 14 = bush (understory near trees)
+- 19 = flower bush (purple/pink flowers) — village-friendly seating marker
+- 107 = barrel (also used for crates — tile 106 was dark/round, looked like a bomb)
+- 93 = lantern/signpost (warm orange post — tile 116 had fork shape, looked like a weapon)
+- 28 = bush (green oval hedge)
+- 29 = berry bush (red berries on green)
+
+### DEPRECATED decoration tiles (DO NOT USE in village levels):
+- 105 = bench — too dark at 16px, reads as "dark bomb" to young players
+- 106 = crate — dark rounded shape, reads as "bomb" at small sizes
+- 116 = signpost — cross/trident shape, reads as "fork/weapon" at small sizes
+- 14 = peach block (NOT a bush despite old docs)

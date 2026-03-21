@@ -192,14 +192,15 @@ export default class OverworldScene {
     this._autoWalkTimer = 0;
 
     // Tutorial sequence state machine
-    // Steps: 0=wait, 1=narrator "This is Sparkle Village!", 2=camera pan to Grandma,
-    //        3=companion encouragement, 4=narrator "Tap anywhere to walk",
-    //        5=sparkle trail to Grandma, 6=done
+    // Steps: 0=wait (<1s), 1=narrator "This is Sparkle Village!",
+    //        2=camera pan to Grandma, 3=narrator "See that sparkle?",
+    //        4=camera pan back to player, 5=sparkle trail to Grandma,
+    //        6=companion encouragement, 7=done
     this._tutorialStep = 0;
     this._tutorialTimer = 0;
     this._tutorialCameraPanActive = false;
     this._tutorialCameraPanTimer = 0;
-    this._tutorialCameraPanDuration = 3; // seconds for camera pan
+    this._tutorialCameraPanDuration = 2.5; // seconds for camera pan
     this._tutorialCameraStartX = 0;
     this._tutorialCameraStartY = 0;
     this._tutorialCameraTargetX = 0;
@@ -208,6 +209,17 @@ export default class OverworldScene {
     for (let i = 0; i < 10; i++) {
       this._tutorialSparkleTrail[i] = { active: false, x: 0, y: 0, alpha: 0, timer: 0, delay: 0 };
     }
+    this._tutorialSparkleTrailFadeTimer = 0; // lingers after tutorial ends
+    this._tutorialSparkleTrailFading = false;
+
+    // Idle nudge system — companion bounce + sparkle burst if player hasn't moved
+    this._idleNudgeTimer = 0;
+    this._idleNudgeFirstInterval = 10; // first nudge after 10s
+    this._idleNudgeRepeatInterval = 15; // repeat every 15s
+    this._idleNudgeCount = 0;
+    this._idleNudgeActive = false; // true while bounce animation plays
+    this._idleNudgeBounceTimer = 0;
+    this._playerHasMoved = false; // set true on first player movement
 
     // Camera position (smooth follow)
     this._camX = 0;
@@ -319,6 +331,13 @@ export default class OverworldScene {
     this._tutorialTimer = 0;
     this._tutorialCameraPanActive = false;
     this._tutorialCameraPanTimer = 0;
+    this._tutorialSparkleTrailFadeTimer = 0;
+    this._tutorialSparkleTrailFading = false;
+    this._idleNudgeTimer = 0;
+    this._idleNudgeCount = 0;
+    this._idleNudgeActive = false;
+    this._idleNudgeBounceTimer = 0;
+    this._playerHasMoved = false;
     this._proximitySparkleTimer = 0;
     this._transition = new TransitionOverlay();
 
@@ -486,8 +505,11 @@ export default class OverworldScene {
     // Quest path breadcrumbs
     this._updateBreadcrumbs(dt);
 
-    // First visit: auto-walk demo so child sees the princess can move
+    // First visit: tutorial sequence guides player to Grandma Rose
     this._updateAutoWalkDemo(dt);
+
+    // Idle nudge — companion bounce if player hasn't moved
+    this._updateIdleNudge(dt);
 
     // Tap feedback (ripple, destination marker, path dots)
     this._updateTapFeedback(dt);
@@ -827,45 +849,69 @@ export default class OverworldScene {
    * First-visit tutorial sequence — guides the player on what to do.
    *
    * Steps:
-   *   0: Wait 1.5s for scene to settle
+   *   0: Wait <1s for scene to settle
    *   1: Narrator: "This is Sparkle Village!" (narrator_village_arrive_01)
-   *   2: Camera slowly pans to show Grandma Rose with quest "!" indicator (3s)
-   *   3: Companion says something encouraging (companion_village_<name>_01)
-   *   4: Camera pans back to player, narrator: "Tap anywhere to walk there" (narrator_village_tutorial_01)
-   *   5: Sparkle trail appears leading toward Grandma Rose
-   *   6: Tutorial done — normal gameplay resumes
+   *   2: Camera smoothly pans to Grandma Rose with glowing quest "!" (2.5s)
+   *   3: Narrator: "See that sparkle? That means someone needs help!" (narrator_village_quest_hint_01)
+   *   4: Camera pans back to player
+   *   5: Sparkle trail of golden diamonds appears from player toward Grandma
+   *   6: Companion says something encouraging
+   *   7: Tutorial done — normal gameplay resumes
    */
   _updateAutoWalkDemo(dt) {
-    if (!this._isFirstVisit) return;
+    if (!this._isFirstVisit) {
+      // Even after tutorial ends, keep fading the sparkle trail gracefully
+      if (this._tutorialSparkleTrailFading) {
+        this._tutorialSparkleTrailFadeTimer += dt;
+        this._updateTutorialSparkleTrail(dt);
+        if (this._tutorialSparkleTrailFadeTimer >= 3.0) {
+          this._tutorialSparkleTrailFading = false;
+          for (let i = 0; i < this._tutorialSparkleTrail.length; i++) {
+            this._tutorialSparkleTrail[i].active = false;
+          }
+          console.log('[Tutorial] Sparkle trail fade-out complete');
+        }
+      }
+      return;
+    }
 
     // If tutorial is complete, skip
-    if (this._tutorialStep >= 6) return;
+    if (this._tutorialStep >= 7) return;
 
     this._tutorialTimer += dt;
 
     switch (this._tutorialStep) {
       case 0: {
-        // Wait 1.5s for the scene to settle in
-        if (this._tutorialTimer >= 1.5) {
+        // Log once to confirm tutorial is executing
+        if (this._tutorialTimer < dt * 2) {
+          console.log('[Tutorial] Tutorial system active — waiting 0.8s before starting');
+        }
+        // Wait <1s for the scene to settle in (requirement: within 1 second)
+        if (this._tutorialTimer >= 0.8) {
           this._tutorialStep = 1;
           this._tutorialTimer = 0;
 
           // Step 1: Narrator welcome voice
-          console.log('[Tutorial] Step 1: Narrator village arrival');
+          console.log('[Tutorial] Step 1: Narrator — "This is Sparkle Village!"');
           playVoice('narrator_village_arrive_01');
         }
         break;
       }
 
       case 1: {
-        // Wait for narrator line to finish (~3s estimated), then pan camera
-        if (this._tutorialTimer >= 3.5) {
+        // Wait for narrator line to finish (~3s estimated), then pan camera to Grandma
+        if (this._tutorialTimer >= 3.0) {
           this._tutorialStep = 2;
           this._tutorialTimer = 0;
 
           // Step 2: Camera pan to Grandma Rose
           console.log('[Tutorial] Step 2: Camera pan to Grandma Rose');
-          this._startTutorialCameraPan();
+          const started = this._startTutorialCameraPan();
+          if (!started) {
+            console.warn('[Tutorial] WARN: Could not find Grandma Rose NPC — skipping pan');
+            // Skip to step 5 (sparkle trail) if Grandma not found
+            this._tutorialStep = 5;
+          }
         }
         break;
       }
@@ -875,29 +921,29 @@ export default class OverworldScene {
         this._updateTutorialCameraPan(dt);
 
         if (!this._tutorialCameraPanActive) {
-          // Pan completed — hold for 1.5s so player sees Grandma + quest indicator
-          if (this._tutorialTimer >= 1.5) {
+          // Pan completed — hold for 1.0s so player sees Grandma + quest indicator,
+          // then narrator explains the sparkle
+          if (this._tutorialTimer >= 1.0) {
             this._tutorialStep = 3;
             this._tutorialTimer = 0;
 
-            // Step 3: Companion encouragement voice
-            console.log('[Tutorial] Step 3: Companion encouragement');
-            this._playCompanionVillageVoice();
+            // Step 3: Narrator explains the quest indicator
+            console.log('[Tutorial] Step 3: Narrator — "See that sparkle? That means someone needs help!"');
+            playVoice('narrator_village_quest_hint_01');
           }
         }
         break;
       }
 
       case 3: {
-        // Wait for companion line (~2.5s), then pan camera back and play tutorial voice
+        // Wait for narrator "See that sparkle?" line (~3s), then pan camera back
         if (this._tutorialTimer >= 3.0) {
           this._tutorialStep = 4;
           this._tutorialTimer = 0;
 
-          // Step 4: Pan camera back to player + narrator tutorial voice
-          console.log('[Tutorial] Step 4: Camera pan back + tap tutorial');
+          // Step 4: Pan camera back to player
+          console.log('[Tutorial] Step 4: Camera pan back to player');
           this._startTutorialCameraPanBack();
-          playVoice('narrator_village_tutorial_01');
         }
         break;
       }
@@ -906,12 +952,12 @@ export default class OverworldScene {
         // Camera panning back to player
         this._updateTutorialCameraPan(dt);
 
-        if (!this._tutorialCameraPanActive && this._tutorialTimer >= 1.0) {
+        if (!this._tutorialCameraPanActive && this._tutorialTimer >= 0.5) {
           this._tutorialStep = 5;
           this._tutorialTimer = 0;
 
           // Step 5: Sparkle trail toward Grandma
-          console.log('[Tutorial] Step 5: Sparkle trail to Grandma');
+          console.log('[Tutorial] Step 5: Sparkle trail of golden diamonds to Grandma');
           this._createSparkleTrailToGrandma();
 
           // Play a gentle sparkle trail SFX
@@ -926,12 +972,33 @@ export default class OverworldScene {
         // Update sparkle trail animation
         this._updateTutorialSparkleTrail(dt);
 
-        // After 4s or if player taps (starts moving), end the tutorial
-        const playerMoving = this._player && this._player.state === 'WALKING';
-        if (this._tutorialTimer >= 4.0 || playerMoving) {
+        // After 1.5s, companion says something encouraging
+        if (this._tutorialTimer >= 1.5) {
           this._tutorialStep = 6;
+          this._tutorialTimer = 0;
+
+          // Step 6: Companion encouragement
+          console.log('[Tutorial] Step 6: Companion encouragement');
+          this._playCompanionVillageVoice();
+        }
+        break;
+      }
+
+      case 6: {
+        // Keep updating sparkle trail while companion speaks
+        this._updateTutorialSparkleTrail(dt);
+
+        // After companion line (~2.5s) or if player taps (starts moving), end the tutorial
+        const playerMoving = this._player && this._player.state === 'WALKING';
+        if (this._tutorialTimer >= 3.0 || playerMoving) {
+          this._tutorialStep = 7;
           this._isFirstVisit = false; // tutorial is done
           this._autoWalkTriggered = true;
+
+          // Start sparkle trail fade-out instead of abrupt removal
+          this._tutorialSparkleTrailFading = true;
+          this._tutorialSparkleTrailFadeTimer = 0;
+
           console.log('[Tutorial] Complete — player is free to explore');
         }
         break;
@@ -941,14 +1008,18 @@ export default class OverworldScene {
 
   /**
    * Find Grandma Rose NPC and start a smooth camera pan to her position.
+   * @returns {boolean} true if pan was started, false if Grandma not found
    */
   _startTutorialCameraPan() {
     const grandma = this._npcs.find(n => n.id === 'grandma-rose');
     if (!grandma || !this._player) {
       // No Grandma found — skip to next step
+      console.warn('[Tutorial] _startTutorialCameraPan: grandma-rose NPC not found in', this._npcs.map(n => n.id));
       this._tutorialCameraPanActive = false;
-      return;
+      return false;
     }
+
+    console.log(`[Tutorial] Camera pan: from (${this._camX|0}, ${this._camY|0}) to Grandma at (${grandma.x|0}, ${grandma.y|0})`);
 
     this._tutorialCameraPanActive = true;
     this._tutorialCameraPanTimer = 0;
@@ -957,6 +1028,16 @@ export default class OverworldScene {
     // Target: center camera on Grandma
     this._tutorialCameraTargetX = grandma.x - LOGICAL_WIDTH / 2;
     this._tutorialCameraTargetY = grandma.y - LOGICAL_HEIGHT / 2;
+
+    // Clamp target to world bounds
+    if (this._tileMap) {
+      const worldW = this._tileMap.widthPx || LOGICAL_WIDTH;
+      const worldH = this._tileMap.heightPx || LOGICAL_HEIGHT;
+      this._tutorialCameraTargetX = Math.max(0, Math.min(this._tutorialCameraTargetX, worldW - LOGICAL_WIDTH));
+      this._tutorialCameraTargetY = Math.max(0, Math.min(this._tutorialCameraTargetY, worldH - LOGICAL_HEIGHT));
+    }
+
+    return true;
   }
 
   /**
@@ -965,6 +1046,8 @@ export default class OverworldScene {
   _startTutorialCameraPanBack() {
     if (!this._player) return;
 
+    console.log(`[Tutorial] Camera pan back: from (${this._camX|0}, ${this._camY|0}) to player at (${this._player.x|0}, ${this._player.y|0})`);
+
     this._tutorialCameraPanActive = true;
     this._tutorialCameraPanTimer = 0;
     this._tutorialCameraStartX = this._camX;
@@ -972,6 +1055,14 @@ export default class OverworldScene {
     // Target: center camera on player
     this._tutorialCameraTargetX = this._player.x - LOGICAL_WIDTH / 2;
     this._tutorialCameraTargetY = this._player.y - LOGICAL_HEIGHT / 2;
+
+    // Clamp target to world bounds
+    if (this._tileMap) {
+      const worldW = this._tileMap.widthPx || LOGICAL_WIDTH;
+      const worldH = this._tileMap.heightPx || LOGICAL_HEIGHT;
+      this._tutorialCameraTargetX = Math.max(0, Math.min(this._tutorialCameraTargetX, worldW - LOGICAL_WIDTH));
+      this._tutorialCameraTargetY = Math.max(0, Math.min(this._tutorialCameraTargetY, worldH - LOGICAL_HEIGHT));
+    }
   }
 
   /**
@@ -1011,7 +1102,11 @@ export default class OverworldScene {
    */
   _createSparkleTrailToGrandma() {
     const grandma = this._npcs.find(n => n.id === 'grandma-rose');
-    if (!grandma || !this._player) return;
+    if (!grandma || !this._player) {
+      console.warn('[Tutorial] _createSparkleTrailToGrandma: grandma or player missing', { grandma: !!grandma, player: !!this._player });
+      return;
+    }
+    console.log(`[Tutorial] Creating sparkle trail: player(${this._player.x|0}, ${this._player.y|0}) -> grandma(${grandma.x|0}, ${grandma.y|0})`);
 
     const sx = this._player.x;
     const sy = this._player.y;
@@ -1041,7 +1136,7 @@ export default class OverworldScene {
   }
 
   /**
-   * Animate the tutorial sparkle trail (twinkling gold dots from player to Grandma).
+   * Animate the tutorial sparkle trail (twinkling gold diamonds from player to Grandma).
    */
   _updateTutorialSparkleTrail(dt) {
     for (let i = 0; i < this._tutorialSparkleTrail.length; i++) {
@@ -1052,13 +1147,123 @@ export default class OverworldScene {
       if (s.timer < s.delay) continue; // not visible yet
 
       const localTime = s.timer - s.delay;
+
+      // If fading out, multiply alpha by fade factor
+      let fadeMult = 1;
+      if (this._tutorialSparkleTrailFading) {
+        fadeMult = Math.max(0, 1 - this._tutorialSparkleTrailFadeTimer / 3.0);
+      }
+
       // Fade in, then twinkle
       if (localTime < 0.3) {
-        s.alpha = localTime / 0.3; // fade in
+        s.alpha = (localTime / 0.3) * fadeMult; // fade in
       } else {
-        s.alpha = 0.5 + Math.sin(localTime * 4 + i * 0.8) * 0.4; // twinkle
+        s.alpha = (0.5 + Math.sin(localTime * 4 + i * 0.8) * 0.4) * fadeMult; // twinkle
       }
     }
+  }
+
+  /**
+   * Idle nudge system — if the player hasn't moved after spawning,
+   * the companion does a bounce + sparkle burst pointing toward Grandma.
+   * First nudge at 10s, then repeats every 15s until the player moves.
+   */
+  _updateIdleNudge(dt) {
+    // Track whether the player has ever moved
+    if (!this._playerHasMoved && this._player) {
+      if (this._player.state === 'WALKING' || this._player.isMoving) {
+        this._playerHasMoved = true;
+        this._idleNudgeActive = false;
+        console.log('[IdleNudge] Player moved — nudge system deactivated');
+        return;
+      }
+    }
+
+    // Once the player has moved, stop nudging
+    if (this._playerHasMoved) return;
+
+    // Don't nudge during the tutorial sequence
+    if (this._isFirstVisit && this._tutorialStep < 7) return;
+
+    this._idleNudgeTimer += dt;
+
+    // Determine the threshold for the next nudge
+    const threshold = this._idleNudgeCount === 0
+      ? this._idleNudgeFirstInterval
+      : this._idleNudgeRepeatInterval;
+
+    if (this._idleNudgeTimer >= threshold && !this._idleNudgeActive) {
+      // Trigger a nudge
+      this._idleNudgeActive = true;
+      this._idleNudgeBounceTimer = 0;
+      this._idleNudgeCount++;
+
+      console.log(`[IdleNudge] Nudge #${this._idleNudgeCount} — companion bounce + sparkle burst`);
+
+      // Emit sparkle burst from companion position toward Grandma
+      if (this._companion) {
+        const cx = this._companion.x || 0;
+        const cy = this._companion.y || 0;
+        const grandma = this._npcs.find(n => n.id === 'grandma-rose');
+
+        // Sparkle burst: directional particles pointing toward Grandma
+        if (grandma) {
+          const dx = grandma.x - cx;
+          const dy = grandma.y - cy;
+          const dist = Math.hypot(dx, dy);
+          const dirX = dist > 0 ? dx / dist : 0;
+          const dirY = dist > 0 ? dy / dist : 0;
+
+          // Emit 6-8 directional sparkle particles
+          let emitted = 0;
+          for (let i = 0; i < this._particles.length && emitted < 8; i++) {
+            const p = this._particles[i];
+            if (p.active) continue;
+            const spread = (Math.random() - 0.5) * 0.6; // slight spread
+            const speed = 35 + Math.random() * 25;
+            p.active = true;
+            p.x = cx;
+            p.y = cy - 4;
+            p.vx = (dirX + spread) * speed;
+            p.vy = (dirY + spread) * speed - 10;
+            p.life = 0.8 + Math.random() * 0.4;
+            p.maxLife = p.life;
+            p.color = ['#ffd700', '#ffb6c1', '#ffe066', '#ff69b4'][emitted % 4];
+            p.size = 3;
+            emitted++;
+          }
+        } else {
+          // No Grandma — just burst in a random upward direction
+          this._emitParticles(cx, cy - 4, '#ffd700', 6);
+        }
+
+        // Play a subtle SFX
+        if (this._audioManager) {
+          this._audioManager.playSFX('sparkle');
+        }
+      }
+    }
+
+    // Animate the bounce (0.6s bounce animation)
+    if (this._idleNudgeActive) {
+      this._idleNudgeBounceTimer += dt;
+      if (this._idleNudgeBounceTimer >= 0.6) {
+        this._idleNudgeActive = false;
+        this._idleNudgeTimer = 0; // reset for next interval
+      }
+    }
+  }
+
+  /**
+   * Get the companion's idle nudge bounce Y offset.
+   * Returns a Y pixel offset (negative = up) during the bounce animation.
+   */
+  _getIdleNudgeBounceOffset() {
+    if (!this._idleNudgeActive) return 0;
+    // Two quick bounces over 0.6s
+    const t = this._idleNudgeBounceTimer / 0.6;
+    // First bounce at t=0.25, second at t=0.65
+    return -Math.abs(Math.sin(t * Math.PI * 3)) * 6; // 6px max bounce height
   }
 
   /** Emit sparkle particles on interactables within 3 tiles (48px) of the player. */
@@ -1879,8 +2084,8 @@ export default class OverworldScene {
     // Quest path breadcrumb sparkles (world space)
     this._drawBreadcrumbs(ctx);
 
-    // Tutorial sparkle trail (world space, first visit only)
-    if (this._isFirstVisit && this._tutorialStep >= 5) {
+    // Tutorial sparkle trail (world space, during tutorial and fade-out)
+    if ((this._isFirstVisit && this._tutorialStep >= 5) || this._tutorialSparkleTrailFading) {
       this._drawTutorialSparkleTrail(ctx);
     }
 
@@ -1983,6 +2188,8 @@ export default class OverworldScene {
     if (c.sillying) {
       yOffset += Math.sin((c.sillyTimer || 0) * 6) * 2;
     }
+    // Idle nudge bounce
+    yOffset += this._getIdleNudgeBounceOffset();
 
     const name = c.spriteName || 'unicorn';
     const flipX = c.flipX || false;
