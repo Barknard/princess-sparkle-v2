@@ -23,8 +23,8 @@ export default class Breeze extends Companion {
    */
   getParticleConfig() {
     return {
-      x: this.prevX * 16,
-      y: this.prevY * 16 + 4,
+      x: this.prevX,
+      y: this.prevY + 4,
       count: 3,
       colors: TRAIL_COLORS,
       shape: ParticleShape.CIRCLE,

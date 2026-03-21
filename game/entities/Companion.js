@@ -15,9 +15,9 @@ import spriteSheets from '../data/SpriteSheetManager.js';
 
 const TILE = 16;
 
-// Follow behaviour
-const FOLLOW_OFFSET_X = 0.8;  // tiles to the right
-const FOLLOW_OFFSET_Y = 1.5;  // tiles behind
+// Follow behaviour (in pixels — 1 tile = 16px)
+const FOLLOW_OFFSET_X = 0.8 * 16;  // ~13px to the right
+const FOLLOW_OFFSET_Y = 1.5 * 16;  // ~24px behind
 const LERP_FACTOR = 0.12;
 
 // Animation — Superdark sheets have 4 frames per animation
@@ -108,8 +108,8 @@ export default class Companion {
    */
   getParticleConfig() {
     return {
-      x: this.prevX * TILE,
-      y: this.prevY * TILE,
+      x: this.prevX,
+      y: this.prevY,
       count: 1,
       colors: ['#ffffff'],
       shape: 'circle',

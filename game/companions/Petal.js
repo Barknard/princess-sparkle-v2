@@ -23,8 +23,8 @@ export default class Petal extends Companion {
    */
   getParticleConfig() {
     return {
-      x: this.prevX * 16,
-      y: this.prevY * 16 + 12,
+      x: this.prevX,
+      y: this.prevY + 12,
       count: 1,
       colors: TRAIL_COLORS,
       shape: ParticleShape.FLOWER,

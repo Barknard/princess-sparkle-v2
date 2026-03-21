@@ -23,8 +23,8 @@ export default class Ember extends Companion {
    */
   getParticleConfig() {
     return {
-      x: this.prevX * 16,
-      y: this.prevY * 16 + 8,
+      x: this.prevX,
+      y: this.prevY + 8,
       count: 2,
       colors: TRAIL_COLORS,
       shape: ParticleShape.CIRCLE,

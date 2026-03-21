@@ -32,7 +32,7 @@ export const Direction = {
 const TILE = 16;
 
 // Movement
-const WALK_SPEED = 2.0; // tiles per second
+const WALK_SPEED = 2.0 * 16; // 2 tiles per second in pixels (32 px/s)
 
 // Animation timing
 const WALK_FRAME_MS = 150;
@@ -42,7 +42,7 @@ const IDLE_FRAMES = 4;  // Superdark princess has 4 idle frames
 
 // Silly reaction thresholds
 const SNEEZE_CHANCE = 0.33; // 1 in 3 near big flowers
-const TIPTOE_RANGE = 1.5;  // tiles from sleeping animal
+const TIPTOE_RANGE = 1.5 * 16;  // 1.5 tiles from sleeping animal (in pixels)
 const SPLASH_DURATION = 3.0; // seconds of water drops on sprite
 
 export default class Player {
@@ -98,10 +98,8 @@ export default class Player {
    * @param {number} worldY - Target Y in world pixels or tile coords
    */
   moveTo(worldX, worldY) {
-    // Convert pixel coords to tile coords if needed (heuristic: >30 likely pixels)
-    const tx = worldX > 30 ? worldX / 16 : worldX;
-    const ty = worldY > 30 ? worldY / 16 : worldY;
-    this.setPath([{ x: tx, y: ty }]);
+    // All coordinates are in world pixels (consistent with drawing and camera)
+    this.setPath([{ x: worldX, y: worldY }]);
   }
 
   /**

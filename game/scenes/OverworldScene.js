@@ -18,6 +18,10 @@ import QuestIndicatorPool from '../ui/QuestIndicator.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
 import { playVoice } from '../data/voiceIndex.js';
 import spriteSheets from '../data/SpriteSheetManager.js';
+import Player from '../entities/Player.js';
+import Companion from '../entities/Companion.js';
+import QuestSystem from '../systems/QuestSystem.js';
+import sparkleVillage from '../levels/level-sparkle-village.js';
 
 // ---- Easing -----------------------------------------------------------------
 
@@ -65,7 +69,7 @@ const SKY_EVENING = {
 
 // ---- Ambient animal pool ----------------------------------------------------
 
-const MAX_AMBIENT_ANIMALS = 8;
+const MAX_AMBIENT_ANIMALS = 16;
 
 // ---- Silly moment timer -----------------------------------------------------
 
@@ -74,7 +78,7 @@ const SILLY_MAX_INTERVAL_S = 75;
 
 // ---- Interactable object pool -----------------------------------------------
 
-const MAX_INTERACTABLES = 20;
+const MAX_INTERACTABLES = 30;
 
 // ---- Particle pool ----------------------------------------------------------
 
@@ -141,6 +145,9 @@ export default class OverworldScene {
     // Sky gradient (interpolated based on session time)
     this._skyTopColor = { ...SKY_MORNING.top };
     this._skyBottomColor = { ...SKY_MORNING.bottom };
+
+    // Level dialogue data (loaded from level file)
+    this._dialogues = null;
 
     // NPCs
     /** @type {Array<{id: string, x: number, y: number, sprite: any, hasQuest: boolean, indicator: any, wanderTimer: number, wanderTarget: {x:number,y:number}|null}>} */
@@ -322,7 +329,36 @@ export default class OverworldScene {
       console.warn('OverworldScene: Sprite sheet load error (using placeholders):', err);
     });
 
-    // Load level data (NPCs, interactables, animals) from tileMap / world loader
+    // Create Player if not provided by external systems
+    if (!this._player) {
+      this._player = new Player();
+    }
+
+    // Create Companion if not provided by external systems
+    if (!this._companion) {
+      // Try to get companion choice from save data
+      let companionName = 'Shimmer';
+      let companionSprite = 'unicorn';
+      if (this._saveManager) {
+        const savedId = this._saveManager.get('companionId');
+        if (savedId) {
+          companionName = savedId.charAt(0).toUpperCase() + savedId.slice(1);
+          const spriteMap = {
+            shimmer: 'unicorn', ember: 'dragon', breeze: 'butterfly',
+            pip: 'bunny', petal: 'fairy'
+          };
+          companionSprite = spriteMap[savedId] || 'unicorn';
+        }
+      }
+      this._companion = new Companion(companionName, companionSprite);
+    }
+
+    // Create QuestSystem if not provided
+    if (!this._questSystem) {
+      this._questSystem = new QuestSystem();
+    }
+
+    // Load level data (NPCs, interactables, animals) from level file
     this._loadWorldObjects();
 
     // Play morning ambience
@@ -359,6 +395,15 @@ export default class OverworldScene {
 
     // Ambient animals
     this._updateAnimals(dt);
+
+    // Interactable cooldowns
+    for (let i = 0; i < this._interactables.length; i++) {
+      const obj = this._interactables[i];
+      if (obj.active && obj.cooldown > 0) {
+        obj.cooldown -= dt;
+        if (obj.cooldown < 0) obj.cooldown = 0;
+      }
+    }
 
     // Silly moments
     this._updateSillyMoments(dt);
@@ -464,8 +509,8 @@ export default class OverworldScene {
 
   _updateCompanion(dt) {
     if (this._companion && this._player) {
-      this._companion.follow(this._player.x, this._player.y, dt);
-      this._companion.update(dt);
+      // update() handles follow internally when player is passed
+      this._companion.update(dt, this._player);
     }
   }
 
@@ -477,11 +522,13 @@ export default class OverworldScene {
       npc.wanderTimer -= dt;
 
       if (npc.wanderTimer <= 0 && npc.wanderTarget === null) {
-        // Pick new wander target nearby (within 3 tiles)
+        // Pick new wander target near home position (within 3 tiles)
         const range = 48; // 3 tiles
+        const homeX = npc.homeX || npc.x;
+        const homeY = npc.homeY || npc.y;
         npc.wanderTarget = {
-          x: npc.x + (Math.random() - 0.5) * range * 2,
-          y: npc.y + (Math.random() - 0.5) * range * 2,
+          x: homeX + (Math.random() - 0.5) * range * 2,
+          y: homeY + (Math.random() - 0.5) * range * 2,
         };
         npc.wanderTimer = 3 + Math.random() * 5;
       }
@@ -517,17 +564,48 @@ export default class OverworldScene {
       if (!a.active) continue;
 
       a.animTimer += dt * 1000;
-      a.x += a.vx * dt;
-      a.y += a.vy * dt;
+
+      // Zone-based wandering: pick a new target when idle, move toward it
+      if (!a.wanderTarget) {
+        // Pause before picking a new target
+        a.wanderPause = (a.wanderPause || 0) - dt;
+        if (a.wanderPause <= 0) {
+          // Pick a random point within the animal's zone (or near home)
+          const homeX = a.homeX || a.x;
+          const homeY = a.homeY || a.y;
+          const range = (a.zoneW || 4) * 16;
+          const rangeY = (a.zoneH || 3) * 16;
+          a.wanderTarget = {
+            x: homeX + (Math.random() - 0.5) * range,
+            y: homeY + (Math.random() - 0.5) * rangeY,
+          };
+        }
+      }
+
+      if (a.wanderTarget) {
+        const dx = a.wanderTarget.x - a.x;
+        const dy = a.wanderTarget.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 2) {
+          const speed = 12; // px/s (slow animal wander)
+          a.vx = (dx / dist) * speed;
+          a.vy = (dy / dist) * speed;
+          a.x += a.vx * dt;
+          a.y += a.vy * dt;
+        } else {
+          // Reached target, pause before next wander
+          a.wanderTarget = null;
+          a.wanderPause = 2 + Math.random() * 4;
+          a.vx = 0;
+          a.vy = 0;
+          a.state = 'idle';
+        }
+      }
 
       // Track facing direction based on velocity
       if (Math.abs(a.vx) > 0.1) {
         a.flipX = a.vx < 0;
       }
-
-      // Simple boundary wrapping
-      if (a.x < -16) a.x = LOGICAL_WIDTH + 16;
-      if (a.x > LOGICAL_WIDTH + 32) a.x = -16;
     }
   }
 
@@ -998,15 +1076,92 @@ export default class OverworldScene {
   }
 
   _onNPCTapped(npc) {
-    if (npc.hasQuest) {
-      // Start dialogue scene as overlay
-      if (this._sceneManager) {
-        this._sceneManager.pushOverlay('Dialogue', { npcId: npc.id });
+    // Walk toward the NPC first, then interact
+    if (this._player) {
+      const dist = Math.hypot(npc.x - this._player.x, npc.y - this._player.y);
+      if (dist > 24) {
+        // Walk closer before interacting
+        const dx = npc.x - this._player.x;
+        const dy = npc.y - this._player.y;
+        const d = Math.hypot(dx, dy);
+        const targetX = npc.x - (dx / d) * 20;
+        const targetY = npc.y - (dy / d) * 20;
+        this._player.moveTo(targetX, targetY);
+      }
+    }
+
+    // Determine which dialogue to show
+    let dialogueId = null;
+
+    // Check if this NPC has an available quest via QuestSystem
+    if (this._questSystem) {
+      const questId = this._questSystem.getAvailableQuestForNPC(npc.id);
+      if (questId) {
+        // Start the quest
+        const stage = this._questSystem.startQuest(questId);
+        if (stage && stage.dialogueId) {
+          dialogueId = stage.dialogueId;
+        }
+      }
+    }
+
+    // No quest — use greeting dialogue
+    if (!dialogueId) {
+      const npcDef = sparkleVillage.npcs ? sparkleVillage.npcs.find(n => n.id === npc.id) : null;
+      dialogueId = npcDef ? npcDef.dialogueId : null;
+    }
+
+    // Convert dialogue tree to flat lines array for DialogueScene
+    if (dialogueId && this._dialogues && this._dialogues[dialogueId]) {
+      const lines = this._dialogueTreeToLines(this._dialogues[dialogueId]);
+      if (lines.length > 0 && this._sceneManager) {
+        this._sceneManager.pushOverlay('Dialogue', {
+          npcId: npc.id,
+          lines: lines,
+        });
       }
     } else {
-      // Ambient NPC line — use voice system for NPC voice lines
+      // Fallback: ambient voice line
       playVoice('npc_' + npc.id + '_greeting_01');
     }
+
+    // Emit sparkle particles around NPC on interaction
+    this._emitParticles(npc.x, npc.y - 8, '#ffb6c1', 4);
+  }
+
+  /**
+   * Convert a dialogue tree (startId + nodes) into a flat array of lines
+   * for DialogueScene consumption.
+   * @param {object} dialogueTree - { startId, nodes: { id: { voiceId, portrait, text, next, ... } } }
+   * @returns {Array<object>} Flat array of line objects
+   */
+  _dialogueTreeToLines(dialogueTree) {
+    const lines = [];
+    if (!dialogueTree || !dialogueTree.startId || !dialogueTree.nodes) return lines;
+
+    let currentId = dialogueTree.startId;
+    const visited = new Set(); // prevent infinite loops
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const node = dialogueTree.nodes[currentId];
+      if (!node) break;
+
+      lines.push({
+        voiceId: node.voiceId || null,
+        portrait: null,
+        portraitSrc: node.portrait || null,
+        text: node.text || '',
+        name: node.name || '',
+        expression: node.expression || 'neutral',
+        choices: node.choices || null,
+        duration: null, // let voice system determine
+      });
+
+      currentId = node.next;
+    }
+
+    return lines;
   }
 
   _onInteractableTapped(obj) {
@@ -1066,7 +1221,7 @@ export default class OverworldScene {
           this._sceneManager.switchTo('WindDown', {
             sessionTime: this._sessionTime,
             hearts: this._hud.hearts,
-            questsCompleted: this._questSystem ? this._questSystem.completedCount : 0,
+            questsCompleted: this._questSystem ? this._questSystem.getCompletedCount() : 0,
           });
         }
       },
@@ -1100,6 +1255,8 @@ export default class OverworldScene {
       id: npcData.id,
       x: npcData.x,
       y: npcData.y,
+      homeX: npcData.x,  // remember spawn position for wander AI
+      homeY: npcData.y,
       sprite: npcData.sprite || null,
       spriteName: npcData.spriteName || 'npc_grandma',
       flipX: false,
@@ -1149,12 +1306,18 @@ export default class OverworldScene {
         a.type = animalData.spriteName || animalData.type.toLowerCase();
         a.x = animalData.x;
         a.y = animalData.y;
-        a.vx = (Math.random() - 0.5) * 10;
+        a.homeX = animalData.x;     // remember spawn position
+        a.homeY = animalData.y;
+        a.zoneW = animalData.zoneW || 4;  // zone width in tiles
+        a.zoneH = animalData.zoneH || 3;  // zone height in tiles
+        a.vx = 0;
         a.vy = 0;
         a.active = true;
-        a.animTimer = 0;
+        a.animTimer = Math.random() * 1000;
         a.state = 'idle';
         a.flipX = false;
+        a.wanderTarget = null;
+        a.wanderPause = 1 + Math.random() * 3; // initial pause before first wander
         return;
       }
     }
@@ -1734,10 +1897,6 @@ export default class OverworldScene {
   // ---- World loading --------------------------------------------------------
 
   _loadWorldObjects() {
-    // This would be populated from level data files.
-    // Placeholder: set up a few default interactables and animals
-    // Real data comes from levels/level-sparkle-village.js etc.
-
     // Reset pools
     for (let i = 0; i < this._interactables.length; i++) {
       this._interactables[i].active = false;
@@ -1747,5 +1906,113 @@ export default class OverworldScene {
     }
     this._npcs.length = 0;
     this._questIndicators.releaseAll();
+
+    // Get level data — use the imported sparkle village data
+    const levelData = sparkleVillage;
+    if (!levelData) {
+      console.warn('OverworldScene: No level data available');
+      return;
+    }
+
+    console.log(`OverworldScene: Loading level "${levelData.name}" (${levelData.width}x${levelData.height})`);
+
+    // ---- 1. Set player spawn position ----
+    if (this._player) {
+      const spawnX = (levelData.spawnX || 14) * 16 + 8; // center of tile, in pixels
+      const spawnY = (levelData.spawnY || 9) * 16 + 8;
+      this._player.x = spawnX;
+      this._player.y = spawnY;
+      this._player.state = 'IDLE';
+      this._player.path = null;
+      console.log(`OverworldScene: Player spawned at tile (${levelData.spawnX}, ${levelData.spawnY}) -> pixel (${spawnX}, ${spawnY})`);
+    }
+
+    // ---- 2. Set companion start position near player ----
+    if (this._companion && this._player) {
+      this._companion.x = this._player.x + 12;
+      this._companion.y = this._player.y + 20;
+      this._companion.prevX = this._companion.x;
+      this._companion.prevY = this._companion.y;
+    }
+
+    // ---- 3. Initialize camera at player position ----
+    if (this._player) {
+      this._camX = Math.max(0, this._player.x - LOGICAL_WIDTH / 2);
+      this._camY = Math.max(0, this._player.y - LOGICAL_HEIGHT / 2);
+    }
+
+    // ---- 4. Load quests into QuestSystem ----
+    if (levelData.quests && this._questSystem) {
+      this._questSystem.loadQuests(levelData.quests);
+      console.log(`OverworldScene: Loaded ${levelData.quests.length} quests`);
+    }
+
+    // ---- 5. Spawn NPCs ----
+    if (levelData.npcs) {
+      for (let i = 0; i < levelData.npcs.length; i++) {
+        const npcData = levelData.npcs[i];
+        // Convert tile coordinates to pixel coordinates (center of tile)
+        const px = npcData.homeX * 16 + 8;
+        const py = npcData.homeY * 16 + 8;
+
+        // Check if this NPC has an available quest
+        let hasQuest = false;
+        if (this._questSystem) {
+          const questId = this._questSystem.getAvailableQuestForNPC(npcData.id);
+          hasQuest = questId !== null;
+        }
+
+        this.addNPC({
+          id: npcData.id,
+          x: px,
+          y: py,
+          spriteName: npcData.spriteName || 'npc_grandma',
+          hasQuest: hasQuest,
+        });
+      }
+      console.log(`OverworldScene: Spawned ${levelData.npcs.length} NPCs`);
+    }
+
+    // ---- 6. Spawn world objects (interactables) ----
+    if (levelData.worldObjects) {
+      for (let i = 0; i < levelData.worldObjects.length; i++) {
+        const obj = levelData.worldObjects[i];
+        this.addInteractable({
+          id: obj.id || ('obj-' + i),
+          type: obj.type,
+          x: obj.x * 16,
+          y: obj.y * 16,
+          w: 16,
+          h: 16,
+        });
+      }
+      console.log(`OverworldScene: Spawned ${levelData.worldObjects.length} world objects`);
+    }
+
+    // ---- 7. Spawn ambient animals ----
+    if (levelData.animals) {
+      for (let i = 0; i < levelData.animals.length; i++) {
+        const animalDef = levelData.animals[i];
+        // Place animal at its defined start position (tile coords -> pixels)
+        const ax = animalDef.x * 16 + 8;
+        const ay = animalDef.y * 16 + 8;
+        this.addAnimal({
+          type: animalDef.type,
+          spriteName: animalDef.spriteName || animalDef.type.toLowerCase(),
+          x: ax,
+          y: ay,
+          zoneW: animalDef.zone ? animalDef.zone.w : 4,
+          zoneH: animalDef.zone ? animalDef.zone.h : 3,
+        });
+      }
+      console.log(`OverworldScene: Spawned ${levelData.animals.length} animals`);
+    }
+
+    // ---- 8. Store dialogues reference for NPC interactions ----
+    if (levelData.dialogues) {
+      this._dialogues = levelData.dialogues;
+    }
+
+    console.log('OverworldScene: World loading complete');
   }
 }

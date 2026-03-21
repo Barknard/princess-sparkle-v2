@@ -23,8 +23,8 @@ export default class Pip extends Companion {
    */
   getParticleConfig() {
     return {
-      x: this.prevX * 16,
-      y: this.prevY * 16 + 8,
+      x: this.prevX,
+      y: this.prevY + 8,
       count: 1,
       colors: TRAIL_COLORS,
       shape: ParticleShape.NOTE,
