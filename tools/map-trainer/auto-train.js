@@ -140,37 +140,37 @@ async function main() {
     scored.sort((a, b) => b.fitness - a.fitness);
     const bestOrganism = scored[0];
 
-    // ── Render best map to PNG (local, ~100ms) ──────────────────────
+    // ── Track best by audit score ─────────────────────────────────────
     let visionScore = 0;
     let visionResult = null;
-    try {
-      const pngBuf = await renderMapToPng(bestOrganism.mapData, TILESET_PATH);
+    const isNewBest = bestOrganism.audit.score > bestVisionScore;
+    const shouldRender = gen === 1 || gen % 10 === 0 || isNewBest;
 
-      // Save snapshot every 10th gen or when audit score improves
-      if (gen === 1 || gen % 10 === 0 || bestOrganism.audit.score > (bestDna?._lastAudit || 0)) {
-        const filename = `auto_gen${gen}_a${bestOrganism.audit.score}.png`;
-        fs.writeFileSync(path.join(RESULTS_DIR, filename), pngBuf);
-      }
+    if (isNewBest) {
+      bestVisionScore = bestOrganism.audit.score;
+      bestVisionGen = gen;
+      bestDna = JSON.parse(JSON.stringify(bestOrganism.dna));
+      bestDna._lastAudit = bestOrganism.audit.score;
+    }
 
-      // Track best by audit score
-      if (bestOrganism.audit.score > bestVisionScore) {
-        bestVisionScore = bestOrganism.audit.score; // using audit as primary metric locally
-        bestVisionGen = gen;
-        bestDna = JSON.parse(JSON.stringify(bestOrganism.dna));
-        bestDna._lastAudit = bestOrganism.audit.score;
+    // Only render PNG when needed (every 10th gen or new best) — saves ~5s/gen
+    if (shouldRender) {
+      try {
+        const pngBuf = await renderMapToPng(bestOrganism.mapData, TILESET_PATH);
         bestMapPng = pngBuf;
-
-        const filename = `best_gen${gen}_audit${bestOrganism.audit.score}.png`;
+        const filename = isNewBest ? `best_gen${gen}_audit${bestOrganism.audit.score}.png` : `auto_gen${gen}_a${bestOrganism.audit.score}.png`;
         fs.writeFileSync(path.join(RESULTS_DIR, filename), pngBuf);
-      }
+      } catch (e) { /* render error, continue */ }
+    }
 
-      // ── OPTIONAL: Vision checkpoint every 50 gens (uses API) ──────
+    // ── OPTIONAL: Vision checkpoint every 50 gens (uses API) ──────
+    try {
       const VISION_CHECKPOINT = 50;
-      if (apiKey && (gen === 1 || gen % VISION_CHECKPOINT === 0)) {
+      if (apiKey && apiKey !== 'none' && (gen === 1 || gen % VISION_CHECKPOINT === 0) && bestMapPng) {
         try {
           visionResult = await scoreMapWithVision({
             apiKey,
-            generatedMapPng: pngBuf,
+            generatedMapPng: bestMapPng,
             referenceImagePng: refImageBuf,
             generationNumber: gen,
             candidateId: `auto_gen${gen}`,
@@ -185,7 +185,7 @@ async function main() {
         }
       }
     } catch (e) {
-      // Render error — continue
+      // Vision/render error — continue
     }
 
     // ── Learn tile relationships from ALL maps (free, local) ────────
