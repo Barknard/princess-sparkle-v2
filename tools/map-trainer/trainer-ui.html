@@ -957,6 +957,12 @@ async function pollStatus() {
     if (!resp.ok) throw new Error(resp.status);
     const status = await resp.json();
 
+    // Hide waiting overlay if we have ANY data
+    const hasData = (status.completedGenerations > 0) || (status.log && status.log.length > 0) || status.running;
+    if (hasData) {
+      $('waitingOverlay').classList.add('hidden');
+    }
+
     updateRunStatus(status.running !== false);
     updateKPIs(status);
     updateChart();
