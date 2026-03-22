@@ -233,14 +233,16 @@ async function main() {
     const dashTopResults = [];
     const resultFiles = fs.readdirSync(RESULTS_DIR).filter(f => f.startsWith('best_')).sort().reverse().slice(0, 20);
     for (const f of resultFiles) {
-      const match = f.match(/best_gen(\d+)_vision(\d+)_audit(\d+)/);
+      const match = f.match(/best_gen(\d+)_(?:vision(\d+)_)?audit(\d+)/);
       if (match) {
+        const vScore = match[2] ? parseInt(match[2]) : 0;
+        const aScore = parseInt(match[3]);
         dashTopResults.push({
           generationId: parseInt(match[1]),
           candidateId: `auto_gen${match[1]}`,
-          visionScore: parseInt(match[2]),
-          auditScore: parseInt(match[3]),
-          combinedScore: Math.round(parseInt(match[2]) * 0.7 + parseInt(match[3]) * 0.3),
+          visionScore: vScore,
+          auditScore: aScore,
+          combinedScore: aScore,
           imagePath: `/batch-results/${f}`,
           critique: '',
           variation: 'genetic'

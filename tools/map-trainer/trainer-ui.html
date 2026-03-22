@@ -874,10 +874,16 @@ function updateLogs(status) {
 
 function updateBestMap(results) {
   if (!results) return;
-  const bestImg = results.bestImage || results.latestImage;
+  // Find best image from results array or direct fields
+  let bestImg = results.bestImage || results.latestImage;
+  if (!bestImg && results.results && results.results.length > 0) {
+    // Sort by score descending, take first with an imagePath
+    const sorted = results.results.slice().sort(function(a, b) { return (b.auditScore || b.combinedScore || 0) - (a.auditScore || a.combinedScore || 0); });
+    bestImg = sorted[0].imagePath;
+  }
   if (bestImg && bestImg !== state.lastBestImage) {
     state.lastBestImage = bestImg;
-    const img = $('bestMapImg');
+    var img = $('bestMapImg');
     img.src = bestImg + '?t=' + Date.now();
     img.style.display = 'block';
     $('bestMapPlaceholder').style.display = 'none';
@@ -885,15 +891,15 @@ function updateBestMap(results) {
 }
 
 function updateTileRules(knowledge) {
-  const rules = knowledge.adjacencyRules || knowledge.tileRules || [];
+  const rules = knowledge.topRules || knowledge.adjacencyRules || knowledge.tileRules || [];
   if (!rules.length) return;
-  const el = $('tileRules');
+  var el = $('tileRules');
   el.innerHTML = '';
-  rules.slice(0, 15).forEach(r => {
-    const from = r.from ?? r.tile ?? '?';
-    const dir = r.direction ?? r.dir ?? '?';
-    const to = r.to ?? r.neighbor ?? '?';
-    const count = r.count ?? r.frequency ?? 0;
+  rules.slice(0, 15).forEach(function(r) {
+    var from = r.tileA ?? r.from ?? r.tile ?? '?';
+    var dir = r.direction ?? r.dir ?? '?';
+    var to = r.tileB ?? r.to ?? r.neighbor ?? '?';
+    var count = r.count ?? r.frequency ?? 0;
     const div = document.createElement('div');
     div.innerHTML = 'Tile ' + from +
       ' <span class="rule-arrow">\u2192 ' + dir + ' \u2192</span> Tile ' + to +
