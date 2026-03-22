@@ -130,72 +130,70 @@ async function main() {
   for (let gen = 1; gen <= MAX_GENS; gen++) {
     const genStart = Date.now();
 
-    // ── Generate maps from all DNA ──────────────────────────────────
+    // ── Generate maps from all DNA (100% LOCAL, instant) ─────────────
     const scored = [];
     for (const dna of population) {
       const mapData = evolver.generateFromDNA(dna);
       const audit = auditMap(mapData);
-      // Fitness blends last known vision score with audit
-      const fitness = audit.score * 0.3 + bestVisionScore * 0.7;
-      scored.push({ dna, fitness, mapData, audit });
+      scored.push({ dna, fitness: audit.score, mapData, audit });
     }
     scored.sort((a, b) => b.fitness - a.fitness);
     const bestOrganism = scored[0];
 
-    // ── Vision score the best organism ──────────────────────────────
+    // ── Render best map to PNG (local, ~100ms) ──────────────────────
     let visionScore = 0;
     let visionResult = null;
     try {
       const pngBuf = await renderMapToPng(bestOrganism.mapData, TILESET_PATH);
-      visionResult = await scoreMapWithVision({
-        apiKey,
-        generatedMapPng: pngBuf,
-        referenceImagePng: refImageBuf,
-        generationNumber: gen,
-        candidateId: `auto_gen${gen}`,
-        variation: 'genetic',
-        rationale: `Gen ${gen}`,
-        learnedRules: []
-      });
-      visionScore = visionResult.score || 0;
 
-      // Update fitness with REAL vision score
-      bestOrganism.fitness = bestOrganism.audit.score * 0.3 + visionScore * 0.7;
-      scored[0] = bestOrganism;
-
-      // Track best ever
-      if (visionScore > bestVisionScore) {
-        bestVisionScore = visionScore;
-        bestVisionGen = gen;
-        bestDna = JSON.parse(JSON.stringify(bestOrganism.dna));
-        bestMapPng = pngBuf;
-
-        // Save best map
-        const filename = `best_gen${gen}_vision${visionScore}_audit${bestOrganism.audit.score}.png`;
+      // Save snapshot every 10th gen or when audit score improves
+      if (gen === 1 || gen % 10 === 0 || bestOrganism.audit.score > (bestDna?._lastAudit || 0)) {
+        const filename = `auto_gen${gen}_a${bestOrganism.audit.score}.png`;
         fs.writeFileSync(path.join(RESULTS_DIR, filename), pngBuf);
       }
 
-      // Save every vision-scored map
-      const filename = `auto_gen${gen}_v${visionScore}_a${bestOrganism.audit.score}.png`;
-      fs.writeFileSync(path.join(RESULTS_DIR, filename), pngBuf);
+      // Track best by audit score
+      if (bestOrganism.audit.score > bestVisionScore) {
+        bestVisionScore = bestOrganism.audit.score; // using audit as primary metric locally
+        bestVisionGen = gen;
+        bestDna = JSON.parse(JSON.stringify(bestOrganism.dna));
+        bestDna._lastAudit = bestOrganism.audit.score;
+        bestMapPng = pngBuf;
 
-    } catch (e) {
-      // Rate limit — wait and continue
-      if (e.status === 429) {
-        console.log(`  [Rate limited — waiting 30s]`);
-        await new Promise(r => setTimeout(r, 30000));
+        const filename = `best_gen${gen}_audit${bestOrganism.audit.score}.png`;
+        fs.writeFileSync(path.join(RESULTS_DIR, filename), pngBuf);
       }
+
+      // ── OPTIONAL: Vision checkpoint every 50 gens (uses API) ──────
+      const VISION_CHECKPOINT = 50;
+      if (apiKey && (gen === 1 || gen % VISION_CHECKPOINT === 0)) {
+        try {
+          visionResult = await scoreMapWithVision({
+            apiKey,
+            generatedMapPng: pngBuf,
+            referenceImagePng: refImageBuf,
+            generationNumber: gen,
+            candidateId: `auto_gen${gen}`,
+            variation: 'genetic',
+            rationale: `Gen ${gen}`,
+            learnedRules: []
+          });
+          visionScore = visionResult.score || 0;
+        } catch (e) {
+          // Vision is optional — continue without it
+          visionScore = 0;
+        }
+      }
+    } catch (e) {
+      // Render error — continue
     }
 
-    // ── Learn tile relationships from high-scoring maps ─────────────
-    if (bestOrganism.audit.score >= 50) {
-      learner.learnFromMap(bestOrganism.mapData, bestOrganism.audit.score);
-    }
+    // ── Learn tile relationships from ALL maps (free, local) ────────
+    learner.learnFromMap(bestOrganism.mapData, bestOrganism.audit.score);
 
-    // ── Extract tile placement rules from vision critique ───────────
+    // ── Extract tile placement rules from vision critique (if available)
     if (visionResult && visionResult.tilePlacementRules) {
       const rules = extractRulesFromCritique(visionResult, gen);
-      // These rules could feed back into the prompt builder for LLM modes
     }
 
     // ── Log ─────────────────────────────────────────────────────────
@@ -203,23 +201,28 @@ async function main() {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
     const genTime = ((Date.now() - genStart) / 1000).toFixed(1);
 
-    const bar = '█'.repeat(Math.floor(visionScore / 5)) + '░'.repeat(20 - Math.floor(visionScore / 5));
-    console.log(
-      `  Gen ${String(gen).padStart(4)} | ${bar} ${String(visionScore).padStart(3)}/100 vision | ` +
-      `audit ${String(bestOrganism.audit.score).padStart(2)} | ` +
-      `best ever ${bestVisionScore} (gen ${bestVisionGen}) | ` +
-      `${genTime}s | ${elapsed}s total`
-    );
+    const auditPct = bestOrganism.audit.score;
+    const bar = '█'.repeat(Math.floor(auditPct / 5)) + '░'.repeat(20 - Math.floor(auditPct / 5));
+    const structLabel = `str:${bestOrganism.audit.structuralScore || '?'}/50`;
+    const designLabel = `des:${bestOrganism.audit.designScore || '?'}/50`;
+    let line = `  Gen ${String(gen).padStart(4)} | ${bar} ${String(auditPct).padStart(3)}/100 | ${structLabel} ${designLabel} | best ${bestVisionScore} (gen ${bestVisionGen}) | ${genTime}s | ${elapsed}s`;
+    if (visionScore > 0) line += ` | VISION=${visionScore}`;
+    console.log(line);
+
+    // Show design details every 10th gen
+    if (gen % 10 === 0 && bestOrganism.audit.designDetails) {
+      bestOrganism.audit.designDetails.forEach(d => console.log(`         │ ${d}`));
+    }
 
     if (visionResult?.critique) {
-      console.log(`         └─ ${visionResult.critique.slice(0, 100)}`);
+      console.log(`         └─ VISION: ${visionResult.critique.slice(0, 100)}`);
     }
 
     logger.logGeneration(gen, stats, scored, visionScore);
     if (visionResult) logger.logVisionResult(gen, visionResult);
 
     // ── Report to dashboard ─────────────────────────────────────────
-    const logLine = `[${new Date().toISOString().slice(11,19)}] Gen ${gen}: vision=${visionScore} audit=${bestOrganism.audit.score} best=${bestVisionScore} div=${stats.diversity.toFixed(1)}`;
+    const logLine = `[${new Date().toISOString().slice(11,19)}] Gen ${gen}: score=${bestOrganism.audit.score} (str:${bestOrganism.audit.structuralScore||'?'} des:${bestOrganism.audit.designScore||'?'}) best=${bestVisionScore} div=${stats.diversity.toFixed(1)}${visionScore > 0 ? ' VISION=' + visionScore : ''}`;
     logEntries.push(logLine);
     if (visionResult?.critique) logEntries.push(`  └─ ${visionResult.critique.slice(0, 120)}`);
     if (visionResult?.tilePlacementRules?.length > 0) {
@@ -258,14 +261,18 @@ async function main() {
       topResults: dashTopResults
     });
 
-    // ── Check target ────────────────────────────────────────────────
+    // ── Check target (audit score for local, vision for API checkpoints) ─
+    if (bestOrganism.audit.score >= TARGET_SCORE) {
+      console.log(`\n  ✓ TARGET REACHED! Audit score ${bestOrganism.audit.score} >= ${TARGET_SCORE} at gen ${gen}\n`);
+      break;
+    }
     if (visionScore >= TARGET_SCORE) {
-      console.log(`\n  ✓ TARGET REACHED! Vision score ${visionScore} >= ${TARGET_SCORE} at gen ${gen}\n`);
+      console.log(`\n  ✓ VISION TARGET REACHED! Score ${visionScore} >= ${TARGET_SCORE} at gen ${gen}\n`);
       break;
     }
 
     // ── Check diminishing returns ───────────────────────────────────
-    recentVisionScores.push(visionScore);
+    recentVisionScores.push(bestOrganism.audit.score);
     if (recentVisionScores.length >= PLATEAU_WINDOW) {
       const window = recentVisionScores.slice(-PLATEAU_WINDOW);
       const maxW = Math.max(...window), minW = Math.min(...window);
