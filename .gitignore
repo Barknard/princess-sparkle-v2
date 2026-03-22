@@ -13,3 +13,7 @@ FINAL-*.png
 review-*.png
 polish-*.png
 playtest-*.png
+
+# Map trainer generated files (don't commit batch outputs)
+tools/map-trainer/batch-results/
+tools/map-trainer/evolution-memory.json

@@ -1,0 +1,8184 @@
+{
+  "meta": {
+    "tileset": "Kenney Tiny Town",
+    "file": "sprites/town/tilemap_packed.png",
+    "dimensions": {
+      "width": 192,
+      "height": 176
+    },
+    "tileSize": 16,
+    "columns": 12,
+    "rows": 11,
+    "totalTiles": 132,
+    "version": "2.0.0",
+    "lastUpdated": "2026-03-22",
+    "notes": "Tile IDs are 0-based, row-major: id = row * 12 + col. Verified entries sourced from AGENT-LEARNINGS.md and TILE-BUILDING-RULES.md.",
+    "description": "Deep semantic tile catalog for LLM-driven map generation. Each tile has visual descriptions, edge compatibility (Wang-tile style), semantic roles, and placement rules.",
+    "generatedBy": "build-semantics.js"
+  },
+  "semanticZones": {
+    "grass": {
+      "description": "Open green space — primary ground fill",
+      "tileDistribution": {
+        "1": "60%",
+        "2": "30%",
+        "43": "10%"
+      },
+      "rules": [
+        "Never >4 same tile in a row",
+        "Cluster variants in organic blobs, not checkerboard",
+        "Flower grass (43) only near POIs"
+      ]
+    },
+    "path": {
+      "description": "Dirt walkway connecting buildings and map features",
+      "tiles": {
+        "center": 40,
+        "edgeLeft": 39,
+        "edgeRight": 41,
+        "edgeVertical": 42
+      },
+      "rules": [
+        "Always 2 tiles wide minimum",
+        "Widen to 3x3 at intersections",
+        "Must connect to every building door",
+        "Use edge tiles on grass-path boundaries"
+      ]
+    },
+    "building-zone": {
+      "description": "Atomic building footprint — placed as complete template",
+      "templates": [
+        "small_house",
+        "medium_house",
+        "large_house",
+        "stone_shop",
+        "stone_shop_large",
+        "blue_roof_house",
+        "brick_building"
+      ],
+      "rules": [
+        "3-5 buildings per village map",
+        "10+ tiles center-to-center",
+        "3-4 tile grass yard around each",
+        "Stagger placement, not grid-aligned",
+        "Door must face path within 2 tiles"
+      ]
+    },
+    "fence-zone": {
+      "description": "Fence row below a building, with gate aligned to door",
+      "tiles": {
+        "leftEnd": 96,
+        "middle": 97,
+        "rightEnd": 98,
+        "gate": -1
+      },
+      "rules": [
+        "Width matches building width + 2",
+        "Gate (-1) aligned with door column above",
+        "Placed 1 row below building wall row"
+      ]
+    },
+    "water": {
+      "description": "Pond or water feature with proper edge tiles",
+      "template": "pond",
+      "rules": [
+        "Minimum 3x3",
+        "All 9 edge tiles required",
+        "2+ tile gap from buildings",
+        "Surround with flowers/bushes on 1-2 sides"
+      ]
+    },
+    "forest": {
+      "description": "Dense tree border along map edges",
+      "treeTypes": [
+        "green_tree",
+        "autumn_tree",
+        "pine_tree",
+        "dense_tree"
+      ],
+      "rules": [
+        "Mix at least 3 tree types",
+        "Max 2 same type adjacent",
+        "Stagger depth with gaps",
+        "Add understory (ferns, small trees) at base",
+        "NOT a uniform wall"
+      ]
+    },
+    "tree-cluster": {
+      "description": "Interior grove of 2-5 trees within the map",
+      "rules": [
+        "3+ tiles from paths",
+        "4+ tiles from buildings",
+        "Mix 2+ tree types per cluster",
+        "Add accent vegetation around base"
+      ]
+    },
+    "garden": {
+      "description": "Yard/buffer zone around buildings with flowers and bushes",
+      "decorations": [
+        19,
+        15,
+        18,
+        28,
+        29,
+        17
+      ],
+      "rules": [
+        "Flowers cluster 2-4 together",
+        "Bushes as soft barriers",
+        "Placed within 3-4 tiles of parent building"
+      ]
+    },
+    "decoration": {
+      "description": "Functional objects placed at points of interest",
+      "items": {
+        "well": [
+          92,
+          104
+        ],
+        "lantern": 93,
+        "barrel": 107
+      },
+      "rules": [
+        "Well at village center or path intersection",
+        "Lanterns near buildings and paths",
+        "Barrels near shops",
+        "1-2 per building max"
+      ]
+    },
+    "village-square": {
+      "description": "Central open area where paths converge",
+      "size": "6x4 to 8x6 tiles",
+      "rules": [
+        "Largest open area on map",
+        "Well or fountain at center",
+        "Benches/flowers around edges",
+        "All main paths converge here"
+      ]
+    },
+    "collectible-zone": {
+      "description": "Areas where quest items / pickups are placed",
+      "items": {
+        "chest": 128,
+        "heart": 130,
+        "star": 131,
+        "key": 94,
+        "coin": 95
+      },
+      "rules": [
+        "Placed by quest system",
+        "Never random — always meaningful placement",
+        "Chest near quest objective"
+      ]
+    }
+  },
+  "tiles": [
+    {
+      "id": 0,
+      "name": "Sparkle Star",
+      "visual": "Yellow 4-pointed sparkle/star on transparent bg — decorative overlay",
+      "semanticRole": "overlay-decoration",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "star",
+        "sparkle",
+        "overlay",
+        "decorative",
+        "transparent"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Green Grass (Plain)",
+      "visual": "Solid green grass tile (medium green, uniform) — primary ground fill",
+      "semanticRole": "ground-fill",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "60%",
+        "maxConsecutive": 4,
+        "clustering": "organic-blobs",
+        "minGroupSize": 1
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "grass",
+        "ground",
+        "primary",
+        "base-fill",
+        "60-percent",
+        "ground-fill",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Grass with Flowers",
+      "visual": "Green grass with tiny yellow flower specks — variant ground fill",
+      "semanticRole": "ground-variant",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "30%",
+        "maxConsecutive": 3,
+        "clustering": "organic-blobs",
+        "minGroupSize": 2
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "grass",
+        "ground",
+        "flowers",
+        "variant",
+        "30-percent",
+        "ground-fill",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Grass-to-Dirt Transition",
+      "visual": "Light tan/beige block — grass-to-dirt transition edge",
+      "semanticRole": "ground-transition",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "transition",
+        "edge",
+        "grass",
+        "dirt",
+        "path-border"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Green Tree Canopy Top-Left",
+      "visual": "Green round tree canopy — top-left quadrant. Pairs with 5,12,13 for 2x2 tree",
+      "semanticRole": "tree-canopy",
+      "layer": "foreground",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any-foreground",
+          "empty"
+        ],
+        "south": [
+          "tree-trunk",
+          "any-foreground",
+          "empty"
+        ],
+        "east": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ],
+        "west": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "green_tree",
+      "compositeRole": "canopy_top_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "canopy",
+        "green",
+        "foreground-layer",
+        "2x2",
+        "border-tree",
+        "interior-tree"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Green Tree Canopy Top-Right",
+      "visual": "Green round tree canopy — top-right quadrant. Pairs with 4,12,13 for 2x2 tree",
+      "semanticRole": "tree-canopy",
+      "layer": "foreground",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any-foreground",
+          "empty"
+        ],
+        "south": [
+          "tree-trunk",
+          "any-foreground",
+          "empty"
+        ],
+        "east": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ],
+        "west": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "green_tree",
+      "compositeRole": "canopy_top_right",
+      "compositeOffset": {
+        "x": 1,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "canopy",
+        "green",
+        "foreground-layer",
+        "2x2",
+        "border-tree",
+        "interior-tree"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Small Green Tree",
+      "visual": "Small single-tile round green tree/bush — standalone",
+      "semanticRole": "standalone-tree",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "minSpacing": 2,
+        "clustering": "scatter",
+        "avoidZone": [
+          "path:2",
+          "building:2"
+        ]
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "small",
+        "green",
+        "standalone",
+        "1x1",
+        "interior-tree",
+        "child-friendly",
+        "accent"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Autumn Tree Canopy Top-Left",
+      "visual": "Orange/autumn tree canopy — top-left quadrant. Pairs with 8,24,25 for 2x2 autumn tree",
+      "semanticRole": "tree-canopy",
+      "layer": "foreground",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any-foreground",
+          "empty"
+        ],
+        "south": [
+          "tree-trunk",
+          "any-foreground",
+          "empty"
+        ],
+        "east": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ],
+        "west": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "autumn_tree",
+      "compositeRole": "canopy_top_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "canopy",
+        "autumn",
+        "orange",
+        "foreground-layer",
+        "2x2",
+        "border-tree",
+        "interior-tree"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Autumn Tree Canopy Top-Right",
+      "visual": "Orange/autumn tree canopy — top-right quadrant. Pairs with 7,24,25",
+      "semanticRole": "tree-canopy",
+      "layer": "foreground",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any-foreground",
+          "empty"
+        ],
+        "south": [
+          "tree-trunk",
+          "any-foreground",
+          "empty"
+        ],
+        "east": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ],
+        "west": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "autumn_tree",
+      "compositeRole": "canopy_top_right",
+      "compositeOffset": {
+        "x": 1,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "canopy",
+        "autumn",
+        "orange",
+        "foreground-layer",
+        "2x2",
+        "border-tree",
+        "interior-tree"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Small Autumn Tree",
+      "visual": "Small single-tile orange/autumn tree — standalone",
+      "semanticRole": "standalone-tree",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "minSpacing": 2,
+        "clustering": "scatter",
+        "avoidZone": [
+          "path:2",
+          "building:2"
+        ]
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "small",
+        "autumn",
+        "orange",
+        "standalone",
+        "1x1",
+        "interior-tree",
+        "child-friendly",
+        "accent"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Pine Tree Top",
+      "visual": "Tall dark green pine/conifer tree top — pairs with 22 (trunk below)",
+      "semanticRole": "tree-canopy",
+      "layer": "foreground",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any-foreground",
+          "empty"
+        ],
+        "south": [
+          "tree-trunk",
+          "any-foreground",
+          "empty"
+        ],
+        "east": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ],
+        "west": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "pine_tree",
+      "compositeRole": "canopy_top",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "pine",
+        "conifer",
+        "top",
+        "foreground-layer",
+        "1x2-vertical",
+        "border-tree",
+        "interior-tree"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Dense Tree Top Variant",
+      "visual": "Dark green dense tree top variant — pairs with 23 (trunk below)",
+      "semanticRole": "tree-canopy",
+      "layer": "foreground",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any-foreground",
+          "empty"
+        ],
+        "south": [
+          "tree-trunk",
+          "any-foreground",
+          "empty"
+        ],
+        "east": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ],
+        "west": [
+          "tree-canopy",
+          "any-foreground",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "dense_tree",
+      "compositeRole": "canopy_top",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "dense",
+        "dark-green",
+        "top",
+        "foreground-layer",
+        "border-tree"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Green Tree Trunk Bottom-Left",
+      "visual": "Brown tree trunk with green leaves — bottom-left of 2x2 green tree (with 4,5,13)",
+      "semanticRole": "tree-trunk",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "tree-canopy"
+        ],
+        "south": [
+          "grass",
+          "grass-variant"
+        ],
+        "east": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ],
+        "west": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "green_tree",
+      "compositeRole": "trunk_bottom_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "trunk",
+        "green",
+        "leaves",
+        "objects-layer",
+        "2x2"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Green Tree Trunk Bottom-Right",
+      "visual": "Brown tree trunk with green leaves — bottom-right of 2x2 green tree (with 4,5,12)",
+      "semanticRole": "tree-trunk",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "tree-canopy"
+        ],
+        "south": [
+          "grass",
+          "grass-variant"
+        ],
+        "east": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ],
+        "west": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "green_tree",
+      "compositeRole": "trunk_bottom_right",
+      "compositeOffset": {
+        "x": 1,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "trunk",
+        "green",
+        "leaves",
+        "objects-layer",
+        "2x2"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Peach/Cream Block",
+      "visual": "Light peach/cream solid block — NOT a bush. Sand or light dirt fill. DEPRECATED for village.",
+      "semanticRole": "deprecated",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": true,
+      "neverUseReason": "Renders as peach/cream block, NOT a bush. Previously misidentified. Use tile 28 for bushes instead.",
+      "tags": [
+        "sand",
+        "light-dirt",
+        "deprecated",
+        "misidentified"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Orange Tulip Flower",
+      "visual": "Orange-red flower or torch flame on stem — warm decorative accent",
+      "semanticRole": "accent-flower",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "fence"
+        ],
+        "minGroupSize": 1,
+        "maxGroupSize": 3
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "flower",
+        "tulip",
+        "orange",
+        "outdoor",
+        "decorative",
+        "accent",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Small Complete Tree",
+      "visual": "Small green tree on brown trunk — complete standalone small tree with visible trunk",
+      "semanticRole": "standalone-tree",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "minSpacing": 2,
+        "clustering": "scatter",
+        "avoidZone": [
+          "path:2",
+          "building:2"
+        ]
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "small",
+        "complete",
+        "trunk-visible",
+        "standalone",
+        "1x1",
+        "interior-tree",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Fruit Tree / Flowering Plant",
+      "visual": "Green canopy with pink/red spot — fruit or flowering tree, standalone",
+      "semanticRole": "standalone-tree",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "minSpacing": 2,
+        "clustering": "scatter",
+        "avoidZone": [
+          "path:2",
+          "building:2"
+        ]
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "fruit",
+        "pink",
+        "flowering",
+        "standalone",
+        "interior-tree",
+        "child-friendly",
+        "accent"
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Small Fern/Leaf",
+      "visual": "Small green fern/leaf sprite — ground-level plant decoration",
+      "semanticRole": "accent-vegetation",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "fence"
+        ],
+        "minGroupSize": 1,
+        "maxGroupSize": 3
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "plant",
+        "fern",
+        "small",
+        "decoration",
+        "understory",
+        "accent",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Purple Flower Bush",
+      "visual": "Purple/pink flowers on green base — small flower bush decoration",
+      "semanticRole": "accent-flower",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "fence"
+        ],
+        "minGroupSize": 1,
+        "maxGroupSize": 3
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "flowers",
+        "purple",
+        "pink",
+        "bush",
+        "decoration",
+        "village-friendly",
+        "accent",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Cactus Left Half",
+      "visual": "Green cactus — left half. Pairs with 21 (right half) for 2-tile cactus",
+      "semanticRole": "standalone-vegetation",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": "cactus",
+      "compositeRole": "left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "cactus",
+        "desert",
+        "left",
+        "2-tile"
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Cactus Right Half",
+      "visual": "Green cactus — right half. Pairs with 20 (left half)",
+      "semanticRole": "standalone-vegetation",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": "cactus",
+      "compositeRole": "right",
+      "compositeOffset": {
+        "x": 1,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "cactus",
+        "desert",
+        "right",
+        "2-tile"
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Pine Tree Trunk / Dark Shrub",
+      "visual": "Dark green dense shrub / pine trunk — below tile 10 (pine top)",
+      "semanticRole": "tree-trunk",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "tree-canopy"
+        ],
+        "south": [
+          "grass",
+          "grass-variant"
+        ],
+        "east": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ],
+        "west": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "pine_tree",
+      "compositeRole": "trunk",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "tree",
+        "pine",
+        "trunk",
+        "dark-green",
+        "shrub",
+        "objects-layer"
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Autumn Bush / Dense Tree Trunk",
+      "visual": "Orange-brown autumn bush — standalone shrub, or trunk below tile 11",
+      "semanticRole": "tree-trunk",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "tree-canopy"
+        ],
+        "south": [
+          "grass",
+          "grass-variant"
+        ],
+        "east": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ],
+        "west": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "dense_tree",
+      "compositeRole": "trunk",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "bush",
+        "autumn",
+        "orange-brown",
+        "trunk"
+      ]
+    },
+    {
+      "id": 24,
+      "name": "Light Brown Wood Block / Autumn Trunk BL",
+      "visual": "Light brown wood block — autumn tree trunk bottom-left (with 7,8,25), or wood fill",
+      "semanticRole": "tree-trunk",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "tree-canopy"
+        ],
+        "south": [
+          "grass",
+          "grass-variant"
+        ],
+        "east": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ],
+        "west": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "autumn_tree",
+      "compositeRole": "trunk_bottom_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "block",
+        "trunk",
+        "autumn",
+        "light-brown"
+      ]
+    },
+    {
+      "id": 25,
+      "name": "Dark Brown Wood Block / Autumn Trunk BR",
+      "visual": "Darker brown wood block — autumn tree trunk bottom-right (with 7,8,24), or wood fill",
+      "semanticRole": "tree-trunk",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "tree-canopy"
+        ],
+        "south": [
+          "grass",
+          "grass-variant"
+        ],
+        "east": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ],
+        "west": [
+          "tree-trunk",
+          "grass",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "border-and-groves",
+        "minSpacing": 1,
+        "clustering": "organic-groups",
+        "groupSize": "2-5",
+        "avoidZone": [
+          "path:3",
+          "building:4"
+        ],
+        "notes": "Composite: canopy ALWAYS directly above trunk. Mix tree types."
+      },
+      "compositeGroup": "autumn_tree",
+      "compositeRole": "trunk_bottom_right",
+      "compositeOffset": {
+        "x": 1,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "block",
+        "trunk",
+        "autumn",
+        "dark-brown"
+      ]
+    },
+    {
+      "id": 26,
+      "name": "Gray-Brown Stone Block",
+      "visual": "Gray-brown block — stone or dirt solid block",
+      "semanticRole": "building-material",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "dirt",
+        "block",
+        "solid"
+      ]
+    },
+    {
+      "id": 27,
+      "name": "Brown Wood Fence Horizontal",
+      "visual": "White picket fence section (alt pattern) — alternate fence piece",
+      "semanticRole": "fence-material",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "brown",
+        "wood",
+        "horizontal",
+        "plank",
+        "tree"
+      ]
+    },
+    {
+      "id": 28,
+      "name": "Green Bush / Hedge",
+      "visual": "Green oval bush/hedge — small decorative hedge, clearly identifiable",
+      "semanticRole": "barrier-bush",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "barrier",
+        "clustering": "rows-with-gaps",
+        "gapFrequency": "every-2-3",
+        "nearRequirement": [
+          "path-edge",
+          "zone-boundary"
+        ]
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "bush",
+        "hedge",
+        "green",
+        "oval",
+        "decoration",
+        "barrier",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 29,
+      "name": "Berry Bush / Red Flowers",
+      "visual": "Red dots on green — berry bush or red flower cluster",
+      "semanticRole": "accent-bush",
+      "layer": "objects",
+      "category": "vegetation",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "fence"
+        ],
+        "minGroupSize": 1,
+        "maxGroupSize": 3
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "bush",
+        "berries",
+        "red",
+        "flowers",
+        "decoration",
+        "accent",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 30,
+      "name": "Brown-Gray Dirt Block",
+      "visual": "Brown-gray solid block — dirt/mud solid fill",
+      "semanticRole": "ground-fill-alt",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "dirt",
+        "mud",
+        "block",
+        "solid-fill"
+      ]
+    },
+    {
+      "id": 31,
+      "name": "Light Sand Block",
+      "visual": "Light tan/sand block — sandy ground fill",
+      "semanticRole": "ground-fill-alt",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "sand",
+        "light",
+        "tan",
+        "ground"
+      ]
+    },
+    {
+      "id": 32,
+      "name": "Medium Gray Stone Block",
+      "visual": "Medium gray stone block — stone wall or ground fill",
+      "semanticRole": "building-material",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "gray",
+        "block"
+      ]
+    },
+    {
+      "id": 33,
+      "name": "Dark Gray Stone Block",
+      "visual": "Dark gray stone block — dark stone wall fill",
+      "semanticRole": "building-material",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "dark-gray",
+        "block"
+      ]
+    },
+    {
+      "id": 34,
+      "name": "Blue-Gray Slate Block",
+      "visual": "Blue-gray slate block — slate or cool-toned stone",
+      "semanticRole": "building-material",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "slate",
+        "stone",
+        "blue-gray",
+        "block"
+      ]
+    },
+    {
+      "id": 35,
+      "name": "Dark Brown Wood Block",
+      "visual": "Dark brown/chocolate block — dark wood fill",
+      "semanticRole": "building-material",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "dark-brown",
+        "block"
+      ]
+    },
+    {
+      "id": 36,
+      "name": "Light Tan/Sand Ground",
+      "visual": "Light tan/sand ground tile — sand or dry ground fill",
+      "semanticRole": "ground-fill-alt",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "sand",
+        "tan",
+        "ground",
+        "dry"
+      ]
+    },
+    {
+      "id": 37,
+      "name": "Medium Green Grass",
+      "visual": "Medium green grass (slightly different shade from tile 1) — secondary grass fill",
+      "semanticRole": "ground-variant",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "rare",
+        "maxConsecutive": 3,
+        "clustering": "organic-blobs",
+        "notes": "Secondary grass variants, use sparingly"
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "grass",
+        "green",
+        "ground",
+        "secondary-variant",
+        "ground-fill"
+      ]
+    },
+    {
+      "id": 38,
+      "name": "Light Green Grass Variant",
+      "visual": "Lighter green grass variant — third grass variant for variety",
+      "semanticRole": "ground-variant",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "rare",
+        "maxConsecutive": 3,
+        "clustering": "organic-blobs",
+        "notes": "Secondary grass variants, use sparingly"
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "grass",
+        "green",
+        "light",
+        "ground",
+        "third-variant",
+        "ground-fill"
+      ]
+    },
+    {
+      "id": 39,
+      "name": "Dirt Path Edge Left/Top",
+      "visual": "Tan dirt with left/top edge detail — path edge left or top border",
+      "semanticRole": "path-edge",
+      "layer": "ground",
+      "category": "path",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "south": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "east": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "west": [
+          "path",
+          "path-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "path-network",
+        "minWidth": 2,
+        "maxWidth": 3,
+        "connectsTo": [
+          "building-door",
+          "map-exit",
+          "poi"
+        ],
+        "notes": "Always 2 tiles wide minimum. Edge tiles on sides, center tiles in middle."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "path",
+        "dirt",
+        "edge",
+        "left",
+        "top",
+        "transition",
+        "path-edge-left"
+      ]
+    },
+    {
+      "id": 40,
+      "name": "Dirt Path Center",
+      "visual": "Tan dirt center — uniform main walkable path center fill",
+      "semanticRole": "path-center",
+      "layer": "ground",
+      "category": "path",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "south": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "east": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "west": [
+          "path",
+          "path-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "path-network",
+        "minWidth": 2,
+        "maxWidth": 3,
+        "connectsTo": [
+          "building-door",
+          "map-exit",
+          "poi"
+        ],
+        "notes": "Always 2 tiles wide minimum. Edge tiles on sides, center tiles in middle."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "path",
+        "dirt",
+        "center",
+        "main-walkway",
+        "path-center"
+      ]
+    },
+    {
+      "id": 41,
+      "name": "Dirt Path Edge Right/Bottom",
+      "visual": "Tan dirt with right/bottom edge detail — path edge right or bottom border",
+      "semanticRole": "path-edge",
+      "layer": "ground",
+      "category": "path",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "south": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "east": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "west": [
+          "path",
+          "path-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "path-network",
+        "minWidth": 2,
+        "maxWidth": 3,
+        "connectsTo": [
+          "building-door",
+          "map-exit",
+          "poi"
+        ],
+        "notes": "Always 2 tiles wide minimum. Edge tiles on sides, center tiles in middle."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "path",
+        "dirt",
+        "edge",
+        "right",
+        "bottom",
+        "transition",
+        "path-edge-right"
+      ]
+    },
+    {
+      "id": 42,
+      "name": "Dirt Path Vertical Edge",
+      "visual": "Tan dirt with vertical edge — path vertical edge piece",
+      "semanticRole": "path-edge",
+      "layer": "ground",
+      "category": "path",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "south": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "east": [
+          "path",
+          "path-edge",
+          "grass"
+        ],
+        "west": [
+          "path",
+          "path-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "path-network",
+        "minWidth": 2,
+        "maxWidth": 3,
+        "connectsTo": [
+          "building-door",
+          "map-exit",
+          "poi"
+        ],
+        "notes": "Always 2 tiles wide minimum. Edge tiles on sides, center tiles in middle."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "path",
+        "dirt",
+        "edge",
+        "vertical"
+      ]
+    },
+    {
+      "id": 43,
+      "name": "Grass with White Flowers",
+      "visual": "Green grass with white flower dots — decorative grass accent with daisies",
+      "semanticRole": "ground-accent",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "path-edge",
+          "building-base",
+          "fence-base",
+          "water-edge",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "10%",
+        "maxConsecutive": 2,
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "water"
+        ],
+        "minGroupSize": 2,
+        "maxGroupSize": 4
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "grass",
+        "flowers",
+        "white",
+        "daisies",
+        "decorative",
+        "10-percent",
+        "ground-fill",
+        "accent",
+        "child-friendly"
+      ]
+    },
+    {
+      "id": 44,
+      "name": "Light Cobblestone",
+      "visual": "Light gray cobblestone pattern — cobblestone path/plaza fill",
+      "semanticRole": "path-plaza",
+      "layer": "ground",
+      "category": "path",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "cobblestone",
+        "gray",
+        "light",
+        "plaza",
+        "path"
+      ]
+    },
+    {
+      "id": 45,
+      "name": "Dark Cobblestone",
+      "visual": "Darker gray cobblestone — cobblestone variant for variety",
+      "semanticRole": "path-plaza",
+      "layer": "ground",
+      "category": "path",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "cobblestone",
+        "gray",
+        "dark",
+        "plaza",
+        "path"
+      ]
+    },
+    {
+      "id": 46,
+      "name": "Light Stone Floor",
+      "visual": "Light gray smooth stone floor — interior stone floor",
+      "semanticRole": "interior-floor",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "floor",
+        "light",
+        "interior"
+      ]
+    },
+    {
+      "id": 47,
+      "name": "Dark Stone Floor",
+      "visual": "Dark gray smooth stone floor — dark interior or shadow floor",
+      "semanticRole": "interior-floor",
+      "layer": "ground",
+      "category": "terrain",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "floor",
+        "dark",
+        "interior",
+        "shadow"
+      ]
+    },
+    {
+      "id": 48,
+      "name": "Blue-Tinted Stone Wall",
+      "visual": "Blue-tinted gray stone wall — stone building wall segment",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "blue-tint",
+        "building",
+        "roof"
+      ]
+    },
+    {
+      "id": 49,
+      "name": "Stone Wall with Window",
+      "visual": "Stone wall with dark window opening — wall with window",
+      "semanticRole": "building-wall-window",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "window",
+        "building",
+        "roof"
+      ]
+    },
+    {
+      "id": 50,
+      "name": "Plain Stone Wall Mid",
+      "visual": "Plain stone wall block — stone wall mid section",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "plain",
+        "building",
+        "roof"
+      ]
+    },
+    {
+      "id": 51,
+      "name": "Blue Roof Left Slope",
+      "visual": "Blue roof — left slope. Pairs with 52 (mid), 53 (right) for blue roof",
+      "semanticRole": "building-roof",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "blue_roof_building",
+      "compositeRole": "roof_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "blue",
+        "left",
+        "slope",
+        "building"
+      ]
+    },
+    {
+      "id": 52,
+      "name": "Blue Roof Middle",
+      "visual": "Blue roof — middle section, repeatable center",
+      "semanticRole": "building-roof",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "blue_roof_building",
+      "compositeRole": "roof_mid",
+      "compositeOffset": {
+        "x": 1,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "blue",
+        "middle",
+        "repeatable",
+        "building"
+      ]
+    },
+    {
+      "id": 53,
+      "name": "Blue Roof Right Slope",
+      "visual": "Blue roof — right slope. Right cap of blue roof",
+      "semanticRole": "building-roof",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "blue_roof_building",
+      "compositeRole": "roof_right",
+      "compositeOffset": {
+        "x": 2,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "blue",
+        "right",
+        "slope",
+        "building"
+      ]
+    },
+    {
+      "id": 54,
+      "name": "Light Blue/Ice Block",
+      "visual": "Light blue/ice block — light stone or ice wall",
+      "semanticRole": "building-material",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "ice",
+        "light-blue",
+        "stone",
+        "wall"
+      ]
+    },
+    {
+      "id": 55,
+      "name": "Blue Roof Peak/Chimney",
+      "visual": "Blue roof peak/chimney cap — top accent for blue roofed building",
+      "semanticRole": "building-roof-accent",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "blue_roof_building",
+      "compositeRole": "chimney",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "blue",
+        "peak",
+        "chimney",
+        "accent"
+      ]
+    },
+    {
+      "id": 56,
+      "name": "Gray Stone Arch Top",
+      "visual": "Gray stone arch — top portion of doorway arch. Pairs with 57",
+      "semanticRole": "building-arch",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "stone_arch",
+      "compositeRole": "arch_top",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "arch",
+        "stone",
+        "gray",
+        "doorway",
+        "top"
+      ]
+    },
+    {
+      "id": 57,
+      "name": "Gray Stone Arch Base",
+      "visual": "Gray stone arch — middle/base of doorway arch. Pairs with 56",
+      "semanticRole": "building-arch",
+      "layer": "objects",
+      "category": "building",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "stone_arch",
+      "compositeRole": "arch_base",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "arch",
+        "stone",
+        "gray",
+        "doorway",
+        "base"
+      ]
+    },
+    {
+      "id": 58,
+      "name": "Dark Gray Stone Wall",
+      "visual": "Dark gray stone block — dark stone wall fill",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "dark-gray",
+        "building"
+      ]
+    },
+    {
+      "id": 59,
+      "name": "Very Dark / Shadow Block",
+      "visual": "Very dark/black block — shadow or void fill",
+      "semanticRole": "void-shadow",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "shadow",
+        "void",
+        "dark",
+        "black"
+      ]
+    },
+    {
+      "id": 60,
+      "name": "Brick Wall Left",
+      "visual": "Orange-red brick wall left — brick building wall left edge",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "brick",
+        "left",
+        "orange-red",
+        "roof"
+      ]
+    },
+    {
+      "id": 61,
+      "name": "Brick Wall Center",
+      "visual": "Red brick wall center — repeatable brick wall fill",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "brick",
+        "center",
+        "red",
+        "roof"
+      ]
+    },
+    {
+      "id": 62,
+      "name": "Brick Wall Right",
+      "visual": "Red-orange brick wall right — brick wall right edge",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "brick",
+        "right",
+        "red-orange",
+        "roof"
+      ]
+    },
+    {
+      "id": 63,
+      "name": "Red Roof Left Slope",
+      "visual": "Red/orange roof — left slope. Pairs with 64 (mid), 65 (right) for red roof",
+      "semanticRole": "building-roof",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "red_roof",
+      "compositeRole": "roof_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "red",
+        "orange",
+        "left",
+        "slope",
+        "building",
+        "building-roof"
+      ]
+    },
+    {
+      "id": 64,
+      "name": "Red Roof Middle",
+      "visual": "Red/orange roof — middle section, repeatable center",
+      "semanticRole": "building-roof",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "red_roof",
+      "compositeRole": "roof_mid",
+      "compositeOffset": {
+        "x": 1,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "red",
+        "orange",
+        "middle",
+        "repeatable",
+        "building",
+        "building-roof"
+      ]
+    },
+    {
+      "id": 65,
+      "name": "Red Roof Right Slope",
+      "visual": "Red/orange roof — right slope. Right cap of red roof",
+      "semanticRole": "building-roof",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "red_roof",
+      "compositeRole": "roof_right",
+      "compositeOffset": {
+        "x": 2,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "red",
+        "orange",
+        "right",
+        "slope",
+        "building",
+        "building-roof"
+      ]
+    },
+    {
+      "id": 66,
+      "name": "Dark Red/Maroon Block",
+      "visual": "Dark red/maroon block — dark brick accent",
+      "semanticRole": "building-material",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "brick",
+        "dark-red",
+        "maroon",
+        "accent"
+      ]
+    },
+    {
+      "id": 67,
+      "name": "Red Roof Peak/Chimney",
+      "visual": "Red roof peak with chimney cap — top accent for red roofed building",
+      "semanticRole": "building-roof-accent",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "sky",
+          "empty"
+        ],
+        "south": [
+          "building-wall",
+          "building-door",
+          "building-window"
+        ],
+        "east": [
+          "building-roof",
+          "sky",
+          "empty"
+        ],
+        "west": [
+          "building-roof",
+          "sky",
+          "empty"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "red_roof",
+      "compositeRole": "chimney",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "roof",
+        "red",
+        "peak",
+        "chimney",
+        "accent"
+      ]
+    },
+    {
+      "id": 68,
+      "name": "Gray Stone Arch Variant",
+      "visual": "Gray stone arch variant — building archway element",
+      "semanticRole": "building-arch",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "arch",
+        "stone",
+        "gray",
+        "building"
+      ]
+    },
+    {
+      "id": 69,
+      "name": "Blue Character Sprite",
+      "visual": "Blue character sprite (facing forward) — NPC blue-robed figure",
+      "semanticRole": "npc-sprite",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "character",
+        "npc",
+        "blue-robe",
+        "sprite"
+      ]
+    },
+    {
+      "id": 70,
+      "name": "Small Character Variant",
+      "visual": "Small character figure variant — NPC smaller character",
+      "semanticRole": "npc-sprite",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "character",
+        "npc",
+        "small",
+        "sprite"
+      ]
+    },
+    {
+      "id": 71,
+      "name": "Dark Wall Block",
+      "visual": "Dark solid block — dark wall fill",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wall",
+        "dark",
+        "building"
+      ]
+    },
+    {
+      "id": 72,
+      "name": "Wood Wall Left Edge",
+      "visual": "Brown wood plank wall — left edge with dark left border",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "wood_walls",
+      "compositeRole": "wall_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "wall",
+        "left",
+        "brown",
+        "plank",
+        "building",
+        "building-wall"
+      ]
+    },
+    {
+      "id": 73,
+      "name": "Wood Wall Plain Center",
+      "visual": "Brown wood plank wall — plain center, repeatable seamless fill",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "wood_walls",
+      "compositeRole": "wall_mid",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "wall",
+        "center",
+        "brown",
+        "plank",
+        "repeatable",
+        "building",
+        "building-wall"
+      ]
+    },
+    {
+      "id": 74,
+      "name": "Wood Door",
+      "visual": "Brown wood door — dark center opening with lighter frame",
+      "semanticRole": "building-door",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "wood_walls",
+      "compositeRole": "door",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "door",
+        "brown",
+        "dark-center",
+        "building",
+        "entrance",
+        "building-door"
+      ]
+    },
+    {
+      "id": 75,
+      "name": "Wood Wall with Window",
+      "visual": "Brown wood wall with window opening — wood wall with window cutout",
+      "semanticRole": "building-wall-window",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "wood_walls",
+      "compositeRole": "wall_window",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "wood",
+        "wall",
+        "window",
+        "brown",
+        "building",
+        "building-window"
+      ]
+    },
+    {
+      "id": 76,
+      "name": "Blue-Gray Stone Panel",
+      "visual": "Blue-gray stone/wood panel — cool-toned wall section",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "panel",
+        "blue-gray",
+        "wall"
+      ]
+    },
+    {
+      "id": 77,
+      "name": "Light Wood/Stone Panel",
+      "visual": "Light wood/stone panel — light interior or exterior panel",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "panel",
+        "light",
+        "wood",
+        "stone",
+        "interior"
+      ]
+    },
+    {
+      "id": 78,
+      "name": "Dark Wood Panel",
+      "visual": "Dark wood panel — dark interior panel",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "panel",
+        "dark",
+        "wood",
+        "interior"
+      ]
+    },
+    {
+      "id": 79,
+      "name": "Gray Wall Panel",
+      "visual": "Gray wall panel — generic gray wall section",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "panel",
+        "gray",
+        "wall"
+      ]
+    },
+    {
+      "id": 80,
+      "name": "Dark Archway Opening",
+      "visual": "Dark archway opening — dark doorway or passage",
+      "semanticRole": "building-door",
+      "layer": "objects",
+      "category": "building",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "arch",
+        "doorway",
+        "dark",
+        "passage"
+      ]
+    },
+    {
+      "id": 81,
+      "name": "Medium Gray Stone Wall",
+      "visual": "Medium gray stone wall — generic stone wall",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "gray",
+        "generic"
+      ]
+    },
+    {
+      "id": 82,
+      "name": "Dark Stone Wall",
+      "visual": "Dark stone wall — dark stone fill",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "dark"
+      ]
+    },
+    {
+      "id": 83,
+      "name": "Very Dark Shadow Block",
+      "visual": "Very dark block — shadow or void",
+      "semanticRole": "void-shadow",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "shadow",
+        "void",
+        "dark"
+      ]
+    },
+    {
+      "id": 84,
+      "name": "Dark Stone Wall Left Edge",
+      "visual": "Dark stone wall — left edge of dark/dungeon building wall",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "dark_stone_walls",
+      "compositeRole": "wall_left",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "dark",
+        "left",
+        "dungeon",
+        "shop"
+      ]
+    },
+    {
+      "id": 85,
+      "name": "Dark Stone Wall Center",
+      "visual": "Dark stone wall — center, repeatable dark building wall fill",
+      "semanticRole": "building-wall",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "dark_stone_walls",
+      "compositeRole": "wall_mid",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "dark",
+        "center",
+        "repeatable",
+        "shop"
+      ]
+    },
+    {
+      "id": 86,
+      "name": "Dark Stone Door",
+      "visual": "Dark stone door — door in dark stone wall, arched entrance",
+      "semanticRole": "building-door",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "dark_stone_walls",
+      "compositeRole": "door",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "door",
+        "dark",
+        "dungeon",
+        "shop",
+        "entrance"
+      ]
+    },
+    {
+      "id": 87,
+      "name": "Dark Stone Wall with Window",
+      "visual": "Dark stone wall with window — dark wall with window cutout",
+      "semanticRole": "building-wall-window",
+      "layer": "objects",
+      "category": "building",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "building-roof",
+          "building-wall"
+        ],
+        "south": [
+          "grass",
+          "path-edge",
+          "fence-base"
+        ],
+        "east": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ],
+        "west": [
+          "building-wall",
+          "building-door",
+          "building-window",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Never placed individually. Always part of a building composite template."
+      },
+      "compositeGroup": "dark_stone_walls",
+      "compositeRole": "wall_window",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "stone",
+        "wall",
+        "dark",
+        "window",
+        "shop"
+      ]
+    },
+    {
+      "id": 88,
+      "name": "Dark Interior Fill",
+      "visual": "Dark interior fill — dark room floor/fill",
+      "semanticRole": "interior-floor",
+      "layer": "objects",
+      "category": "building",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "interior",
+        "dark",
+        "floor",
+        "room"
+      ]
+    },
+    {
+      "id": 89,
+      "name": "Red/Warm Interior Tile",
+      "visual": "Red/warm interior tile — carpet or warm floor",
+      "semanticRole": "interior-floor",
+      "layer": "objects",
+      "category": "building",
+      "walkable": true,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "interior",
+        "carpet",
+        "red",
+        "warm",
+        "floor"
+      ]
+    },
+    {
+      "id": 90,
+      "name": "Dark Furniture Block",
+      "visual": "Dark furniture block — dark bookcase or cabinet",
+      "semanticRole": "interior-furniture",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "furniture",
+        "dark",
+        "bookcase",
+        "cabinet"
+      ]
+    },
+    {
+      "id": 91,
+      "name": "Bookshelf / Cabinet",
+      "visual": "Dark brown rectangular shape — bookshelf, cabinet, or chest",
+      "semanticRole": "interior-furniture",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "furniture",
+        "bookshelf",
+        "cabinet",
+        "brown"
+      ]
+    },
+    {
+      "id": 92,
+      "name": "Well Top",
+      "visual": "Well structure with peaked roof — well top. Pairs with 104 (base below)",
+      "semanticRole": "decoration-functional",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "1-per-map",
+        "nearRequirement": [
+          "path-intersection",
+          "village-center"
+        ],
+        "notes": "Well: top (92) above base (104)."
+      },
+      "compositeGroup": "well",
+      "compositeRole": "top",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "well",
+        "top",
+        "roof",
+        "peaked",
+        "structure"
+      ]
+    },
+    {
+      "id": 93,
+      "name": "Lantern / Signpost",
+      "visual": "Orange/warm lantern on post — lamp post or mailbox with warm glow",
+      "semanticRole": "decoration-functional",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "2-4-per-map",
+        "nearRequirement": [
+          "building",
+          "path-intersection"
+        ],
+        "notes": "Warm lanterns near buildings and paths."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "lantern",
+        "signpost",
+        "warm",
+        "orange",
+        "light",
+        "village-friendly"
+      ]
+    },
+    {
+      "id": 94,
+      "name": "Golden Key",
+      "visual": "Small golden key or item — collectible key",
+      "semanticRole": "collectible",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "south": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "east": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "west": [
+          "grass",
+          "path",
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "quest-placed",
+        "notes": "Placed by quest system, not random generation."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "key",
+        "golden",
+        "item",
+        "collectible",
+        "pickup"
+      ]
+    },
+    {
+      "id": 95,
+      "name": "Golden Coin / Gem",
+      "visual": "Bright golden coin/gem — collectible coin or gem",
+      "semanticRole": "collectible",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "south": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "east": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "west": [
+          "grass",
+          "path",
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "quest-placed",
+        "notes": "Placed by quest system, not random generation."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "coin",
+        "gem",
+        "golden",
+        "item",
+        "collectible",
+        "pickup"
+      ]
+    },
+    {
+      "id": 96,
+      "name": "White Fence Left End",
+      "visual": "White picket fence — left end/post",
+      "semanticRole": "fence-end",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of fence segment. Gate gap (-1) aligns with building door."
+      },
+      "compositeGroup": "white_fence",
+      "compositeRole": "left_end",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "white",
+        "picket",
+        "left",
+        "end"
+      ]
+    },
+    {
+      "id": 97,
+      "name": "White Fence Middle",
+      "visual": "White picket fence — middle section, repeatable",
+      "semanticRole": "fence-mid",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of fence segment. Gate gap (-1) aligns with building door."
+      },
+      "compositeGroup": "white_fence",
+      "compositeRole": "middle",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "white",
+        "picket",
+        "middle",
+        "repeatable"
+      ]
+    },
+    {
+      "id": 98,
+      "name": "White Fence Right End",
+      "visual": "White picket fence — right end/post",
+      "semanticRole": "fence-end",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of fence segment. Gate gap (-1) aligns with building door."
+      },
+      "compositeGroup": "white_fence",
+      "compositeRole": "right_end",
+      "compositeOffset": {
+        "x": 2,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "white",
+        "picket",
+        "right",
+        "end"
+      ]
+    },
+    {
+      "id": 99,
+      "name": "Brown Wood Fence Left End",
+      "visual": "Blue/cool fence — left end (blue fence variant)",
+      "semanticRole": "fence-end",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of fence segment. Gate gap (-1) aligns with building door."
+      },
+      "compositeGroup": "brown_fence",
+      "compositeRole": "left_end",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "brown",
+        "wood",
+        "left",
+        "end"
+      ]
+    },
+    {
+      "id": 100,
+      "name": "Brown Wood Fence Middle",
+      "visual": "Blue/cool fence — middle section, repeatable",
+      "semanticRole": "fence-mid",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of fence segment. Gate gap (-1) aligns with building door."
+      },
+      "compositeGroup": "brown_fence",
+      "compositeRole": "middle",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "brown",
+        "wood",
+        "middle",
+        "repeatable"
+      ]
+    },
+    {
+      "id": 101,
+      "name": "Brown Wood Fence Right End",
+      "visual": "Blue/cool fence — right end",
+      "semanticRole": "fence-end",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of fence segment. Gate gap (-1) aligns with building door."
+      },
+      "compositeGroup": "brown_fence",
+      "compositeRole": "right_end",
+      "compositeOffset": {
+        "x": 2,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "brown",
+        "wood",
+        "right",
+        "end"
+      ]
+    },
+    {
+      "id": 102,
+      "name": "Small Mushroom/Pebble",
+      "visual": "Small round decorative object — mushroom, pebble, or ornament",
+      "semanticRole": "accent-ground",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "fence"
+        ],
+        "minGroupSize": 1,
+        "maxGroupSize": 3
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "decoration",
+        "small",
+        "mushroom",
+        "pebble",
+        "ornament"
+      ]
+    },
+    {
+      "id": 103,
+      "name": "Small Bone/Stick",
+      "visual": "Small round ball/stone — decorative ball or pebble",
+      "semanticRole": "accent-ground",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "south": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "east": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ],
+        "west": [
+          "grass",
+          "grass-variant",
+          "flower-grass",
+          "vegetation-base"
+        ]
+      },
+      "placementRules": {
+        "frequency": "accent",
+        "clustering": "near-poi",
+        "nearRequirement": [
+          "building",
+          "path",
+          "fence"
+        ],
+        "minGroupSize": 1,
+        "maxGroupSize": 3
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "decoration",
+        "bone",
+        "stick",
+        "small"
+      ]
+    },
+    {
+      "id": 104,
+      "name": "Well Base / Blue Bucket",
+      "visual": "Blue well bucket/base — well base. Pairs with 92 (well top above)",
+      "semanticRole": "decoration-functional",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "1-per-map",
+        "nearRequirement": [
+          "path-intersection",
+          "village-center"
+        ],
+        "notes": "Well: top (92) above base (104)."
+      },
+      "compositeGroup": "well",
+      "compositeRole": "base",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "well",
+        "base",
+        "bucket",
+        "blue",
+        "structure"
+      ]
+    },
+    {
+      "id": 105,
+      "name": "Dark Wood Bench",
+      "visual": "Dark wood bench (side view) — WARNING: reads as dark bomb at 16px. DEPRECATED.",
+      "semanticRole": "deprecated",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": true,
+      "neverUseReason": "Too dark at 16px, reads as 'dark bomb' to young players. Avoid in village levels.",
+      "tags": [
+        "bench",
+        "dark",
+        "wood",
+        "furniture",
+        "deprecated"
+      ]
+    },
+    {
+      "id": 106,
+      "name": "Gray Stone / Crate",
+      "visual": "Gray stone/crate — WARNING: dark rounded shape reads as bomb. DEPRECATED. Use 107.",
+      "semanticRole": "deprecated",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": true,
+      "neverUseReason": "Dark rounded shape reads as 'bomb' at small sizes. Use tile 107 (barrel) instead.",
+      "tags": [
+        "crate",
+        "stone",
+        "dark",
+        "deprecated"
+      ]
+    },
+    {
+      "id": 107,
+      "name": "Wooden Barrel",
+      "visual": "Brown wooden barrel — clearly identifiable barrel container",
+      "semanticRole": "decoration-functional",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "1-3-per-map",
+        "nearRequirement": [
+          "building:shop",
+          "path"
+        ],
+        "notes": "Barrels near shops/buildings."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "barrel",
+        "wood",
+        "brown",
+        "container",
+        "shop-decoration"
+      ]
+    },
+    {
+      "id": 108,
+      "name": "Vertical Fence Post",
+      "visual": "Vertical fence post (brown) — standalone fence post or connector",
+      "semanticRole": "fence-post",
+      "layer": "objects",
+      "category": "fence",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "building-wall",
+          "building-base"
+        ],
+        "south": [
+          "grass",
+          "path-edge"
+        ],
+        "east": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ],
+        "west": [
+          "fence-mid",
+          "fence-end",
+          "grass",
+          "gate-gap"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "fence",
+        "post",
+        "vertical",
+        "brown",
+        "connector"
+      ]
+    },
+    {
+      "id": 109,
+      "name": "Water Edge NW Corner",
+      "visual": "Water edge — northwest corner (grass-to-water transition)",
+      "semanticRole": "water-corner",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_nw",
+      "compositeOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "corner",
+        "northwest",
+        "grass-to-water",
+        "water-edge-NW"
+      ]
+    },
+    {
+      "id": 110,
+      "name": "Water Edge North",
+      "visual": "Water edge — north (grass-to-water top edge)",
+      "semanticRole": "water-edge",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_n",
+      "compositeOffset": {
+        "x": 1,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "north",
+        "top",
+        "water-edge-N"
+      ]
+    },
+    {
+      "id": 111,
+      "name": "Water Edge NE Corner",
+      "visual": "Water edge — northeast corner",
+      "semanticRole": "water-corner",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_ne",
+      "compositeOffset": {
+        "x": 2,
+        "y": 0
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "corner",
+        "northeast",
+        "water-edge-NE"
+      ]
+    },
+    {
+      "id": 112,
+      "name": "Water Edge South",
+      "visual": "Water edge — south (bottom edge of water body)",
+      "semanticRole": "water-edge",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_s",
+      "compositeOffset": {
+        "x": 1,
+        "y": 2
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "south",
+        "bottom",
+        "water-edge-S"
+      ]
+    },
+    {
+      "id": 113,
+      "name": "Water Edge SE Corner",
+      "visual": "Water edge — southeast corner",
+      "semanticRole": "water-corner",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_se",
+      "compositeOffset": {
+        "x": 2,
+        "y": 2
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "corner",
+        "southeast",
+        "water-edge-SE"
+      ]
+    },
+    {
+      "id": 114,
+      "name": "Deep Water Variant",
+      "visual": "Medium blue water block — deep water fill variant",
+      "semanticRole": "water-variant",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "deep",
+        "blue",
+        "medium"
+      ]
+    },
+    {
+      "id": 115,
+      "name": "Shallow Water / Highlight",
+      "visual": "Light blue/shallow water — shallow water or water highlight",
+      "semanticRole": "water-variant",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "shallow",
+        "light-blue",
+        "highlight"
+      ]
+    },
+    {
+      "id": 116,
+      "name": "Sign/Lamp Post",
+      "visual": "Wooden sign post / lamp post — WARNING: cross/trident reads as weapon. DEPRECATED. Use 93.",
+      "semanticRole": "deprecated",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": true,
+      "neverUseReason": "Cross/trident shape reads as 'fork/weapon' at small sizes. Use tile 93 (lantern) instead.",
+      "tags": [
+        "sign",
+        "lamp",
+        "post",
+        "deprecated",
+        "weapon-looking"
+      ]
+    },
+    {
+      "id": 117,
+      "name": "Cross / Plus Sign Marker",
+      "visual": "Cross/plus shaped sign marker — signpost or cross marker",
+      "semanticRole": "decoration-sign",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "sign",
+        "cross",
+        "plus",
+        "marker"
+      ]
+    },
+    {
+      "id": 118,
+      "name": "Arrow Directional Sign",
+      "visual": "Arrow directional sign — pointing sign",
+      "semanticRole": "decoration-sign",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "sign",
+        "arrow",
+        "directional",
+        "pointing"
+      ]
+    },
+    {
+      "id": 119,
+      "name": "Small Wooden Sign",
+      "visual": "Small wooden sign — small sign post",
+      "semanticRole": "decoration-sign",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "any"
+        ],
+        "south": [
+          "any"
+        ],
+        "east": [
+          "any"
+        ],
+        "west": [
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "contextual",
+        "notes": "Placement depends on map context."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "sign",
+        "small",
+        "wooden",
+        "post"
+      ]
+    },
+    {
+      "id": 120,
+      "name": "Water Edge SW Corner",
+      "visual": "Water edge — southwest corner (bottom-left of water body)",
+      "semanticRole": "water-corner",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_sw",
+      "compositeOffset": {
+        "x": 0,
+        "y": 2
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "corner",
+        "southwest",
+        "water-edge-SW"
+      ]
+    },
+    {
+      "id": 121,
+      "name": "Water Edge West",
+      "visual": "Water edge — west (left edge of water body)",
+      "semanticRole": "water-edge",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_w",
+      "compositeOffset": {
+        "x": 0,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "west",
+        "left",
+        "water-edge-W"
+      ]
+    },
+    {
+      "id": 122,
+      "name": "Water Center (Deep)",
+      "visual": "Water center — deep blue, center fill of water body",
+      "semanticRole": "water-center",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "center",
+      "compositeOffset": {
+        "x": 1,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "center",
+        "deep",
+        "blue",
+        "body",
+        "water-center"
+      ]
+    },
+    {
+      "id": 123,
+      "name": "Water Edge East",
+      "visual": "Water edge — east (right edge of water body)",
+      "semanticRole": "water-edge",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": "pond",
+      "compositeRole": "edge_e",
+      "compositeOffset": {
+        "x": 2,
+        "y": 1
+      },
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "edge",
+        "east",
+        "right",
+        "water-edge-E"
+      ]
+    },
+    {
+      "id": 124,
+      "name": "Dark Blue Water Variant",
+      "visual": "Dark blue water variant — deep water or shadow on water",
+      "semanticRole": "water-variant",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "dark",
+        "deep",
+        "shadow"
+      ]
+    },
+    {
+      "id": 125,
+      "name": "Water Ripple / Fish",
+      "visual": "Water with ripple/fish detail — animated water accent or fish",
+      "semanticRole": "water-animated",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "ripple",
+        "fish",
+        "animated",
+        "accent"
+      ]
+    },
+    {
+      "id": 126,
+      "name": "Stone Underwater",
+      "visual": "Blue-gray stone underwater — submerged stone decoration",
+      "semanticRole": "water-variant",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "stone",
+        "submerged",
+        "decoration"
+      ]
+    },
+    {
+      "id": 127,
+      "name": "Deep Water Dark",
+      "visual": "Dark blue deep water — very deep water fill",
+      "semanticRole": "water-variant",
+      "layer": "objects",
+      "category": "water",
+      "walkable": false,
+      "verified": false,
+      "edgeCompatibility": {
+        "north": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "south": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "east": [
+          "water",
+          "water-edge",
+          "grass"
+        ],
+        "west": [
+          "water",
+          "water-edge",
+          "grass"
+        ]
+      },
+      "placementRules": {
+        "frequency": "composite-only",
+        "notes": "Always part of pond/water composite. Minimum 3x3. All 9 edge tiles required."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "water",
+        "deep",
+        "dark",
+        "abyss"
+      ]
+    },
+    {
+      "id": 128,
+      "name": "Treasure Chest (Closed)",
+      "visual": "Treasure chest — closed (brown with gold trim). Collectible.",
+      "semanticRole": "collectible-container",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "south": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "east": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "west": [
+          "grass",
+          "path",
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "quest-placed",
+        "notes": "Placed by quest system, not random generation."
+      },
+      "compositeGroup": "treasure_chest",
+      "compositeRole": "closed",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "chest",
+        "treasure",
+        "closed",
+        "collectible",
+        "item"
+      ]
+    },
+    {
+      "id": 129,
+      "name": "Treasure Chest (Open)",
+      "visual": "Treasure chest — open (showing contents). Animation pair with 128.",
+      "semanticRole": "collectible-container",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": false,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "south": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "east": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "west": [
+          "grass",
+          "path",
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "quest-placed",
+        "notes": "Placed by quest system, not random generation."
+      },
+      "compositeGroup": "treasure_chest",
+      "compositeRole": "open",
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "chest",
+        "treasure",
+        "open",
+        "collectible",
+        "item",
+        "animation-pair"
+      ]
+    },
+    {
+      "id": 130,
+      "name": "Heart Pickup",
+      "visual": "Red heart pickup — health/life collectible",
+      "semanticRole": "collectible",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "south": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "east": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "west": [
+          "grass",
+          "path",
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "quest-placed",
+        "notes": "Placed by quest system, not random generation."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "heart",
+        "red",
+        "pickup",
+        "health",
+        "life",
+        "collectible"
+      ]
+    },
+    {
+      "id": 131,
+      "name": "Star Pickup",
+      "visual": "Yellow star pickup — score/bonus collectible",
+      "semanticRole": "collectible",
+      "layer": "objects",
+      "category": "decoration",
+      "walkable": true,
+      "verified": true,
+      "edgeCompatibility": {
+        "north": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "south": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "east": [
+          "grass",
+          "path",
+          "any"
+        ],
+        "west": [
+          "grass",
+          "path",
+          "any"
+        ]
+      },
+      "placementRules": {
+        "frequency": "quest-placed",
+        "notes": "Placed by quest system, not random generation."
+      },
+      "compositeGroup": null,
+      "compositeRole": null,
+      "compositeOffset": null,
+      "deprecated": false,
+      "neverUseReason": null,
+      "tags": [
+        "star",
+        "yellow",
+        "pickup",
+        "bonus",
+        "score",
+        "collectible"
+      ]
+    }
+  ],
+  "compositeObjects": [
+    {
+      "id": "small_house",
+      "name": "Small House (3-wide, red roof, wood walls)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          67,
+          65
+        ],
+        [
+          72,
+          74,
+          73
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 1,
+          "y": 1
+        },
+        "notes": "Door (tile 74) must face a path within 1-3 tiles. Fence row below with gap at door."
+      }
+    },
+    {
+      "id": "medium_house",
+      "name": "Medium House (4-wide, red roof, wood walls)",
+      "category": "building",
+      "width": 4,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          64,
+          64,
+          65
+        ],
+        [
+          72,
+          75,
+          74,
+          73
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 2,
+          "y": 1
+        },
+        "notes": "Window tile 75 left of door. Minimum 3-tile yard around building."
+      }
+    },
+    {
+      "id": "large_house",
+      "name": "Large House (5-wide, red roof, wood walls)",
+      "category": "building",
+      "width": 5,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          64,
+          64,
+          64,
+          65
+        ],
+        [
+          72,
+          75,
+          74,
+          75,
+          73
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 2,
+          "y": 1
+        },
+        "notes": "Symmetric layout: window-door-window. Per TILE-BUILDING-RULES template."
+      }
+    },
+    {
+      "id": "stone_shop",
+      "name": "Stone Shop (3-wide, red roof, dark stone walls)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          67,
+          65
+        ],
+        [
+          84,
+          86,
+          85
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 1,
+          "y": 1
+        },
+        "notes": "Uses dark stone walls (84-87) for shops/important buildings. Barrels (107) nearby."
+      }
+    },
+    {
+      "id": "stone_shop_large",
+      "name": "Large Stone Shop (5-wide, red roof, dark stone walls)",
+      "category": "building",
+      "width": 5,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          64,
+          64,
+          64,
+          65
+        ],
+        [
+          84,
+          87,
+          86,
+          87,
+          85
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 2,
+          "y": 1
+        },
+        "notes": "Large stone shop with windows on both sides of door."
+      }
+    },
+    {
+      "id": "blue_roof_house",
+      "name": "Blue Roof House (3-wide)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          51,
+          55,
+          53
+        ],
+        [
+          48,
+          49,
+          50
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "requiresFlat": true,
+        "minClearance": 1,
+        "doorFacesPath": true
+      }
+    },
+    {
+      "id": "green_tree",
+      "name": "Green Tree (2x2 with depth layers)",
+      "category": "vegetation",
+      "width": 2,
+      "height": 2,
+      "tiles": [
+        [
+          4,
+          5
+        ],
+        [
+          12,
+          13
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              4,
+              5
+            ],
+            [
+              null,
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null,
+              null
+            ],
+            [
+              12,
+              13
+            ]
+          ]
+        },
+        "notes": "Canopy (4,5) on FOREGROUND layer, trunks (12,13) on OBJECTS layer. Canopy row ABOVE trunk row. Never place trunk at row 0."
+      }
+    },
+    {
+      "id": "autumn_tree",
+      "name": "Autumn Tree (2x2 with depth layers)",
+      "category": "vegetation",
+      "width": 2,
+      "height": 2,
+      "tiles": [
+        [
+          7,
+          8
+        ],
+        [
+          24,
+          25
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              7,
+              8
+            ],
+            [
+              null,
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null,
+              null
+            ],
+            [
+              24,
+              25
+            ]
+          ]
+        },
+        "notes": "Autumn canopy (7,8) on FOREGROUND layer, trunks (24,25) on OBJECTS layer. Same depth rules as green tree."
+      }
+    },
+    {
+      "id": "pine_tree",
+      "name": "Pine Tree (1x2 vertical)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          10
+        ],
+        [
+          22
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              10
+            ],
+            [
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null
+            ],
+            [
+              22
+            ]
+          ]
+        },
+        "notes": "Pine top (10) on FOREGROUND, trunk (22) on OBJECTS. 1-tile wide."
+      }
+    },
+    {
+      "id": "dense_tree",
+      "name": "Dense Tree Variant (1x2 vertical)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          11
+        ],
+        [
+          23
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              11
+            ],
+            [
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null
+            ],
+            [
+              23
+            ]
+          ]
+        },
+        "notes": "Unverified dense tree variant. Same structure as pine tree."
+      }
+    },
+    {
+      "id": "small_tree_green",
+      "name": "Small Green Tree (1x1)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 1,
+      "tiles": [
+        [
+          6
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Single-tile standalone tree on OBJECTS layer."
+      }
+    },
+    {
+      "id": "small_tree_complete",
+      "name": "Small Complete Tree with Trunk (1x1)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 1,
+      "tiles": [
+        [
+          16
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Single-tile tree with visible trunk on OBJECTS layer."
+      }
+    },
+    {
+      "id": "cactus",
+      "name": "Cactus (2x1 horizontal)",
+      "category": "vegetation",
+      "width": 2,
+      "height": 1,
+      "tiles": [
+        [
+          20,
+          21
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "sand",
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "notes": "Desert decoration. Left (20) and right (21) must be adjacent."
+      }
+    },
+    {
+      "id": "pond",
+      "name": "Pond (minimum 3x3 water body)",
+      "category": "water",
+      "width": 3,
+      "height": 3,
+      "tiles": [
+        [
+          109,
+          110,
+          111
+        ],
+        [
+          121,
+          122,
+          123
+        ],
+        [
+          120,
+          112,
+          113
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 2,
+        "mustFacePath": false,
+        "notes": "All 9 edge tiles required. Never adjacent to buildings (2+ tiles gap). Surround with flower tiles, bushes on 1-2 sides. Can extend center with more 122 tiles and edge repeats for larger ponds."
+      }
+    },
+    {
+      "id": "well",
+      "name": "Well (1x2 vertical structure)",
+      "category": "decoration",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          92
+        ],
+        [
+          104
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "notes": "Well top (92) directly above well base (104). Place at path intersections or square centers."
+      }
+    },
+    {
+      "id": "white_fence_segment",
+      "name": "White Fence Segment (variable width with gate gap)",
+      "category": "fence",
+      "width": 5,
+      "height": 1,
+      "tiles": [
+        [
+          96,
+          97,
+          -1,
+          97,
+          98
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Gap (-1 = empty) aligned with building door above. 96=left end, 97=repeatable middle, 98=right end. Width varies. 108=vertical post for corners."
+      }
+    },
+    {
+      "id": "brown_fence_segment",
+      "name": "Brown Wood Fence (3-wide)",
+      "category": "fence",
+      "width": 3,
+      "height": 1,
+      "tiles": [
+        [
+          99,
+          100,
+          101
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Brown wood fence. 99=left end, 100=repeatable middle, 101=right end."
+      }
+    },
+    {
+      "id": "treasure_chest",
+      "name": "Treasure Chest (animation pair)",
+      "category": "decoration",
+      "width": 1,
+      "height": 1,
+      "tiles": [
+        [
+          128
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass",
+          "stone"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "animationFrames": [
+          128,
+          129
+        ],
+        "notes": "Closed (128) and open (129) are animation pair. Place on OBJECTS layer."
+      }
+    },
+    {
+      "id": "brick_building",
+      "name": "Brick Wall Building with Red Roof (3-wide)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          67,
+          65
+        ],
+        [
+          60,
+          68,
+          62
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      }
+    },
+    {
+      "id": "stone_arch_doorway",
+      "name": "Stone Arch Entrance (1x2)",
+      "category": "building",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          56
+        ],
+        [
+          57
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "id": "large_pond",
+      "name": "Large Pond (4x3 water body)",
+      "category": "water",
+      "width": 4,
+      "height": 3,
+      "tiles": [
+        [
+          109,
+          110,
+          110,
+          111
+        ],
+        [
+          121,
+          122,
+          122,
+          123
+        ],
+        [
+          120,
+          112,
+          112,
+          113
+        ]
+      ]
+    }
+  ],
+  "buildingTemplates": [
+    {
+      "id": "small_house",
+      "name": "Small House (3-wide, red roof, wood walls)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          67,
+          65
+        ],
+        [
+          72,
+          74,
+          73
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 1,
+          "y": 1
+        },
+        "notes": "Door (tile 74) must face a path within 1-3 tiles. Fence row below with gap at door."
+      }
+    },
+    {
+      "id": "medium_house",
+      "name": "Medium House (4-wide, red roof, wood walls)",
+      "category": "building",
+      "width": 4,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          64,
+          64,
+          65
+        ],
+        [
+          72,
+          75,
+          74,
+          73
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 2,
+          "y": 1
+        },
+        "notes": "Window tile 75 left of door. Minimum 3-tile yard around building."
+      }
+    },
+    {
+      "id": "large_house",
+      "name": "Large House (5-wide, red roof, wood walls)",
+      "category": "building",
+      "width": 5,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          64,
+          64,
+          64,
+          65
+        ],
+        [
+          72,
+          75,
+          74,
+          75,
+          73
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 2,
+          "y": 1
+        },
+        "notes": "Symmetric layout: window-door-window. Per TILE-BUILDING-RULES template."
+      }
+    },
+    {
+      "id": "stone_shop",
+      "name": "Stone Shop (3-wide, red roof, dark stone walls)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          67,
+          65
+        ],
+        [
+          84,
+          86,
+          85
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 1,
+          "y": 1
+        },
+        "notes": "Uses dark stone walls (84-87) for shops/important buildings. Barrels (107) nearby."
+      }
+    },
+    {
+      "id": "stone_shop_large",
+      "name": "Large Stone Shop (5-wide, red roof, dark stone walls)",
+      "category": "building",
+      "width": 5,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          64,
+          64,
+          64,
+          65
+        ],
+        [
+          84,
+          87,
+          86,
+          87,
+          85
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 3,
+        "mustFacePath": true,
+        "doorPosition": {
+          "x": 2,
+          "y": 1
+        },
+        "notes": "Large stone shop with windows on both sides of door."
+      }
+    },
+    {
+      "id": "blue_roof_house",
+      "name": "Blue Roof House (3-wide)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          51,
+          55,
+          53
+        ],
+        [
+          48,
+          49,
+          50
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "requiresFlat": true,
+        "minClearance": 1,
+        "doorFacesPath": true
+      }
+    },
+    {
+      "id": "brick_building",
+      "name": "Brick Wall Building with Red Roof (3-wide)",
+      "category": "building",
+      "width": 3,
+      "height": 2,
+      "tiles": [
+        [
+          63,
+          67,
+          65
+        ],
+        [
+          60,
+          68,
+          62
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      }
+    },
+    {
+      "id": "stone_arch_doorway",
+      "name": "Stone Arch Entrance (1x2)",
+      "category": "building",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          56
+        ],
+        [
+          57
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      }
+    }
+  ],
+  "vegetationTemplates": [
+    {
+      "id": "green_tree",
+      "name": "Green Tree (2x2 with depth layers)",
+      "category": "vegetation",
+      "width": 2,
+      "height": 2,
+      "tiles": [
+        [
+          4,
+          5
+        ],
+        [
+          12,
+          13
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              4,
+              5
+            ],
+            [
+              null,
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null,
+              null
+            ],
+            [
+              12,
+              13
+            ]
+          ]
+        },
+        "notes": "Canopy (4,5) on FOREGROUND layer, trunks (12,13) on OBJECTS layer. Canopy row ABOVE trunk row. Never place trunk at row 0."
+      }
+    },
+    {
+      "id": "autumn_tree",
+      "name": "Autumn Tree (2x2 with depth layers)",
+      "category": "vegetation",
+      "width": 2,
+      "height": 2,
+      "tiles": [
+        [
+          7,
+          8
+        ],
+        [
+          24,
+          25
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              7,
+              8
+            ],
+            [
+              null,
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null,
+              null
+            ],
+            [
+              24,
+              25
+            ]
+          ]
+        },
+        "notes": "Autumn canopy (7,8) on FOREGROUND layer, trunks (24,25) on OBJECTS layer. Same depth rules as green tree."
+      }
+    },
+    {
+      "id": "pine_tree",
+      "name": "Pine Tree (1x2 vertical)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          10
+        ],
+        [
+          22
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              10
+            ],
+            [
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null
+            ],
+            [
+              22
+            ]
+          ]
+        },
+        "notes": "Pine top (10) on FOREGROUND, trunk (22) on OBJECTS. 1-tile wide."
+      }
+    },
+    {
+      "id": "dense_tree",
+      "name": "Dense Tree Variant (1x2 vertical)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          11
+        ],
+        [
+          23
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "layers": {
+          "foreground": [
+            [
+              11
+            ],
+            [
+              null
+            ]
+          ],
+          "objects": [
+            [
+              null
+            ],
+            [
+              23
+            ]
+          ]
+        },
+        "notes": "Unverified dense tree variant. Same structure as pine tree."
+      }
+    },
+    {
+      "id": "small_tree_green",
+      "name": "Small Green Tree (1x1)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 1,
+      "tiles": [
+        [
+          6
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Single-tile standalone tree on OBJECTS layer."
+      }
+    },
+    {
+      "id": "small_tree_complete",
+      "name": "Small Complete Tree with Trunk (1x1)",
+      "category": "vegetation",
+      "width": 1,
+      "height": 1,
+      "tiles": [
+        [
+          16
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Single-tile tree with visible trunk on OBJECTS layer."
+      }
+    },
+    {
+      "id": "cactus",
+      "name": "Cactus (2x1 horizontal)",
+      "category": "vegetation",
+      "width": 2,
+      "height": 1,
+      "tiles": [
+        [
+          20,
+          21
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "sand",
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "notes": "Desert decoration. Left (20) and right (21) must be adjacent."
+      }
+    }
+  ],
+  "waterTemplates": [
+    {
+      "id": "pond",
+      "name": "Pond (minimum 3x3 water body)",
+      "category": "water",
+      "width": 3,
+      "height": 3,
+      "tiles": [
+        [
+          109,
+          110,
+          111
+        ],
+        [
+          121,
+          122,
+          123
+        ],
+        [
+          120,
+          112,
+          113
+        ]
+      ],
+      "anchor": {
+        "x": 1,
+        "y": 1
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 2,
+        "mustFacePath": false,
+        "notes": "All 9 edge tiles required. Never adjacent to buildings (2+ tiles gap). Surround with flower tiles, bushes on 1-2 sides. Can extend center with more 122 tiles and edge repeats for larger ponds."
+      }
+    },
+    {
+      "id": "large_pond",
+      "name": "Large Pond (4x3 water body)",
+      "category": "water",
+      "width": 4,
+      "height": 3,
+      "tiles": [
+        [
+          109,
+          110,
+          110,
+          111
+        ],
+        [
+          121,
+          122,
+          122,
+          123
+        ],
+        [
+          120,
+          112,
+          112,
+          113
+        ]
+      ]
+    }
+  ],
+  "fenceTemplates": [
+    {
+      "id": "white_fence_segment",
+      "name": "White Fence Segment (variable width with gate gap)",
+      "category": "fence",
+      "width": 5,
+      "height": 1,
+      "tiles": [
+        [
+          96,
+          97,
+          -1,
+          97,
+          98
+        ]
+      ],
+      "anchor": {
+        "x": 2,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Gap (-1 = empty) aligned with building door above. 96=left end, 97=repeatable middle, 98=right end. Width varies. 108=vertical post for corners."
+      }
+    },
+    {
+      "id": "brown_fence_segment",
+      "name": "Brown Wood Fence (3-wide)",
+      "category": "fence",
+      "width": 3,
+      "height": 1,
+      "tiles": [
+        [
+          99,
+          100,
+          101
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 0,
+        "mustFacePath": false,
+        "notes": "Brown wood fence. 99=left end, 100=repeatable middle, 101=right end."
+      }
+    }
+  ],
+  "decorationTemplates": [
+    {
+      "id": "well",
+      "name": "Well (1x2 vertical structure)",
+      "category": "decoration",
+      "width": 1,
+      "height": 2,
+      "tiles": [
+        [
+          92
+        ],
+        [
+          104
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "notes": "Well top (92) directly above well base (104). Place at path intersections or square centers."
+      }
+    },
+    {
+      "id": "treasure_chest",
+      "name": "Treasure Chest (animation pair)",
+      "category": "decoration",
+      "width": 1,
+      "height": 1,
+      "tiles": [
+        [
+          128
+        ]
+      ],
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "placementRules": {
+        "terrain": [
+          "grass",
+          "stone"
+        ],
+        "minimumClearance": 1,
+        "mustFacePath": false,
+        "animationFrames": [
+          128,
+          129
+        ],
+        "notes": "Closed (128) and open (129) are animation pair. Place on OBJECTS layer."
+      }
+    }
+  ],
+  "categories": {
+    "terrain": {
+      "color": "#4CAF50",
+      "description": "Ground fill tiles (grass, sand, stone floor)"
+    },
+    "path": {
+      "color": "#8D6E63",
+      "description": "Walkable path tiles (dirt, cobblestone)"
+    },
+    "building": {
+      "color": "#F44336",
+      "description": "Walls, roofs, doors, windows, arches"
+    },
+    "vegetation": {
+      "color": "#2E7D32",
+      "description": "Trees, bushes, plants, flowers"
+    },
+    "water": {
+      "color": "#2196F3",
+      "description": "Water body tiles (edges and center)"
+    },
+    "decoration": {
+      "color": "#FF9800",
+      "description": "Placed objects (well, barrel, signs, items, NPCs)"
+    },
+    "fence": {
+      "color": "#795548",
+      "description": "Fence pieces (white picket, blue, posts)"
+    },
+    "animation": {
+      "color": "#9C27B0",
+      "description": "Tiles that are animation frame pairs"
+    },
+    "unknown": {
+      "color": "#9E9E9E",
+      "description": "Unidentified tiles"
+    }
+  },
+  "groundTruthNotes": {
+    "source": "AGENT-LEARNINGS.md + TILE-BUILDING-RULES.md",
+    "criticalReminders": [
+      "Grass is tile 1/2, NOT 37/38 (Lesson 1)",
+      "Building roofs are 63/64/65, NOT 60/61/62 (Lesson 2)",
+      "Bush is tile 28, NOT tile 14 (Lesson 3)",
+      "Tile 14 = peach block, DEPRECATED for village use",
+      "Tile 105 = bench, DEPRECATED (looks like bomb at 16px)",
+      "Tile 106 = crate, DEPRECATED (looks like bomb at 16px)",
+      "Tile 116 = signpost, DEPRECATED (looks like weapon at 16px)",
+      "Use tile 93 for lanterns instead of 116",
+      "Use tile 107 for barrels instead of 106",
+      "Canopy is ALWAYS above trunk, never reversed",
+      "Autumn tree trunks are 24/25 (per ASSET-VISUAL-AUDIT), not 12/13"
+    ]
+  },
+  "deprecatedTiles": [
+    {
+      "id": 14,
+      "name": "Peach/Cream Block",
+      "reason": "Renders as peach/cream block, NOT a bush. Previously misidentified. Use tile 28 for bushes instead.",
+      "replacement": 28
+    },
+    {
+      "id": 105,
+      "name": "Dark Wood Bench",
+      "reason": "Too dark at 16px, reads as 'dark bomb' to young players. Avoid in village levels.",
+      "replacement": null
+    },
+    {
+      "id": 106,
+      "name": "Gray Stone / Crate",
+      "reason": "Dark rounded shape reads as 'bomb' at small sizes. Use tile 107 (barrel) instead.",
+      "replacement": 107
+    },
+    {
+      "id": 116,
+      "name": "Sign/Lamp Post",
+      "reason": "Cross/trident shape reads as 'fork/weapon' at small sizes. Use tile 93 (lantern) instead.",
+      "replacement": 93
+    }
+  ]
+}
