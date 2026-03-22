@@ -1189,6 +1189,12 @@ try {
   console.log('  Genetic evolver loaded');
 } catch (e) { console.warn('  Genetic evolver not loaded:', e.message); }
 
+let EvolutionLogger;
+try {
+  ({ EvolutionLogger } = require('./evolution-logger'));
+  console.log('  Evolution logger loaded');
+} catch (e) { console.warn('  Evolution logger not loaded:', e.message); }
+
 let TileRelationshipLearner, tileLearner;
 const KNOWLEDGE_PATH = path.join(TRAINER_DIR, 'learned-tile-knowledge.json');
 try {
@@ -1237,6 +1243,7 @@ app.post('/api/batch/evolve', async (req, res) => {
   (async () => {
     try {
       const evolver = new GeneticEvolver({ populationSize: popSize, mapSize: { width: mapW, height: mapH } });
+      const logger = EvolutionLogger ? new EvolutionLogger() : null;
       let population = evolver.initPopulation();
       const refImageBuf = Buffer.from(batchState.referenceImage, 'base64');
       const VISION_EVERY = 3; // vision-score best organism every Nth generation
@@ -1306,6 +1313,12 @@ app.post('/api/batch/evolve', async (req, res) => {
 
             addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)} | VISION=${visionScore}`);
 
+            // LOG: detailed generation + vision data
+            if (logger) {
+              logger.logGeneration(gen, stats, scored, visionScore);
+              if (visionResult) logger.logVisionResult(gen, visionResult);
+            }
+
             // LEARN: Feed high-scoring maps into tile relationship learner
             if (tileLearner && bestOrganism.fitness >= 50) {
               tileLearner.learnFromMap(bestOrganism.mapData, bestOrganism.fitness);
@@ -1327,6 +1340,7 @@ app.post('/api/batch/evolve', async (req, res) => {
           }
         } else {
           addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)}`);
+          if (logger) logger.logGeneration(gen, stats, scored, null);
         }
 
         // Diminishing returns detection — stop if scores plateau
@@ -1337,12 +1351,14 @@ app.post('/api/batch/evolve', async (req, res) => {
           const maxW = Math.max(...window), minW = Math.min(...window);
           if (maxW - minW < 2) {
             addLog(`Diminishing returns: audit scores plateaued (${minW.toFixed(0)}-${maxW.toFixed(0)}) over 30 gens. Stopping.`);
+            if (logger) logger.logDiminishingReturns(gen, `Score plateau ${minW.toFixed(0)}-${maxW.toFixed(0)}`);
             break;
           }
         }
         // Also stop if diversity collapses (all organisms converged)
         if (stats.diversity < 0.5 && gen > 20) {
           addLog(`Convergence: population diversity collapsed (${stats.diversity.toFixed(2)}). Stopping.`);
+          if (logger) logger.logDiminishingReturns(gen, `Diversity collapsed: ${stats.diversity.toFixed(2)}`);
           break;
         }
 
@@ -1359,6 +1375,21 @@ app.post('/api/batch/evolve', async (req, res) => {
       batchState.running = false;
       const elapsed = Math.round((Date.now() - batchState.startTime) / 1000);
       addLog(`Evolution complete: ${batchState.completedGenerations} gens in ${elapsed}s. Best vision: ${batchState.bestVisionScore}`);
+
+      // Write evolution summary with recommendations
+      if (logger) {
+        const summaryFile = logger.writeSummary();
+        addLog(`Session summary: ${summaryFile}`);
+        // Log gene correlations
+        const correlations = logger.getGeneCorrelations();
+        const topGenes = Object.entries(correlations)
+          .filter(([, v]) => v.importance > 0.5)
+          .sort(([, a], [, b]) => b.importance - a.importance)
+          .slice(0, 5);
+        if (topGenes.length > 0) {
+          addLog(`Most important genes: ${topGenes.map(([g, v]) => g + '(' + v.importance.toFixed(1) + ')').join(', ')}`);
+        }
+      }
 
       // Save all learned tile knowledge
       if (tileLearner) {
@@ -1378,6 +1409,18 @@ app.post('/api/batch/evolve', async (req, res) => {
 });
 
 // ── API: Tile Knowledge ─────────────────────────────────────────────────
+// ── API: Get evolution logs and summaries ────────────────────────────────
+app.get('/api/logs', (req, res) => {
+  const logsDir = path.join(TRAINER_DIR, 'logs');
+  if (!fs.existsSync(logsDir)) return res.json({ summaries: [] });
+  const files = fs.readdirSync(logsDir).filter(f => f.endsWith('_summary.md')).sort().reverse();
+  const summaries = files.slice(0, 10).map(f => {
+    const content = fs.readFileSync(path.join(logsDir, f), 'utf8');
+    return { filename: f, content };
+  });
+  res.json({ summaries });
+});
+
 app.get('/api/knowledge', (req, res) => {
   if (!tileLearner) return res.json({ available: false });
   const stats = tileLearner.getStats();
