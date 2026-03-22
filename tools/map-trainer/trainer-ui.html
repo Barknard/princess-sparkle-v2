@@ -445,8 +445,8 @@
         <div class="section-title">Current Best Map</div>
         <div class="map-score" id="bestMapScore">Vision: -- | Audit: --</div>
       </div>
-      <img id="bestMapImg" src="" alt="Best map" onclick="openLightbox(this.src)" style="display:none;">
-      <div class="map-placeholder" id="bestMapPlaceholder">No map generated yet</div>
+      <img id="bestMapImg" alt="Best map" onclick="openLightbox(this.src)" style="width:100%;image-rendering:pixelated;">
+      <div class="map-placeholder" id="bestMapPlaceholder" style="display:none;">No map generated yet</div>
     </div>
     <div class="map-panel">
       <div class="map-label">
@@ -986,16 +986,13 @@ async function pollStatus() {
       }
     } catch (_) { /* results endpoint is optional */ }
 
-    // Direct bestImage from status — set img src immediately
-    if (status.bestImage && status.bestImage !== state.lastBestImage) {
-      state.lastBestImage = status.bestImage;
-      var bestImg = $('bestMapImg');
-      if (bestImg) {
-        bestImg.src = status.bestImage + '?t=' + Date.now();
-        bestImg.style.display = 'block';
-        var ph = $('bestMapPlaceholder');
-        if (ph) ph.style.display = 'none';
-      }
+    // Set best map image
+    if (status.bestImage) {
+      document.getElementById('bestMapImg').src = status.bestImage + '?t=' + Date.now();
+      document.getElementById('bestMapPlaceholder').style.display = 'none';
+    } else {
+      document.getElementById('bestMapImg').src = '';
+      document.getElementById('bestMapPlaceholder').style.display = '';
     }
 
   } catch (_) {
