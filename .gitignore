@@ -17,3 +17,4 @@ playtest-*.png
 # Map trainer generated files (don't commit batch outputs)
 tools/map-trainer/batch-results/
 tools/map-trainer/evolution-memory.json
+tools/map-trainer/learned-tile-knowledge.json

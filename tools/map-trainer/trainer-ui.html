@@ -588,14 +588,30 @@
       <div class="form-group">
         <label for="cfgMode">Generation Mode</label>
         <select id="cfgMode">
-          <option value="evolve" selected>Genetic Evolution — AI learns to walk (Recommended)</option>
-          <option value="cloud">Cloud (Claude API) — LLM blueprints, ~30s/gen, ~$0.03/gen</option>
+          <option value="evolve" selected>Genetic Evolution — AI learns to build maps (Recommended)</option>
           <option value="wfc">Local WFC — instant (40ms/map), free, 1000 maps in seconds</option>
           <option value="ollama">Local LLM (Ollama) — free, ~5s/gen, requires Ollama installed</option>
         </select>
-        <p class="helper" id="modeHelper">Cloud mode uses Claude Sonnet for blueprints + Haiku for vision scoring.</p>
+        <p class="helper" id="modeHelper">Genetic Evolution evolves map parameters until maps match the reference.</p>
       </div>
     </div>
+
+    <!-- Learned Knowledge Panel -->
+    <div class="card" id="knowledgePanel" style="margin-top:16px;display:none;">
+      <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;" class="accent-color">Learned Tile Knowledge</h3>
+      <div id="knowledgeStats" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <h4 style="font-size:11px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Top Tile Adjacency Rules</h4>
+          <div id="knowledgeRules" style="max-height:150px;overflow-y:auto;font-size:11px;font-family:monospace;color:var(--text-muted);"></div>
+        </div>
+        <div>
+          <h4 style="font-size:11px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Learned Composites (Buildings, Trees)</h4>
+          <div id="knowledgeComposites" style="max-height:150px;overflow-y:auto;font-size:11px;color:var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="goToStep(1)">&larr; Back</button>
       <div class="spacer"></div>
@@ -782,6 +798,48 @@
   });
 
   // ── Step 2 -> 3: Start Evolution ──
+  // Load tile knowledge when Step 2 is shown
+  function loadKnowledge() {
+    fetch('/api/knowledge').then(function(r) { return r.json(); }).then(function(data) {
+      var panel = document.getElementById('knowledgePanel');
+      if (!data.available || !data.stats) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      var s = data.stats;
+      document.getElementById('knowledgeStats').innerHTML =
+        '<div style="background:var(--bg-dark);border-radius:6px;padding:10px;text-align:center;">' +
+          '<div style="font-size:20px;font-weight:700;" class="accent-color">' + (s.totalMapsLearned || 0) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-dim);">Maps Learned</div></div>' +
+        '<div style="background:var(--bg-dark);border-radius:6px;padding:10px;text-align:center;">' +
+          '<div style="font-size:20px;font-weight:700;color:#2ecc71;">' + (s.uniqueTiles || 0) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-dim);">Unique Tiles</div></div>' +
+        '<div style="background:var(--bg-dark);border-radius:6px;padding:10px;text-align:center;">' +
+          '<div style="font-size:20px;font-weight:700;color:#3498db;">' + (s.totalRelationships || 0) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-dim);">Relationships</div></div>' +
+        '<div style="background:var(--bg-dark);border-radius:6px;padding:10px;text-align:center;">' +
+          '<div style="font-size:20px;font-weight:700;color:#f39c12;">' + ((data.composites || []).length) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-dim);">Composites</div></div>';
+      // Top rules
+      var rulesHtml = (data.topRules || []).slice(0, 20).map(function(r) {
+        return '<div>Tile ' + r.tileA + ' → ' + r.direction + ' → Tile ' + r.tileB + ' <span style="color:var(--accent);">(' + r.count + 'x)</span></div>';
+      }).join('');
+      document.getElementById('knowledgeRules').innerHTML = rulesHtml || '<div style="color:#555;">No rules learned yet. Run an evolution first.</div>';
+      // Composites
+      var compHtml = (data.composites || []).slice(0, 10).map(function(c) {
+        return '<div style="margin-bottom:4px;">' + (c.id || 'pattern') + ' <span style="color:var(--accent);">(' + c.count + 'x, avg score ' + (c.avgScore || 0).toFixed(0) + ')</span></div>';
+      }).join('');
+      document.getElementById('knowledgeComposites').innerHTML = compHtml || '<div style="color:#555;">No composites learned yet.</div>';
+    }).catch(function() {
+      document.getElementById('knowledgePanel').style.display = 'none';
+    });
+  }
+
+  // Hook into step navigation to load knowledge on Step 2
+  var _origGoToStep2 = window.goToStep;
+  window.goToStep = function(n) {
+    _origGoToStep2(n);
+    if (n === 2) loadKnowledge();
+  };
+
   window.startEvolution = function() {
     var generations = parseInt(document.getElementById('cfgGenerations').value) || 100;
     var buildings = parseInt(document.getElementById('cfgBuildings').value) || 3;

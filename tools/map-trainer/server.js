@@ -1189,6 +1189,21 @@ try {
   console.log('  Genetic evolver loaded');
 } catch (e) { console.warn('  Genetic evolver not loaded:', e.message); }
 
+let TileRelationshipLearner, tileLearner;
+const KNOWLEDGE_PATH = path.join(TRAINER_DIR, 'learned-tile-knowledge.json');
+try {
+  ({ TileRelationshipLearner } = require('./tile-relationship-learner'));
+  tileLearner = new TileRelationshipLearner();
+  // Load existing knowledge if available
+  if (fs.existsSync(KNOWLEDGE_PATH)) {
+    tileLearner.loadFromFile(KNOWLEDGE_PATH);
+    const stats = tileLearner.getStats();
+    console.log(`  Tile learner loaded: ${stats.totalMapsLearned} maps, ${stats.totalRelationships} relationships`);
+  } else {
+    console.log('  Tile learner ready (no prior knowledge)');
+  }
+} catch (e) { console.warn('  Tile relationship learner not loaded:', e.message); }
+
 app.post('/api/batch/evolve', async (req, res) => {
   if (!GeneticEvolver) return res.status(500).json({ error: 'Genetic evolver not loaded' });
   if (batchState.running) return res.status(409).json({ error: 'Batch already running' });
@@ -1291,6 +1306,17 @@ app.post('/api/batch/evolve', async (req, res) => {
 
             addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)} | VISION=${visionScore}`);
 
+            // LEARN: Feed high-scoring maps into tile relationship learner
+            if (tileLearner && bestOrganism.fitness >= 50) {
+              tileLearner.learnFromMap(bestOrganism.mapData, bestOrganism.fitness);
+              // Save knowledge periodically (every 10 vision-checked gens)
+              if (gen % (VISION_EVERY * 10) === 0) {
+                tileLearner.saveToFile(KNOWLEDGE_PATH);
+                const lStats = tileLearner.getStats();
+                addLog(`  Tile knowledge saved: ${lStats.totalMapsLearned} maps, ${lStats.totalRelationships} relationships`);
+              }
+            }
+
             // Check target
             if (visionScore >= targetScore) {
               addLog(`TARGET REACHED! Vision ${visionScore} >= ${targetScore}`);
@@ -1301,6 +1327,23 @@ app.post('/api/batch/evolve', async (req, res) => {
           }
         } else {
           addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)}`);
+        }
+
+        // Diminishing returns detection — stop if scores plateau
+        if (!recentBestScores) var recentBestScores = [];
+        recentBestScores.push(stats.best);
+        if (recentBestScores.length >= 30) {
+          const window = recentBestScores.slice(-30);
+          const maxW = Math.max(...window), minW = Math.min(...window);
+          if (maxW - minW < 2) {
+            addLog(`Diminishing returns: audit scores plateaued (${minW.toFixed(0)}-${maxW.toFixed(0)}) over 30 gens. Stopping.`);
+            break;
+          }
+        }
+        // Also stop if diversity collapses (all organisms converged)
+        if (stats.diversity < 0.5 && gen > 20) {
+          addLog(`Convergence: population diversity collapsed (${stats.diversity.toFixed(2)}). Stopping.`);
+          break;
         }
 
         // Evolve to next generation
@@ -1316,11 +1359,48 @@ app.post('/api/batch/evolve', async (req, res) => {
       batchState.running = false;
       const elapsed = Math.round((Date.now() - batchState.startTime) / 1000);
       addLog(`Evolution complete: ${batchState.completedGenerations} gens in ${elapsed}s. Best vision: ${batchState.bestVisionScore}`);
+
+      // Save all learned tile knowledge
+      if (tileLearner) {
+        tileLearner.extractComposites();
+        tileLearner.saveToFile(KNOWLEDGE_PATH);
+        const lStats = tileLearner.getStats();
+        addLog(`Tile knowledge saved: ${lStats.totalMapsLearned} maps, ${lStats.uniqueTiles} unique tiles, ${lStats.totalRelationships} relationships`);
+        if (lStats.topComposites && lStats.topComposites.length > 0) {
+          addLog(`Learned composites: ${lStats.topComposites.map(c => c.id + '(x' + c.count + ')').join(', ')}`);
+        }
+      }
     } catch (err) {
       addLog(`FATAL: ${err.message}`);
       batchState.running = false;
     }
   })();
+});
+
+// ── API: Tile Knowledge ─────────────────────────────────────────────────
+app.get('/api/knowledge', (req, res) => {
+  if (!tileLearner) return res.json({ available: false });
+  const stats = tileLearner.getStats();
+  const knowledge = tileLearner.exportKnowledge();
+  // Summarize top adjacency rules for display
+  const topRules = [];
+  for (const [tileA, dirs] of Object.entries(knowledge.adjacency || {})) {
+    for (const [dir, neighbors] of Object.entries(dirs)) {
+      const sorted = Object.entries(neighbors).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      for (const [tileB, count] of sorted) {
+        if (count >= 3 && parseInt(tileB) >= 0) {
+          topRules.push({ tileA: parseInt(tileA), direction: dir, tileB: parseInt(tileB), count });
+        }
+      }
+    }
+  }
+  topRules.sort((a, b) => b.count - a.count);
+  res.json({
+    available: true,
+    stats,
+    topRules: topRules.slice(0, 50),
+    composites: Object.values(knowledge.composites || {}).sort((a, b) => b.count - a.count).slice(0, 20)
+  });
 });
 
 // ── API: Check local capabilities ───────────────────────────────────────
