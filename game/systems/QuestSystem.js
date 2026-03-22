@@ -41,7 +41,7 @@ export const QuestStatus = {
  * @property {string} giverNpcId - NPC who gives this quest
  * @property {string} value - Family value this teaches (sharing, kindness, etc.)
  * @property {number} heartReward - Hearts awarded on completion
- * @property {string} [bridgeColor] - Rainbow bridge color this unlocks
+ * @property {string} [pathColor] - Starlight path color this unlocks
  * @property {QuestStageDefinition[]} stages - Ordered list of stages
  */
 

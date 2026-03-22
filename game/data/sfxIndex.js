@@ -35,7 +35,7 @@ export const SFX = {
   // === Reward ===
   heartEarned:        './audio/sfx/reward/heart-earned.mp3',
   levelUp:            './audio/sfx/reward/level-up.mp3',
-  bridgePiece:        './audio/sfx/reward/bridge-piece.mp3',
+  pathPiece:          './audio/sfx/reward/bridge-piece.mp3',
 
   // === Companion ===
   trailShimmer:       './audio/sfx/companion/trail-shimmer.mp3',
@@ -86,7 +86,7 @@ export const SFX_CATEGORIES = {
   social:    { keys: ['npcTalk', 'dialogueAdvance'],                           volume: 0.40 },
   items:     { keys: ['pickup', 'deliver'],                                    volume: 0.38 },
   quest:     { keys: ['questAccept', 'questComplete'],                         volume: 0.45 },
-  reward:    { keys: ['heartEarned', 'levelUp', 'bridgePiece'],               volume: 0.50 },
+  reward:    { keys: ['heartEarned', 'levelUp', 'pathPiece'],                volume: 0.50 },
   companion: { keys: ['trailShimmer', 'companionSpeak', 'evolution'],          volume: 0.35 },
   world:     { keys: ['flowerTap', 'waterPlop', 'treeRustle', 'mailbox', 'mushroomBoing', 'crystalTone'], volume: 0.32 },
   animal:    { keys: ['catPurr', 'dogBark', 'birdTweet', 'frogRibbit', 'duckQuack'], volume: 0.30 },

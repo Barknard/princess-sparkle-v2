@@ -14,9 +14,11 @@ import AssetLoader from './engine/AssetLoader.js';
 import Camera from './engine/Camera.js';
 import SaveManager from './engine/SaveManager.js';
 import TransitionOverlay from './engine/TransitionOverlay.js';
-import { setAudioContext, unlockVoiceAudio } from './data/voiceIndex.js';
+import { setAudioContext, unlockVoiceAudio, setSubtitleCallback } from './data/voiceIndex.js';
+import SubtitleBar from './ui/SubtitleBar.js';
 import TileSet from './world/TileSet.js';
 import TileMap from './world/TileMap.js';
+import { loadTiledMap } from './world/TiledLoader.js';
 import { SFX } from './data/sfxIndex.js';
 import TitleScene from './scenes/TitleScene.js';
 import CompanionSelectScene from './scenes/CompanionSelectScene.js';
@@ -52,6 +54,13 @@ const transitionOverlay = new TransitionOverlay();
 const sceneManager = new SceneManager(transitionOverlay);
 const inputManager = new InputManager(canvas, renderer);
 const gameLoop = new GameLoop();
+const subtitleBar = new SubtitleBar();
+
+// Wire subtitles to voice system — parents see text for every voice line
+setSubtitleCallback((text) => {
+  if (text) subtitleBar.show(text);
+  else subtitleBar.hide();
+});
 
 // ── Tileset and TileMap (Kenney Tiny Town) ────────────────────────────────
 
@@ -87,6 +96,7 @@ const game = {
   inputManager,
   gameLoop,
   transitionOverlay,
+  subtitleBar,
   townTileset,
   dungeonTileset,
   tileMap
@@ -108,6 +118,9 @@ function update(dt) {
 
   // Update the active scene stack
   sceneManager.update(dt);
+
+  // Update subtitle bar (fade animation)
+  subtitleBar.update(dt);
 }
 
 function draw() {
@@ -116,6 +129,9 @@ function draw() {
 
   // Draw all visible scenes (including transition overlay)
   sceneManager.draw(renderer);
+
+  // Draw subtitles on top of everything (for parents)
+  subtitleBar.draw(renderer.ctx);
 }
 
 // ── Register scenes ────────────────────────────────────────────────────────
@@ -179,9 +195,35 @@ async function boot() {
   }
 
   // Pre-load the first level into the TileMap
+  // Try Tiled JSON (.tmj) first, fall back to JS level
   if (townTileset.loaded) {
-    tileMap.loadLevel(sparkleVillage, townTileset);
-    console.log(`Level "${sparkleVillage.name}" loaded: ${sparkleVillage.width}x${sparkleVillage.height}`);
+    let levelData;
+    try {
+      levelData = await loadTiledMap('./levels/sparkle-village.tmj');
+      console.log('Loaded Tiled map: sparkle-village.tmj');
+    } catch (e) {
+      levelData = sparkleVillage;
+      console.log('Loaded JS level: level-sparkle-village.js');
+    }
+
+    // Entity data always comes from the JS level file
+    // (.tmj only contains tile layers, not NPCs/quests/animals)
+    levelData.npcs = sparkleVillage.npcs;
+    levelData.quests = sparkleVillage.quests;
+    levelData.animals = sparkleVillage.animals;
+    levelData.worldObjects = sparkleVillage.worldObjects;
+    levelData.dialogues = sparkleVillage.dialogues;
+    levelData.transitions = sparkleVillage.transitions;
+    levelData.tilesetConfig = sparkleVillage.tilesetConfig;
+    levelData.animatedTiles = sparkleVillage.animatedTiles;
+    levelData.spawnX = sparkleVillage.spawnX;
+    levelData.spawnY = sparkleVillage.spawnY;
+    levelData.id = sparkleVillage.id;
+    levelData.name = sparkleVillage.name;
+    levelData.tileSize = sparkleVillage.tileSize;
+
+    tileMap.loadLevel(levelData, townTileset);
+    console.log(`Level "${levelData.name}" loaded: ${levelData.width}x${levelData.height}`);
   }
 
   // Start with TitleScene

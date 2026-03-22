@@ -4,12 +4,13 @@
  * Reads individual frame PNGs from the Superdark Fantasy/Forest packs and
  * combines them into horizontal-strip spritesheets suitable for the game engine.
  *
- * Output layout per sheet:
- *   Row 0: Idle frames (left to right)
- *   Row 1: Walk frames (left to right)
+ * Output layout per sheet (single row, 8 frames):
+ *   Frames 0-1: Idle (used at 500ms per frame)
+ *   Frames 2-3: Idle extra (present but unused by default)
+ *   Frames 4-7: Walk (used at 150ms per frame)
  *
  * Each frame is 16x16 pixels.
- * A character with 4 idle + 4 walk frames = 64x32 spritesheet.
+ * Result: 128x16 spritesheet per character.
  *
  * Usage:  node tools/build-spritesheets.js
  */
@@ -33,17 +34,16 @@ const FRAME_H = 16;
 /**
  * Character/creature definitions.
  * Each entry maps an output name to source frame paths.
+ * Layout: [Idle1, Idle2, Idle3, Idle4, Walk1, Walk2, Walk3, Walk4]
  */
 const SHEET_DEFS = [
   {
     name: 'princess',
-    idle: [
+    frames: [
       path.join(CHAR_BASE, 'Princess', 'Princess_Idle_1.png'),
       path.join(CHAR_BASE, 'Princess', 'Princess_Idle_2.png'),
       path.join(CHAR_BASE, 'Princess', 'Princess_Idle_3.png'),
       path.join(CHAR_BASE, 'Princess', 'Princess_Idle_4.png'),
-    ],
-    walk: [
       path.join(CHAR_BASE, 'Princess', 'Princess_Walk_1.png'),
       path.join(CHAR_BASE, 'Princess', 'Princess_Walk_2.png'),
       path.join(CHAR_BASE, 'Princess', 'Princess_Walk_3.png'),
@@ -52,13 +52,11 @@ const SHEET_DEFS = [
   },
   {
     name: 'merchant',
-    idle: [
+    frames: [
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Idle_1.png'),
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Idle_2.png'),
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Idle_3.png'),
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Idle_4.png'),
-    ],
-    walk: [
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Walk_1.png'),
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Walk_2.png'),
       path.join(CHAR_BASE, 'Merchant', 'Merchant_Walk_3.png'),
@@ -67,13 +65,11 @@ const SHEET_DEFS = [
   },
   {
     name: 'townsfolk-male',
-    idle: [
+    frames: [
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Idle_1.png'),
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Idle_2.png'),
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Idle_3.png'),
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Idle_4.png'),
-    ],
-    walk: [
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Walk_1.png'),
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Walk_2.png'),
       path.join(CHAR_BASE, 'Townsfolk - Male', 'Townsfolk_M_Walk_3.png'),
@@ -82,13 +78,11 @@ const SHEET_DEFS = [
   },
   {
     name: 'townsfolk-female',
-    idle: [
+    frames: [
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Idle_1.png'),
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Idle_2.png'),
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Idle_3.png'),
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Idle_4.png'),
-    ],
-    walk: [
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Walk_1.png'),
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Walk_2.png'),
       path.join(CHAR_BASE, 'Townsfolk - Female', 'Townsfolk_F_Walk_3.png'),
@@ -97,13 +91,11 @@ const SHEET_DEFS = [
   },
   {
     name: 'wolf',
-    idle: [
+    frames: [
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Idle_1.png'),
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Idle_2.png'),
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Idle_3.png'),
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Idle_4.png'),
-    ],
-    walk: [
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Walk_1.png'),
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Walk_2.png'),
       path.join(CREATURE_BASE, 'Wolf', 'Wolf_Walk_3.png'),
@@ -111,41 +103,179 @@ const SHEET_DEFS = [
     ],
   },
   {
-    // Fairy has combined Idle+Walk frames (4 frames total, used for both)
+    // Fairy has combined Idle+Walk frames (4 frames total, duplicated to fill 8)
     name: 'fairy',
-    idle: [
+    frames: [
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_1.png'),
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_2.png'),
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_3.png'),
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_4.png'),
-    ],
-    walk: [
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_1.png'),
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_2.png'),
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_3.png'),
       path.join(CREATURE_BASE, 'Fairy', 'Fairy_Idle + Walk_4.png'),
     ],
   },
+
+  // ── Superdark Fantasy RPG NPCs ──────────────────────────────────────────
+  {
+    name: 'queen',
+    frames: [
+      path.join(CHAR_BASE, 'Queen', 'Queen_Idle_1.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Idle_2.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Idle_3.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Idle_4.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Walk_1.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Walk_2.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Walk_3.png'),
+      path.join(CHAR_BASE, 'Queen', 'Queen_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'alchemist',
+    frames: [
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Idle_1.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Idle_2.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Idle_3.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Idle_4.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Walk_1.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Walk_2.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Walk_3.png'),
+      path.join(CHAR_BASE, 'Alchemist', 'Alchemist_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'blacksmith',
+    frames: [
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Idle_1.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Idle_2.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Idle_3.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Idle_4.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Walk_1.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Walk_2.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Walk_3.png'),
+      path.join(CHAR_BASE, 'Blacksmith', 'Blacksmith_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'knight',
+    frames: [
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Idle_1.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Idle_2.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Idle_3.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Idle_4.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Walk_1.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Walk_2.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Walk_3.png'),
+      path.join(CHAR_BASE, 'Knight - Standard', 'Knight_Walk_4.png'),
+    ],
+  },
+
+  // ── Superdark Enchanted Forest Creatures ─────────────────────────────────
+  {
+    name: 'bear',
+    frames: [
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Walk_1.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Walk_2.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Walk_3.png'),
+      path.join(CREATURE_BASE, 'Bear', 'Bear_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'elf-female',
+    frames: [
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Walk_1.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Walk_2.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Walk_3.png'),
+      path.join(CREATURE_BASE, 'Elf - Female', 'Elf_F_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'elf-princess',
+    frames: [
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Walk_1.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Walk_2.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Walk_3.png'),
+      path.join(CREATURE_BASE, 'Elf Princess', 'HighElf_F_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'ranger',
+    frames: [
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Walk_1.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Walk_2.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Walk_3.png'),
+      path.join(CREATURE_BASE, 'Ranger', 'Ranger_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'mushroom-small',
+    frames: [
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Walk_1.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Walk_2.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Walk_3.png'),
+      path.join(CREATURE_BASE, 'Mushroom - Small', 'SmallMushroom_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'ent',
+    frames: [
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Walk_1.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Walk_2.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Walk_3.png'),
+      path.join(CREATURE_BASE, 'Ent', 'Ent_Walk_4.png'),
+    ],
+  },
+  {
+    name: 'forest-guardian',
+    frames: [
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_Idle_1.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_Idle_2.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_Idle_3.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_Idle_4.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_walk_1.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_walk_2.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_walk_3.png'),
+      path.join(CREATURE_BASE, 'Forest Guardian', 'ForestGuardian_walk_4.png'),
+    ],
+  },
 ];
 
 /**
  * Build a single spritesheet from frame files.
- *
- * @param {object} def - Sheet definition with name, idle[], walk[]
- * @returns {Promise<void>}
+ * Single horizontal strip: all frames in one row.
  */
 async function buildSheet(def) {
-  const idleCount = def.idle.length;
-  const walkCount = def.walk.length;
-  const cols = Math.max(idleCount, walkCount);
-  const rows = 2; // row 0 = idle, row 1 = walk
-
-  const sheetW = cols * FRAME_W;
-  const sheetH = rows * FRAME_H;
+  const frameCount = def.frames.length;
+  const sheetW = frameCount * FRAME_W;
+  const sheetH = FRAME_H; // single row
 
   // Verify all source frames exist
-  const allFrames = [...def.idle, ...def.walk];
-  for (const framePath of allFrames) {
+  for (const framePath of def.frames) {
     if (!fs.existsSync(framePath)) {
       console.error(`  MISSING: ${framePath}`);
       console.error(`  Skipping sheet "${def.name}"`);
@@ -153,12 +283,10 @@ async function buildSheet(def) {
     }
   }
 
-  // Build composite operations
+  // Build composite operations — single row
   const composites = [];
-
-  // Row 0: Idle frames
-  for (let i = 0; i < idleCount; i++) {
-    const buf = await sharp(def.idle[i])
+  for (let i = 0; i < frameCount; i++) {
+    const buf = await sharp(def.frames[i])
       .resize(FRAME_W, FRAME_H, { fit: 'fill', kernel: 'nearest' })
       .png()
       .toBuffer();
@@ -169,20 +297,6 @@ async function buildSheet(def) {
     });
   }
 
-  // Row 1: Walk frames
-  for (let i = 0; i < walkCount; i++) {
-    const buf = await sharp(def.walk[i])
-      .resize(FRAME_W, FRAME_H, { fit: 'fill', kernel: 'nearest' })
-      .png()
-      .toBuffer();
-    composites.push({
-      input: buf,
-      left: i * FRAME_W,
-      top: FRAME_H,
-    });
-  }
-
-  // Create the blank canvas and composite all frames
   const outPath = path.join(OUTPUT_DIR, `${def.name}.png`);
   await sharp({
     create: {
@@ -196,18 +310,15 @@ async function buildSheet(def) {
     .png()
     .toFile(outPath);
 
-  console.log(`  OK: ${def.name}.png (${sheetW}x${sheetH}, ${idleCount} idle + ${walkCount} walk frames)`);
+  console.log(`  OK: ${def.name}.png (${sheetW}x${sheetH}, ${frameCount} frames — idle 0-1, walk 4-7)`);
 }
 
-/**
- * Main: build all spritesheets.
- */
 async function main() {
   console.log('Building spritesheets...');
   console.log(`  Output: ${OUTPUT_DIR}`);
+  console.log(`  Layout: single row [Idle1, Idle2, Idle3, Idle4, Walk1, Walk2, Walk3, Walk4]`);
   console.log('');
 
-  // Ensure output directory exists
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   for (const def of SHEET_DEFS) {

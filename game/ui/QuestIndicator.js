@@ -13,14 +13,17 @@
 // ---- Constants --------------------------------------------------------------
 
 const PULSE_MIN = 1.0;
-const PULSE_MAX = 1.2;
+const PULSE_MAX = 1.4;
 const PULSE_CYCLE_S = 1.5;
 
-const INDICATOR_SIZE = 12;           // logical pixels (width and height of the star)
-const GLOW_RADIUS = 8;              // glow extends beyond the star
+const INDICATOR_SIZE = 16;           // logical pixels (width and height of the star)
+const GLOW_RADIUS = 16;             // glow extends beyond the star
 const GLOW_COLOR = 'rgba(255, 220, 100, 0.4)';
 const STAR_COLOR = '#ffd700';
 const STAR_INNER_COLOR = '#fff8dc';
+
+const RING_CYCLE_S = 1.5;            // time for beacon ring to expand and reset
+const RING_MAX_RADIUS = 32;          // max radius of expanding beacon rings
 
 const MAX_POOL_SIZE = 16;            // max simultaneous indicators
 
@@ -33,6 +36,8 @@ class Indicator {
     this.worldY = 0;       // top of the indicator in world space (above NPC)
     this.timer = 0;        // pulse timer
     this.scale = 1.0;
+    this.ringTimer1 = 0;   // beacon ring 1
+    this.ringTimer2 = 0.75; // beacon ring 2 (staggered)
   }
 
   /** Activate this indicator at a world position (above an NPC). */
@@ -54,6 +59,10 @@ class Indicator {
     this.timer += dt;
     const t = (Math.sin(this.timer * Math.PI * 2 / PULSE_CYCLE_S) + 1) * 0.5; // 0..1
     this.scale = PULSE_MIN + (PULSE_MAX - PULSE_MIN) * t;
+
+    // Update beacon ring timers
+    this.ringTimer1 = (this.ringTimer1 + dt) % RING_CYCLE_S;
+    this.ringTimer2 = (this.ringTimer2 + dt) % RING_CYCLE_S;
   }
 
   /**
@@ -69,6 +78,20 @@ class Indicator {
     const halfSize = (INDICATOR_SIZE * this.scale / 2) | 0;
 
     ctx.save();
+
+    // Beacon rings (drawn behind the star)
+    const ringTimers = [this.ringTimer1, this.ringTimer2];
+    for (let r = 0; r < ringTimers.length; r++) {
+      const rt = ringTimers[r] / RING_CYCLE_S;  // 0 to 1
+      const ringRadius = 4 + (RING_MAX_RADIUS - 4) * rt;
+      const ringAlpha = 0.6 * (1 - rt);
+      ctx.globalAlpha = ringAlpha;
+      ctx.strokeStyle = 'rgba(255,215,0,' + ringAlpha + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, ringRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     // Soft glow
     ctx.globalAlpha = 0.4 + 0.15 * (this.scale - PULSE_MIN) / (PULSE_MAX - PULSE_MIN);

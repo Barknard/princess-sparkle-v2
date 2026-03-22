@@ -87,6 +87,16 @@ export default class DialogueBox {
     /** @type {Array<{id: string, icon: HTMLImageElement|null, iconSrc: object|null, x: number, y: number, w: number, h: number}>} */
     this._choices = [];
 
+    // Nudge level: 0=none, 1=pulse, 2=sparkles, 3=companion hint
+    this._nudgeLevel = 0;
+    this._nudgeTimer = 0;
+
+    // Pre-allocated sparkle particle state (3 particles per button, max 4 buttons = 12)
+    this._sparkles = new Array(12);
+    for (let i = 0; i < 12; i++) {
+      this._sparkles[i] = { phase: i * 0.83, radius: 6 + (i % 3) * 4, size: 2 + (i % 3) };
+    }
+
     // Callback when a choice is tapped
     /** @type {Function|null} */
     this.onChoice = null;
@@ -124,6 +134,8 @@ export default class DialogueBox {
     this._fadeAlpha = 0;
     this._fading = 'none';
     this._choices = [];
+    this._nudgeLevel = 0;
+    this._nudgeTimer = 0;
   }
 
   /** Set whether voice is currently playing (controls glow pulse). */
@@ -158,6 +170,15 @@ export default class DialogueBox {
   /** Clear choices (after one is selected). */
   clearChoices() {
     this._choices = [];
+    this._nudgeLevel = 0;
+  }
+
+  /**
+   * Set the visual nudge escalation level.
+   * @param {number} level — 0=none, 1=pulse, 2=sparkles, 3=companion hint
+   */
+  setNudgeLevel(level) {
+    this._nudgeLevel = level;
   }
 
   /**
@@ -191,6 +212,11 @@ export default class DialogueBox {
 
     // Glow timer
     this._glowTimer += dt;
+
+    // Nudge animation timer
+    if (this._nudgeLevel > 0) {
+      this._nudgeTimer += dt;
+    }
 
     // Detect voice-stop transition: trigger bounce to say "tap to continue"
     if (this._prevVoicePlaying && !this._voicePlaying) {
@@ -324,16 +350,27 @@ export default class DialogueBox {
     for (let i = 0; i < this._choices.length; i++) {
       const c = this._choices[i];
       const pulse = Math.sin(this._glowTimer * 2.5 + i * 1.3) * 0.5 + 0.5;
+      const cx = (c.x + c.w / 2) | 0;
+      const cy = (c.y + c.h / 2) | 0;
 
       // Animated glow behind choice (shows it is tappable)
       ctx.save();
       ctx.globalAlpha = alpha * (0.15 + pulse * 0.15);
       ctx.fillStyle = '#ffd700';
       ctx.beginPath();
-      ctx.arc((c.x + c.w / 2) | 0, (c.y + c.h / 2) | 0, (c.w * 0.6) | 0, 0, Math.PI * 2);
+      ctx.arc(cx, cy, (c.w * 0.6) | 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       ctx.globalAlpha = alpha;
+
+      // Nudge pulse: scale button with gentle breathing effect
+      if (this._nudgeLevel >= 1) {
+        const nudgeScale = 1.0 + 0.08 * Math.sin(this._nudgeTimer * 4);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(nudgeScale, nudgeScale);
+        ctx.translate(-cx, -cy);
+      }
 
       // Button background
       ctx.fillStyle = 'rgba(255, 245, 250, 0.95)';
@@ -351,6 +388,42 @@ export default class DialogueBox {
         const ix = (c.x + (c.w - iconSize) / 2) | 0;
         const iy = (c.y + (c.h - iconSize) / 2) | 0;
         ctx.drawImage(c.icon, is.sx, is.sy, is.sw, is.sh, ix, iy, iconSize, iconSize);
+      }
+
+      // Restore nudge pulse transform
+      if (this._nudgeLevel >= 1) {
+        ctx.restore();
+      }
+
+      // Nudge sparkles: draw 3 small sparkle particles orbiting each button
+      if (this._nudgeLevel >= 2) {
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.8;
+        ctx.fillStyle = '#ffd700';
+        for (let si = 0; si < 3; si++) {
+          const sp = this._sparkles[i * 3 + si];
+          const angle = this._nudgeTimer * 2.2 + sp.phase;
+          const sx = (cx + Math.cos(angle) * sp.radius * (c.w / 80)) | 0;
+          const sy = (cy + Math.sin(angle) * sp.radius * (c.h / 80)) | 0;
+          const sparkSize = sp.size;
+          // 4-point star sparkle
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - sparkSize);
+          ctx.lineTo(sx + 1, sy);
+          ctx.lineTo(sx, sy + sparkSize);
+          ctx.lineTo(sx - 1, sy);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(sx - sparkSize, sy);
+          ctx.lineTo(sx, sy + 1);
+          ctx.lineTo(sx + sparkSize, sy);
+          ctx.lineTo(sx, sy - 1);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.globalAlpha = alpha;
       }
     }
 

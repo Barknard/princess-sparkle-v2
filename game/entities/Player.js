@@ -36,9 +36,9 @@ const WALK_SPEED = 2.0 * 16; // 2 tiles per second in pixels (32 px/s)
 
 // Animation timing
 const WALK_FRAME_MS = 150;
-const WALK_FRAMES = 4;  // Superdark princess has 4 walk frames
-const IDLE_FRAME_MS = 400;
-const IDLE_FRAMES = 4;  // Superdark princess has 4 idle frames
+const WALK_FRAMES = 4;  // Superdark: walk frames 4-7
+const IDLE_FRAME_MS = 500;
+const IDLE_FRAMES = 2;  // Superdark: idle frames 0-1
 
 // Silly reaction thresholds
 const SNEEZE_CHANCE = 0.33; // 1 in 3 near big flowers

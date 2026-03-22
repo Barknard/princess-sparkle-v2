@@ -18,6 +18,8 @@ import QuestIndicatorPool from '../ui/QuestIndicator.js';
 import TransitionOverlay from '../ui/TransitionOverlay.js';
 import { playVoice, preloadVoices, SCENE_VOICES } from '../data/voiceIndex.js';
 import spriteSheets from '../data/SpriteSheetManager.js';
+import WaypointSystem from '../ui/WaypointSystem.js';
+import InstructionBubble from '../ui/InstructionBubble.js';
 import Player from '../entities/Player.js';
 import Companion from '../entities/Companion.js';
 import QuestSystem from '../systems/QuestSystem.js';
@@ -135,6 +137,8 @@ export default class OverworldScene {
     this._hud = new HUD();
     this._questIndicators = new QuestIndicatorPool();
     this._transition = new TransitionOverlay();
+    this._waypointSystem = new WaypointSystem();
+    this._instructionBubble = new InstructionBubble();
 
     // Session timer (total seconds in this session)
     this._sessionTime = 0;
@@ -191,12 +195,14 @@ export default class OverworldScene {
     this._autoWalkTriggered = false;
     this._autoWalkTimer = 0;
 
-    // Tutorial sequence state machine
-    // Steps: 0=wait (<1s), 1=narrator "This is Sparkle Village!",
-    //        2=camera pan to Grandma, 3=narrator "See that sparkle?",
-    //        4=camera pan back to player, 5=sparkle trail to Grandma,
-    //        6=companion encouragement, 7=done
+    // Tutorial sequence state machine — Streamlined for 4-year-old
+    // Steps: 0=wait (<1s), 1="Welcome to Sparkle Village!" (arrival),
+    //        2="Tap anywhere to walk!" (gentle nudge),
+    //        3="You did it!" (celebrate walk),
+    //        4="Someone needs your help!" (quest intro + waypoint),
+    //        5=done (free play, waypoint stays active)
     this._tutorialStep = 0;
+    this._tutorialPlayerWalked = false;  // step 2: did she walk?
     this._tutorialTimer = 0;
     this._tutorialCameraPanActive = false;
     this._tutorialCameraPanTimer = 0;
@@ -211,6 +217,20 @@ export default class OverworldScene {
     }
     this._tutorialSparkleTrailFadeTimer = 0; // lingers after tutorial ends
     this._tutorialSparkleTrailFading = false;
+
+    // Voice guard flags — prevent audio loops on repeated updates
+    this._tutorialVoiceArrivalPlayed = false;
+    this._tutorialVoiceTapPlayed = false;
+    this._tutorialVoiceCelebratePlayed = false;
+    this._tutorialVoiceQuestIntroPlayed = false;
+    this._tutorialVoiceFollowPlayed = false;
+
+    // Quest 1 proximity auto-trigger system
+    this._questProximityTriggerRange = 48; // 3 tiles * 16px = 48px
+    this._questProximityState = 'idle'; // idle | approach | talking | walking_to_lily | at_lily | returning | at_grandma | complete
+    this._questProximityTimer = 0;
+    this._questProximityDialogueIndex = 0;
+    this._questProximityVoiceGuards = {}; // prevent voice loops
 
     // Idle nudge system — companion bounce + sparkle burst if player hasn't moved
     this._idleNudgeTimer = 0;
@@ -333,6 +353,15 @@ export default class OverworldScene {
     this._tutorialCameraPanTimer = 0;
     this._tutorialSparkleTrailFadeTimer = 0;
     this._tutorialSparkleTrailFading = false;
+    this._tutorialVoiceArrivalPlayed = false;
+    this._tutorialVoiceTapPlayed = false;
+    this._tutorialVoiceCelebratePlayed = false;
+    this._tutorialVoiceQuestIntroPlayed = false;
+    this._tutorialVoiceFollowPlayed = false;
+    this._questProximityState = 'idle';
+    this._questProximityTimer = 0;
+    this._questProximityDialogueIndex = 0;
+    this._questProximityVoiceGuards = {};
     this._idleNudgeTimer = 0;
     this._idleNudgeCount = 0;
     this._idleNudgeActive = false;
@@ -490,6 +519,12 @@ export default class OverworldScene {
     // Quest indicators
     this._questIndicators.update(dt);
 
+    // Waypoint system
+    this._waypointSystem.update(dt);
+
+    // Instruction bubble
+    this._instructionBubble.update(dt);
+
     // Camera follow player
     this._updateCamera(dt);
 
@@ -507,6 +542,9 @@ export default class OverworldScene {
 
     // First visit: tutorial sequence guides player to Grandma Rose
     this._updateAutoWalkDemo(dt);
+
+    // Quest 1 proximity auto-trigger (approach Grandma, Lily, return)
+    this._updateQuestProximity(dt);
 
     // Idle nudge — companion bounce if player hasn't moved
     this._updateIdleNudge(dt);
@@ -611,6 +649,7 @@ export default class OverworldScene {
       }
 
       // Simple move toward wander target
+      npc.isWandering = false;
       if (npc.wanderTarget) {
         const dx = npc.wanderTarget.x - npc.x;
         const dy = npc.wanderTarget.y - npc.y;
@@ -619,7 +658,7 @@ export default class OverworldScene {
           const speed = 16; // px/s (slow NPC wander)
           npc.x += (dx / dist) * speed * dt;
           npc.y += (dy / dist) * speed * dt;
-          // Flip sprite based on horizontal movement direction
+          npc.isWandering = true;
           if (Math.abs(dx) > Math.abs(dy)) {
             npc.flipX = dx < 0;
           }
@@ -628,8 +667,15 @@ export default class OverworldScene {
         }
       }
 
-      // Advance animation timer for idle bob
+      // Animation: idle frames 0-1 @500ms, walk frames 4-7 @150ms
+      const isMoving = npc.isWandering;
+      const frameInterval = isMoving ? 150 : 500;
+      const frameCount = isMoving ? 4 : 2;
       npc.animTimer = (npc.animTimer || 0) + dt * 1000;
+      if (npc.animTimer >= frameInterval) {
+        npc.animTimer -= frameInterval;
+        npc.animFrame = ((npc.animFrame || 0) + 1) % frameCount;
+      }
     }
   }
 
@@ -640,14 +686,11 @@ export default class OverworldScene {
       const a = this._animals[i];
       if (!a.active) continue;
 
-      a.animTimer += dt * 1000;
-
       // Zone-based wandering: pick a new target when idle, move toward it
+      a._isMoving = false;
       if (!a.wanderTarget) {
-        // Pause before picking a new target
         a.wanderPause = (a.wanderPause || 0) - dt;
         if (a.wanderPause <= 0) {
-          // Pick a random point within the animal's zone (or near home)
           const homeX = a.homeX || a.x;
           const homeY = a.homeY || a.y;
           const range = (a.zoneW || 4) * 16;
@@ -664,24 +707,33 @@ export default class OverworldScene {
         const dy = a.wanderTarget.y - a.y;
         const dist = Math.hypot(dx, dy);
         if (dist > 2) {
-          const speed = 12; // px/s (slow animal wander)
+          const speed = 12;
           a.vx = (dx / dist) * speed;
           a.vy = (dy / dist) * speed;
           a.x += a.vx * dt;
           a.y += a.vy * dt;
+          a._isMoving = true;
         } else {
-          // Reached target, pause before next wander
           a.wanderTarget = null;
           a.wanderPause = 2 + Math.random() * 4;
           a.vx = 0;
           a.vy = 0;
-          a.state = 'idle';
         }
       }
 
-      // Track facing direction based on velocity
-      if (Math.abs(a.vx) > 0.1) {
+      // Track facing direction
+      if (Math.abs(a.vx || 0) > 0.1) {
         a.flipX = a.vx < 0;
+      }
+
+      // Animation: idle frames 0-1 @500ms, walk frames 4-7 @150ms
+      const isMoving = a._isMoving;
+      const frameInterval = isMoving ? 150 : 500;
+      const frameCount = isMoving ? 4 : 2;
+      a.animTimer = (a.animTimer || 0) + dt * 1000;
+      if (a.animTimer >= frameInterval) {
+        a.animTimer -= frameInterval;
+        a.animFrame = ((a.animFrame || 0) + 1) % frameCount;
       }
     }
   }
@@ -846,17 +898,18 @@ export default class OverworldScene {
   }
 
   /**
-   * First-visit tutorial sequence — guides the player on what to do.
+   * First-visit tutorial sequence — streamlined for 4-year-old.
+   * 5 steps, ~10-15 seconds, auto-advancing. Learns by doing.
    *
    * Steps:
-   *   0: Wait <1s for scene to settle
-   *   1: Narrator: "This is Sparkle Village!" (narrator_village_arrive_01)
-   *   2: Camera smoothly pans to Grandma Rose with glowing quest "!" (2.5s)
-   *   3: Narrator: "See that sparkle? That means someone needs help!" (narrator_village_quest_hint_01)
-   *   4: Camera pans back to player
-   *   5: Sparkle trail of golden diamonds appears from player toward Grandma
-   *   6: Companion says something encouraging
-   *   7: Tutorial done — normal gameplay resumes
+   *   0: Wait ~1s for scene to settle
+   *   1: "Welcome to Sparkle Village!" — princess idle, gentle camera pan
+   *   2: "Tap anywhere to walk!" — InstructionBubble tap icon, pulsing
+   *      Auto-advance after 6s OR when player taps/walks
+   *   3: "You did it! Great job!" — sparkle burst, brief pause (1.5s)
+   *   4: "Someone needs your help!" — activate waypoint + heart trail to Grandma
+   *      "Follow the sparkles!"
+   *   5: Done — free play, waypoint stays active
    */
   _updateAutoWalkDemo(dt) {
     if (!this._isFirstVisit) {
@@ -876,130 +929,132 @@ export default class OverworldScene {
     }
 
     // If tutorial is complete, skip
-    if (this._tutorialStep >= 7) return;
+    if (this._tutorialStep >= 5) return;
 
     this._tutorialTimer += dt;
 
+    // Track if player has walked (for step 2)
+    if (this._player && this._player.state === 'WALKING' && !this._tutorialPlayerWalked) {
+      this._tutorialPlayerWalked = true;
+      console.log('[Tutorial] Player walked for the first time!');
+    }
+
     switch (this._tutorialStep) {
+      // ── Step 0: Wait for scene to settle (~1s) ──
       case 0: {
-        // Log once to confirm tutorial is executing
         if (this._tutorialTimer < dt * 2) {
           console.log('[Tutorial] Tutorial system active — waiting 0.8s before starting');
         }
-        // Wait <1s for the scene to settle in (requirement: within 1 second)
         if (this._tutorialTimer >= 0.8) {
           this._tutorialStep = 1;
           this._tutorialTimer = 0;
+          console.log('[Tutorial] Step 1: Arrival — "Welcome to Sparkle Village!"');
+        }
+        break;
+      }
 
-          // Step 1: Narrator welcome voice
-          console.log('[Tutorial] Step 1: Narrator — "This is Sparkle Village!"');
+      // ── Step 1: Arrival (0-2s) ──
+      // Subtitle: "Welcome to Sparkle Village!"
+      // Princess idle animation plays, gentle camera area reveal
+      case 1: {
+        if (!this._tutorialVoiceArrivalPlayed) {
+          this._tutorialVoiceArrivalPlayed = true;
           playVoice('narrator_village_arrive_01');
         }
-        break;
-      }
-
-      case 1: {
-        // Wait for narrator line to finish (~3s estimated), then pan camera to Grandma
-        if (this._tutorialTimer >= 3.0) {
+        if (this._tutorialTimer >= 2.0) {
           this._tutorialStep = 2;
           this._tutorialTimer = 0;
-
-          // Step 2: Camera pan to Grandma Rose
-          console.log('[Tutorial] Step 2: Camera pan to Grandma Rose');
-          const started = this._startTutorialCameraPan();
-          if (!started) {
-            console.warn('[Tutorial] WARN: Could not find Grandma Rose NPC — skipping pan');
-            // Skip to step 5 (sparkle trail) if Grandma not found
-            this._tutorialStep = 5;
-          }
+          console.log('[Tutorial] Step 2: Gentle nudge — "Tap anywhere to walk!"');
         }
         break;
       }
 
+      // ── Step 2: Gentle Nudge (2-5s) ──
+      // Subtitle: "Tap anywhere to walk!"
+      // InstructionBubble shows tap icon, pulsing
+      // Auto-advance after 6s OR when player taps/walks
       case 2: {
-        // Camera pan to Grandma is active
-        this._updateTutorialCameraPan(dt);
-
-        if (!this._tutorialCameraPanActive) {
-          // Pan completed — hold for 1.0s so player sees Grandma + quest indicator,
-          // then narrator explains the sparkle
-          if (this._tutorialTimer >= 1.0) {
-            this._tutorialStep = 3;
-            this._tutorialTimer = 0;
-
-            // Step 3: Narrator explains the quest indicator
-            console.log('[Tutorial] Step 3: Narrator — "See that sparkle? That means someone needs help!"');
-            playVoice('narrator_village_quest_hint_01');
-          }
+        if (!this._tutorialVoiceTapPlayed) {
+          this._tutorialVoiceTapPlayed = true;
+          this._instructionBubble.show('tap');
+          playVoice('narrator_tutorial_tap_01');
+        }
+        if (this._tutorialPlayerWalked) {
+          this._tutorialStep = 3;
+          this._tutorialTimer = 0;
+          this._instructionBubble.hide();
+          console.log('[Tutorial] Step 3: Player walked! Celebrating.');
+        } else if (this._tutorialTimer >= 6.0) {
+          // Auto-advance even if she hasn't walked
+          this._tutorialStep = 3;
+          this._tutorialTimer = 0;
+          this._instructionBubble.hide();
+          console.log('[Tutorial] Step 3: Auto-advancing (no walk detected)');
         }
         break;
       }
 
+      // ── Step 3: Celebrate (on walk or auto) ──
+      // Subtitle: "You did it! Great job!"
+      // Small sparkle burst on princess, brief pause (1.5s)
       case 3: {
-        // Wait for narrator "See that sparkle?" line (~3s), then pan camera back
-        if (this._tutorialTimer >= 3.0) {
+        if (!this._tutorialVoiceCelebratePlayed) {
+          this._tutorialVoiceCelebratePlayed = true;
+          if (this._tutorialPlayerWalked) {
+            playVoice('narrator_tutorial_celebrate_01');
+            // Sparkle burst on princess
+            if (this._player) {
+              this._emitParticles(this._player.x, this._player.y - 8, '#ffd700', 6);
+            }
+            if (this._audioManager) this._audioManager.playSFX('heartEarned');
+          }
+        }
+        if (this._tutorialTimer >= 1.5) {
           this._tutorialStep = 4;
           this._tutorialTimer = 0;
-
-          // Step 4: Pan camera back to player
-          console.log('[Tutorial] Step 4: Camera pan back to player');
-          this._startTutorialCameraPanBack();
+          console.log('[Tutorial] Step 4: Quest introduction — "Someone needs your help!"');
         }
         break;
       }
 
+      // ── Step 4: Quest Introduction (auto) ──
+      // Subtitle: "Someone needs your help!"
+      // Activate sparkle star waypoint pointing toward Grandma Rose
+      // Heart trail appears from player to Grandma
+      // Subtitle: "Follow the sparkles!"
       case 4: {
-        // Camera panning back to player
-        this._updateTutorialCameraPan(dt);
+        if (!this._tutorialVoiceQuestIntroPlayed) {
+          this._tutorialVoiceQuestIntroPlayed = true;
+          playVoice('narrator_tutorial_quest_intro_01');
 
-        if (!this._tutorialCameraPanActive && this._tutorialTimer >= 0.5) {
-          this._tutorialStep = 5;
-          this._tutorialTimer = 0;
-
-          // Step 5: Sparkle trail toward Grandma
-          console.log('[Tutorial] Step 5: Sparkle trail of golden diamonds to Grandma');
-          this._createSparkleTrailToGrandma();
-
-          // Play a gentle sparkle trail SFX
-          if (this._audioManager) {
-            this._audioManager.playSFX('trailShimmer');
+          // Activate WaypointSystem pointing to Grandma
+          const grandma = this._npcs.find(n => n.id === 'grandma-rose');
+          if (grandma && this._player) {
+            this._waypointSystem.setPlayer(this._player);
+            this._waypointSystem.setTarget(grandma.x, grandma.y);
+            this._createSparkleTrailToGrandma();
+            if (this._audioManager) this._audioManager.playSFX('trailShimmer');
           }
         }
-        break;
-      }
 
-      case 5: {
-        // Update sparkle trail animation
-        this._updateTutorialSparkleTrail(dt);
-
-        // After 1.5s, companion says something encouraging
-        if (this._tutorialTimer >= 1.5) {
-          this._tutorialStep = 6;
-          this._tutorialTimer = 0;
-
-          // Step 6: Companion encouragement
-          console.log('[Tutorial] Step 6: Companion encouragement');
-          this._playCompanionVillageVoice();
+        // After 2.5s, play "Follow the sparkles!" then auto-advance
+        if (this._tutorialTimer >= 2.5 && !this._tutorialVoiceFollowPlayed) {
+          this._tutorialVoiceFollowPlayed = true;
+          playVoice('narrator_tutorial_follow_sparkles_01');
         }
-        break;
-      }
 
-      case 6: {
-        // Keep updating sparkle trail while companion speaks
         this._updateTutorialSparkleTrail(dt);
 
-        // After companion line (~2.5s) or if player taps (starts moving), end the tutorial
-        const playerMoving = this._player && this._player.state === 'WALKING';
-        if (this._tutorialTimer >= 3.0 || playerMoving) {
-          this._tutorialStep = 7;
-          this._isFirstVisit = false; // tutorial is done
+        if (this._tutorialTimer >= 3.0) {
+          this._tutorialStep = 5;
+          this._isFirstVisit = false;
           this._autoWalkTriggered = true;
 
-          // Start sparkle trail fade-out instead of abrupt removal
+          // Fade sparkle trail but KEEP waypoint system active
           this._tutorialSparkleTrailFading = true;
           this._tutorialSparkleTrailFadeTimer = 0;
 
-          console.log('[Tutorial] Complete — player is free to explore');
+          console.log('[Tutorial] Complete — waypoint stays active, player is free');
         }
         break;
       }
@@ -1183,7 +1238,7 @@ export default class OverworldScene {
     if (this._playerHasMoved) return;
 
     // Don't nudge during the tutorial sequence
-    if (this._isFirstVisit && this._tutorialStep < 7) return;
+    if (this._isFirstVisit && this._tutorialStep < 5) return;
 
     this._idleNudgeTimer += dt;
 
@@ -1316,6 +1371,281 @@ export default class OverworldScene {
         bc.timer = i * 0.2; // stagger so they twinkle in sequence
       } else {
         this._breadcrumbs[i].active = false;
+      }
+    }
+  }
+
+  // ---- Quest 1 Proximity Auto-Trigger System --------------------------------
+  // When the player is within 3 tiles of a quest NPC, auto-trigger interaction.
+  // A 4-year-old might not know to tap the NPC — so we do it for her.
+
+  _updateQuestProximity(dt) {
+    if (!this._player || !this._questSystem) return;
+
+    // Only operate during Quest 1 ("Sharing is Caring")
+    const questId = 'sharing-is-caring';
+    const questStatus = this._questSystem.questStatus.get(questId);
+
+    // Skip if quest is complete
+    if (questStatus === 'COMPLETE') return;
+
+    const px = this._player.x;
+    const py = this._player.y;
+    const range = this._questProximityTriggerRange;
+
+    this._questProximityTimer += dt;
+
+    switch (this._questProximityState) {
+
+      // ── IDLE: Waiting for player to approach Grandma for first time ──
+      case 'idle': {
+        // Only trigger when tutorial is done and quest is available
+        if (this._isFirstVisit) return;
+        if (questStatus !== 'AVAILABLE') {
+          // Quest already started via some other means — sync state
+          if (questStatus === 'ACTIVE') {
+            const stage = this._questSystem.getCurrentStage();
+            if (stage && stage.targetId === 'neighbor-lily') {
+              this._questProximityState = 'walking_to_lily';
+            } else if (stage && stage.targetId === 'grandma-rose' && stage.type === 'RETURN_TO') {
+              this._questProximityState = 'returning';
+            }
+          }
+          return;
+        }
+
+        const grandma = this._npcs.find(n => n.id === 'grandma-rose');
+        if (!grandma) return;
+        const dist = Math.hypot(grandma.x - px, grandma.y - py);
+        if (dist < range) {
+          this._questProximityState = 'approach';
+          this._questProximityTimer = 0;
+          this._questProximityDialogueIndex = 0;
+          console.log('[QuestProximity] Player near Grandma Rose — approach trigger');
+        }
+        break;
+      }
+
+      // ── APPROACH: "That's Grandma Rose!" then auto-start dialogue ──
+      case 'approach': {
+        if (!this._questProximityVoiceGuards['approach_01']) {
+          this._questProximityVoiceGuards['approach_01'] = true;
+          playVoice('narrator_grandma_approach_01');
+          console.log('[QuestProximity] "That\'s Grandma Rose!"');
+        }
+        // After 1s, auto-trigger the Grandma greeting sequence
+        if (this._questProximityTimer >= 1.0) {
+          this._questProximityState = 'talking';
+          this._questProximityTimer = 0;
+          this._questProximityDialogueIndex = 0;
+
+          // Start the quest in QuestSystem
+          this._questSystem.startQuest(questId);
+          // Pick up cookies automatically (skip the PICKUP stage)
+          this._questSystem.pickupItem('cookies');
+
+          console.log('[QuestProximity] Auto-starting quest "Sharing is Caring"');
+        }
+        break;
+      }
+
+      // ── TALKING: Grandma greeting + quest dialogue (auto-advancing 2.5s each) ──
+      case 'talking': {
+        const lines = [
+          'npc_grandma_greeting_01',   // "Hello, little princess!"
+          'npc_grandma_quest_01',      // "I baked yummy cookies!"
+          'npc_grandma_quest_02',      // "Can you bring them to Lily?"
+          'npc_grandma_quest_03',      // "She lives across the village."
+        ];
+        const lineInterval = 2.5;
+
+        const lineIdx = Math.min(Math.floor(this._questProximityTimer / lineInterval), lines.length - 1);
+        if (lineIdx > this._questProximityDialogueIndex) {
+          this._questProximityDialogueIndex = lineIdx;
+        }
+
+        // Play each line once
+        const voiceKey = 'talking_' + this._questProximityDialogueIndex;
+        if (!this._questProximityVoiceGuards[voiceKey]) {
+          this._questProximityVoiceGuards[voiceKey] = true;
+          playVoice(lines[this._questProximityDialogueIndex]);
+        }
+
+        // After all lines, accept quest and transition to walking
+        if (this._questProximityTimer >= lines.length * lineInterval) {
+          this._questProximityState = 'walking_to_lily';
+          this._questProximityTimer = 0;
+          this._questProximityDialogueIndex = 0;
+
+          // Advance quest past TALK_TO and PICKUP stages to DELIVER
+          this._questSystem.evaluate('talk', 'grandma-rose');
+          // The PICKUP stage: auto-advance it
+          const currentStage = this._questSystem.getCurrentStage();
+          if (currentStage && currentStage.type === 'PICKUP') {
+            this._questSystem.currentStageIndex++;
+          }
+
+          // Move waypoint to Lily
+          const lily = this._npcs.find(n => n.id === 'neighbor-lily');
+          if (lily) {
+            this._waypointSystem.setPlayer(this._player);
+            this._waypointSystem.setTarget(lily.x, lily.y);
+          }
+
+          playVoice('narrator_quest_accept_01');  // "Follow the sparkle hearts!"
+          console.log('[QuestProximity] Quest accepted — waypoint to Lily');
+
+          // Play companion walk line after a short delay
+          const compName = (this._companion && this._companion.name || 'shimmer').toLowerCase();
+          const compVoiceId = `companion_walk_${compName}_01`;
+          setTimeout(() => playVoice(compVoiceId), 2500);
+        }
+        break;
+      }
+
+      // ── WALKING TO LILY: Waypoint active, wait for proximity ──
+      case 'walking_to_lily': {
+        const lily = this._npcs.find(n => n.id === 'neighbor-lily');
+        if (!lily) return;
+        const dist = Math.hypot(lily.x - px, lily.y - py);
+        if (dist < range) {
+          this._questProximityState = 'at_lily';
+          this._questProximityTimer = 0;
+          this._questProximityDialogueIndex = 0;
+          console.log('[QuestProximity] Player near Lily — auto-trigger delivery');
+        }
+        break;
+      }
+
+      // ── AT LILY: Auto-trigger delivery dialogue ──
+      case 'at_lily': {
+        const lines = [
+          'npc_lily_greeting_01',   // "Hi! I'm Lily!"
+          'npc_lily_receive_01',    // "Cookies from Grandma? Yay!"
+          'npc_lily_thanks_01',     // "Thank you so much!"
+          'npc_lily_thanks_02',     // "You're so kind!"
+        ];
+        const lineInterval = 2.5;
+
+        const lineIdx = Math.min(Math.floor(this._questProximityTimer / lineInterval), lines.length - 1);
+        if (lineIdx > this._questProximityDialogueIndex) {
+          this._questProximityDialogueIndex = lineIdx;
+        }
+
+        const voiceKey = 'lily_' + this._questProximityDialogueIndex;
+        if (!this._questProximityVoiceGuards[voiceKey]) {
+          this._questProximityVoiceGuards[voiceKey] = true;
+          playVoice(lines[this._questProximityDialogueIndex]);
+          // Sparkle particles when Lily talks
+          const lily = this._npcs.find(n => n.id === 'neighbor-lily');
+          if (lily) this._emitParticles(lily.x, lily.y - 8, '#ffb6c1', 3);
+        }
+
+        // After all lines, advance to return stage
+        if (this._questProximityTimer >= lines.length * lineInterval) {
+          // Evaluate deliver interaction in quest system
+          this._questSystem.evaluate('deliver', 'neighbor-lily', 'cookies');
+
+          this._questProximityState = 'returning';
+          this._questProximityTimer = 0;
+          this._questProximityDialogueIndex = 0;
+
+          // Move waypoint back to Grandma
+          const grandma = this._npcs.find(n => n.id === 'grandma-rose');
+          if (grandma) {
+            this._waypointSystem.setTarget(grandma.x, grandma.y);
+          }
+
+          playVoice('narrator_return_grandma_01'); // "Let's tell Grandma the good news!"
+          console.log('[QuestProximity] Delivery done — waypoint back to Grandma');
+
+          // Companion reaction
+          const compName = (this._companion && this._companion.name || 'shimmer').toLowerCase();
+          const compVoiceId = `companion_lily_${compName}_01`;
+          setTimeout(() => playVoice(compVoiceId), 2000);
+        }
+        break;
+      }
+
+      // ── RETURNING: Walk back to Grandma ──
+      case 'returning': {
+        const grandma = this._npcs.find(n => n.id === 'grandma-rose');
+        if (!grandma) return;
+        const dist = Math.hypot(grandma.x - px, grandma.y - py);
+        if (dist < range) {
+          this._questProximityState = 'at_grandma';
+          this._questProximityTimer = 0;
+          this._questProximityDialogueIndex = 0;
+          console.log('[QuestProximity] Player back at Grandma — auto-trigger completion');
+        }
+        break;
+      }
+
+      // ── AT GRANDMA: Quest completion dialogue ──
+      case 'at_grandma': {
+        const lines = [
+          'npc_grandma_thanks_01',   // "You did it! Thank you!"
+          'npc_grandma_thanks_02',   // "Sharing makes everyone happy!"
+          'npc_grandma_thanks_03',   // "You earned a golden heart!"
+        ];
+        const lineInterval = 2.5;
+
+        const lineIdx = Math.min(Math.floor(this._questProximityTimer / lineInterval), lines.length - 1);
+        if (lineIdx > this._questProximityDialogueIndex) {
+          this._questProximityDialogueIndex = lineIdx;
+        }
+
+        const voiceKey = 'grandma_thanks_' + this._questProximityDialogueIndex;
+        if (!this._questProximityVoiceGuards[voiceKey]) {
+          this._questProximityVoiceGuards[voiceKey] = true;
+          playVoice(lines[this._questProximityDialogueIndex]);
+        }
+
+        // Heart earned SFX on the "golden heart" line
+        if (this._questProximityDialogueIndex >= 2 && !this._questProximityVoiceGuards['heart_sfx']) {
+          this._questProximityVoiceGuards['heart_sfx'] = true;
+          if (this._audioManager) this._audioManager.playSFX('heartEarned');
+          // Sparkle burst on Grandma
+          const grandma = this._npcs.find(n => n.id === 'grandma-rose');
+          if (grandma) this._emitParticles(grandma.x, grandma.y - 8, '#ffd700', 8);
+        }
+
+        // After all lines, complete quest
+        if (this._questProximityTimer >= lines.length * lineInterval + 0.5) {
+          // Evaluate return interaction
+          this._questSystem.evaluate('talk', 'grandma-rose');
+
+          this._questProximityState = 'complete';
+          this._questProximityTimer = 0;
+
+          // Clear waypoint
+          this._waypointSystem.clearTarget();
+
+          // "The Starlight Path glows brighter!"
+          playVoice('narrator_quest_complete_01');
+
+          // Sparkle burst celebration on princess
+          if (this._player) {
+            this._emitParticles(this._player.x, this._player.y - 8, '#ffd700', 10);
+          }
+
+          // Companion celebration
+          const compName = (this._companion && this._companion.name || 'shimmer').toLowerCase();
+          const compVoiceId = `companion_complete_${compName}_01`;
+          setTimeout(() => playVoice(compVoiceId), 2500);
+
+          // Mark first quest as done (for HUD visibility, etc.)
+          this._firstQuestDone = true;
+
+          console.log('[QuestProximity] Quest "Sharing is Caring" complete!');
+        }
+        break;
+      }
+
+      // ── COMPLETE: Nothing more to do ──
+      case 'complete': {
+        // Quest is done — system is inert
+        break;
       }
     }
   }
@@ -2073,6 +2403,9 @@ export default class OverworldScene {
     // Quest indicators (world space)
     this._questIndicators.draw(ctx, camX, camY);
 
+    // Waypoint trail line + beacon rings (world space)
+    this._waypointSystem.drawWorld(ctx, camX, camY);
+
     // Particles (world space)
     this._drawParticles(ctx);
 
@@ -2085,7 +2418,7 @@ export default class OverworldScene {
     this._drawBreadcrumbs(ctx);
 
     // Tutorial sparkle trail (world space, during tutorial and fade-out)
-    if ((this._isFirstVisit && this._tutorialStep >= 5) || this._tutorialSparkleTrailFading) {
+    if ((this._isFirstVisit && this._tutorialStep >= 4) || this._tutorialSparkleTrailFading) {
       this._drawTutorialSparkleTrail(ctx);
     }
 
@@ -2108,6 +2441,12 @@ export default class OverworldScene {
     this._drawDayNightTint(ctx);
 
     // ---- Screen-space UI ----------------------------------------------------
+    // Waypoint off-screen arrow (screen space)
+    this._waypointSystem.drawScreen(ctx);
+
+    // Instruction bubble (screen space, tutorial)
+    this._instructionBubble.draw(ctx);
+
     this._hud.draw(renderer);
     this._transition.draw(renderer);
   }
@@ -2116,26 +2455,27 @@ export default class OverworldScene {
 
   _drawPlayer(ctx) {
     const p = this._player;
-    const px = (p.x - 8) | 0;
-    const py = (p.y - 8) | 0;
+    const PLAYER_SCALE = spriteSheets.getScale();
+    const PLAYER_SIZE = 16 * PLAYER_SCALE; // 48px
+    const px = (p.x - PLAYER_SIZE / 2) | 0;
+    const py = (p.y - PLAYER_SIZE / 2) | 0;
 
     // Idle sway / tiptoe bob
     let yOffset = 0;
     if (p.isTiptoeing && p.state === 'WALKING') {
-      yOffset = Math.sin((p.animTimer || 0) * 0.01) * -1;
+      yOffset = Math.sin((p.animTimer || 0) * 0.01) * -2;
     } else if (p.state === 'IDLE' || p.state === 'INTERACTING') {
       yOffset = (p.animFrame === 1) ? -1 : 0;
     }
 
-    // Use walk animation if moving, static sprite if idle
+    // Use Superdark animated walk/idle frames at 2x scale
+    // Player entity computes animFrame internally with correct timing
+    const flipX = (p.direction === 1);
+    const frame = p.animFrame || 0;
     if (p.state === 'WALKING' && spriteSheets.loaded) {
-      const dir = p.direction || 0;
-      const frame = (p.animFrame || 0) % 3;
-      const flipX = (dir === 1); // left
-      spriteSheets.drawWalk(ctx, px, py + (yOffset | 0), dir, frame, flipX);
+      spriteSheets.drawWalkFrame(ctx, 'princess', frame, px, py + (yOffset | 0), flipX, PLAYER_SCALE);
     } else {
-      const flipX = (p.direction === 1);
-      spriteSheets.draw(ctx, 'princess', px, py + (yOffset | 0), { flipX });
+      spriteSheets.drawIdleFrame(ctx, 'princess', frame, px, py + (yOffset | 0), flipX, PLAYER_SCALE);
     }
 
     // Sneeze particles
@@ -2242,21 +2582,39 @@ export default class OverworldScene {
   }
 
   _drawNPCs(ctx) {
+    const NPC_SCALE = spriteSheets.getScale();
+    const NPC_SIZE = 16 * NPC_SCALE; // 48px
+
     for (let i = 0; i < this._npcs.length; i++) {
       const npc = this._npcs[i];
-      const nx = (npc.x - 8) | 0;
-      const ny = (npc.y - 8) | 0;
-
-      // Idle bob (1px every 800ms)
-      const bobOffset = (npc.animTimer !== undefined)
-        ? ((npc.animTimer | 0) % 1600 < 800 ? 0 : -1)
-        : 0;
 
       // Determine sprite name from NPC data
       const spriteName = npc.spriteName || npc.sprite || 'npc_grandma';
       const flipX = npc.flipX || false;
+      const hasAnim = spriteSheets.hasAnimSheet(spriteName);
 
-      spriteSheets.draw(ctx, spriteName, nx, ny + bobOffset, { flipX });
+      // Center sprite on NPC position (2x for animated, 1x for static)
+      const size = hasAnim ? NPC_SIZE : 16;
+      const nx = (npc.x - size / 2) | 0;
+      const ny = (npc.y - size / 2) | 0;
+
+      // Idle bob
+      const bobOffset = (npc.animTimer !== undefined)
+        ? ((npc.animTimer | 0) % 1600 < 800 ? 0 : -1)
+        : 0;
+
+      if (hasAnim) {
+        // NPC entity tracks isWandering and computes animFrame internally
+        const isMoving = npc.isWandering || false;
+        const frame = npc.animFrame || 0;
+        if (isMoving) {
+          spriteSheets.drawWalkFrame(ctx, spriteName, frame, nx, ny + bobOffset, flipX, NPC_SCALE);
+        } else {
+          spriteSheets.drawIdleFrame(ctx, spriteName, frame, nx, ny + bobOffset, flipX, NPC_SCALE);
+        }
+      } else {
+        spriteSheets.draw(ctx, spriteName, nx, ny + bobOffset, { flipX });
+      }
 
       // Update indicator position
       if (npc.indicator) {
@@ -2267,21 +2625,38 @@ export default class OverworldScene {
   }
 
   _drawAnimals(ctx) {
+    const CREATURE_SCALE = spriteSheets.getScale();
+    const CREATURE_SIZE = 16 * CREATURE_SCALE; // 48px
+
     for (let i = 0; i < this._animals.length; i++) {
       const a = this._animals[i];
       if (!a.active) continue;
 
-      const ax = (a.x - 8) | 0;
-      const ay = (a.y - 8) | 0;
+      // Determine sprite name and flip
+      const spriteName = a.type || 'cat';
+      const flipX = (a.vx < 0) || a.flipX || false;
+      const hasAnim = spriteSheets.hasAnimSheet(spriteName);
+
+      // Center sprite — 2x for Superdark creatures, 1x for Kenney animals
+      const size = hasAnim ? CREATURE_SIZE : 16;
+      const ax = (a.x - size / 2) | 0;
+      const ay = (a.y - size / 2) | 0;
 
       // Idle bob effect (1px up/down at ~400ms)
       const bobOffset = ((a.animTimer | 0) % 800 < 400) ? 0 : -1;
 
-      // Determine sprite name and flip
-      const spriteName = a.type || 'cat';
-      const flipX = (a.vx < 0) || a.flipX || false;
-
-      spriteSheets.draw(ctx, spriteName, ax, ay + bobOffset, { flipX });
+      if (hasAnim) {
+        // Animal entity tracks _isMoving and computes animFrame internally
+        const isMoving = a._isMoving || false;
+        const frame = a.animFrame || 0;
+        if (isMoving) {
+          spriteSheets.drawWalkFrame(ctx, spriteName, frame, ax, ay + bobOffset, flipX, CREATURE_SCALE);
+        } else {
+          spriteSheets.drawIdleFrame(ctx, spriteName, frame, ax, ay + bobOffset, flipX, CREATURE_SCALE);
+        }
+      } else {
+        spriteSheets.draw(ctx, spriteName, ax, ay + bobOffset, { flipX, animTimer: a.animTimer });
+      }
 
       // Sleep Z's
       if (a.state === 'sleep') {

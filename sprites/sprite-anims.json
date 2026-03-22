@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "version": "1.0",
+    "description": "Sprite animation definitions for Princess Sparkle V2",
+    "frameSize": { "w": 16, "h": 16 },
+    "scale": 3
+  },
+  "sprites": {
+    "princess": {
+      "sheet": "./sprites/sheets/princess.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "player"
+    },
+    "merchant": {
+      "sheet": "./sprites/sheets/merchant.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "townsfolk-male": {
+      "sheet": "./sprites/sheets/townsfolk-male.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "townsfolk-female": {
+      "sheet": "./sprites/sheets/townsfolk-female.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "wolf": {
+      "sheet": "./sprites/sheets/wolf.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "creature"
+    },
+    "fairy": {
+      "sheet": "./sprites/sheets/fairy.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "creature"
+    },
+    "queen": {
+      "sheet": "./sprites/sheets/queen.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "alchemist": {
+      "sheet": "./sprites/sheets/alchemist.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "blacksmith": {
+      "sheet": "./sprites/sheets/blacksmith.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "knight": {
+      "sheet": "./sprites/sheets/knight.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "bear": {
+      "sheet": "./sprites/sheets/bear.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "creature"
+    },
+    "elf-female": {
+      "sheet": "./sprites/sheets/elf-female.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "elf-princess": {
+      "sheet": "./sprites/sheets/elf-princess.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "ranger": {
+      "sheet": "./sprites/sheets/ranger.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "npc"
+    },
+    "mushroom-small": {
+      "sheet": "./sprites/sheets/mushroom-small.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "creature"
+    },
+    "ent": {
+      "sheet": "./sprites/sheets/ent.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "creature"
+    },
+    "forest-guardian": {
+      "sheet": "./sprites/sheets/forest-guardian.png",
+      "frameCount": 8,
+      "frameTags": [
+        { "name": "idle", "from": 0, "to": 1, "direction": "forward", "speed": 500 },
+        { "name": "walk", "from": 4, "to": 7, "direction": "forward", "speed": 150 }
+      ],
+      "role": "creature"
+    }
+  },
+  "entityMap": {
+    "princess": "princess",
+    "npc_baker": "blacksmith",
+    "npc_finn": "ranger",
+    "npc_lily": "elf-female",
+    "npc_grandma": "queen",
+    "npc_melody": "elf-princess",
+    "wolf": "wolf",
+    "fairy": "fairy",
+    "bear": "bear",
+    "ent": "ent",
+    "mushroom": "mushroom-small",
+    "forest_guardian": "forest-guardian"
+  },
+  "creatureAnims": {
+    "bird": {
+      "sheet": "creatures",
+      "frames": [136, 137],
+      "speed": 300
+    }
+  }
+}

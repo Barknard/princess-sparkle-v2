@@ -205,8 +205,9 @@ export default class Animal {
                       this.behavior === AnimalBehavior.FOLLOW ||
                       this.behavior === AnimalBehavior.FLEE ||
                       this.behavior === AnimalBehavior.RETURN);
-    const frameInterval = isMoving ? 150 : 400;
-    const frameCount = spriteSheets.hasAnimSheet(this.spriteName) ? 4 : 2;
+    const hasAnimSheet = spriteSheets.hasAnimSheet(this.spriteName);
+    const frameInterval = isMoving ? 150 : 500;
+    const frameCount = hasAnimSheet ? (isMoving ? 4 : 2) : 2;
     this.animTimer += dtMs;
     if (this.animTimer >= frameInterval) {
       this.animTimer -= frameInterval;

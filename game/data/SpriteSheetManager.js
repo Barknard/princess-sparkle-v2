@@ -2,111 +2,38 @@
  * SpriteSheetManager.js — Loads and draws real sprite sheets
  *
  * Central sprite rendering system for Princess Sparkle V2.
- * Loads the downloaded sprite pack PNGs (Kenney Tiny Dungeon,
- * Kenney Tiny Creatures, RPG 8-bit characters) and the new
- * Superdark Fantasy/Forest animated spritesheets.
+ * Loads Kenney Tiny Creatures (companions/animals) and Superdark
+ * Fantasy/Forest animated spritesheets (characters/creatures).
  *
- * Animated spritesheets layout:
- *   Row 0: Idle frames (4 frames, 16x16 each)
- *   Row 1: Walk frames (4 frames, 16x16 each)
+ * Animation configuration is loaded from sprites/sprite-anims.json
+ * at boot time. All frame layouts, timing, and entity mappings are
+ * driven by that JSON config — no hardcoded animation constants.
  *
  * Falls back to placeholder drawing if sheets haven't loaded yet.
  */
 
 import { tryLoadImage } from './assetDiscovery.js';
 
-// ── Sheet paths (relative to game root) ─────────────────────────────────────
+// ── Static sheet paths (Kenney Tiny Creatures — not in anim config) ──────────
 
 const SHEET_PATHS = {
-  dungeon:   './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
   creatures: './sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
-  rpg8bit:   './sprites/characters/rpg_16x16_8bit.png',
   unicornRun:'./sprites/creatures/unicorn_running.png',
-};
-
-// ── Animated spritesheet paths (Superdark packs) ────────────────────────────
-// These are combined spritesheets built by tools/build-spritesheets.js.
-// Layout: row 0 = idle (4 frames), row 1 = walk (4 frames), each 16x16.
-
-const ANIM_SHEET_PATHS = {
-  princess:         './sprites/sheets/princess.png',
-  merchant:         './sprites/sheets/merchant.png',
-  'townsfolk-male': './sprites/sheets/townsfolk-male.png',
-  'townsfolk-female':'./sprites/sheets/townsfolk-female.png',
-  wolf:             './sprites/sheets/wolf.png',
-  fairy:            './sprites/sheets/fairy.png',
-};
-
-// ── Animated sheet config ───────────────────────────────────────────────────
-
-const ANIM_FRAME_W = 16;
-const ANIM_FRAME_H = 16;
-const ANIM_IDLE_ROW = 0;
-const ANIM_WALK_ROW = 1;
-const ANIM_IDLE_FRAMES = 4;
-const ANIM_WALK_FRAMES = 4;
-
-// Animation timing (ms per frame)
-const WALK_FRAME_INTERVAL = 150;
-const IDLE_FRAME_INTERVAL = 400;
-
-// ── Character name to animated sheet key mapping ────────────────────────────
-// Maps game entity sprite names to animated sheet keys.
-
-const ANIM_SHEET_MAP = {
-  // Player
-  princess:     'princess',
-  // NPCs
-  npc_baker:    'merchant',
-  npc_finn:     'townsfolk-male',
-  npc_lily:     'townsfolk-female',
-  npc_grandma:  'townsfolk-female',
-  npc_melody:   'townsfolk-female',
-  // Creatures / Companions
-  wolf:         'wolf',
-  fairy:        'fairy',
 };
 
 // ── Sheet tile dimensions ───────────────────────────────────────────────────
 
 const SHEET_META = {
-  dungeon:   { tileW: 16, tileH: 16, cols: 12, rows: 11, spacing: 0 }, // packed = no spacing
   creatures: { tileW: 16, tileH: 16, cols: 10, rows: 18, spacing: 0 },
-  rpg8bit:   { tileW: 16, tileH: 16, cols: 16, rows: 8, spacing: 0 },
   unicornRun:{ tileW: 16, tileH: 16, cols: 4, rows: 1, spacing: 1 },  // 4-frame strip with 1px separators
 };
 
 // ── Sprite definitions: name -> { sheet, tileIndex (0-based in packed) } ────
-// For dungeon: tile files start at tile_0000, so tileIndex = file number
+// Characters use Superdark animated sheets (see entityMap in sprite-anims.json).
+// Static SPRITE_DEFS are only for Kenney Tiny Creatures (companions/animals).
 // For creatures: tile files start at tile_0001, so tileIndex = file number - 1
 
 const SPRITE_DEFS = {
-  // === Characters (from Kenney Tiny Dungeon) ===
-  princess: {
-    sheet: 'dungeon',
-    tileIndex: 99,  // tile_0099 - pink/purple female character
-  },
-  npc_grandma: {
-    sheet: 'dungeon',
-    tileIndex: 100, // tile_0100 - grey-haired figure
-  },
-  npc_finn: {
-    sheet: 'dungeon',
-    tileIndex: 108, // tile_0108 - green-hooded character
-  },
-  npc_lily: {
-    sheet: 'dungeon',
-    tileIndex: 109, // tile_0109 - brown-haired character
-  },
-  npc_baker: {
-    sheet: 'dungeon',
-    tileIndex: 110, // tile_0110 - red character
-  },
-  npc_melody: {
-    sheet: 'dungeon',
-    tileIndex: 101, // tile_0101 - another character
-  },
-
   // === Companions (from Kenney Tiny Creatures) ===
   // Creature tiles start at tile_0001 = packed index 0
   unicorn: {
@@ -177,30 +104,12 @@ const PLACEHOLDER_COLORS = {
   frog:        '#44cc44',
   duck:        '#ffdd44',
   rabbit:      '#dddddd',
-  wolf:        '#888899',
-  fairy:       '#ccaaff',
-};
-
-// ── Walk animation definitions for RPG 8-bit sheet ──────────────────────────
-// Layout: 4 characters per row-group, each character = 3 frames wide + 1 blank col
-// Row group 1 (rows 0-2): characters 0-3, directions down/left/up
-// Row group 2 (rows 4-6): characters 4-7, directions down/left/up
-// Character 0 = red (princess walk), character 1 = gold, etc.
-// Each character block: col offset = charIdx * 4, row offset = dirIdx
-// Direction mapping: row+0=down, row+1=left/right(flip), row+2=up
-
-const RPG_WALK = {
-  charIndex: 0,  // first character (red) for princess walk
-  framesPerDir: 3,
-  colStride: 4,  // 3 frames + 1 blank
-  // Row offsets within the group
-  dirRows: {
-    down: 0,
-    left: 1,  // also used for right (flipped)
-    right: 1,
-    up: 2,
-  },
-  groupRowOffset: 0, // top group starts at row 0
+  wolf:             '#888899',
+  fairy:            '#ccaaff',
+  bear:             '#8B4513',
+  ent:              '#556B2F',
+  mushroom:         '#DC143C',
+  forest_guardian:  '#228B22',
 };
 
 
@@ -212,6 +121,20 @@ class SpriteSheetManager {
     this._animSheets = new Map();
     this._loaded = false;
     this._loading = false;
+
+    // ── JSON config data (populated from sprite-anims.json) ────────────
+    /** @type {object|null} Full parsed config */
+    this._animConfig = null;
+    /** @type {object} meta.frameSize { w, h } */
+    this._frameSize = { w: 16, h: 16 };
+    /** @type {number} meta.scale */
+    this._scale = 3;
+    /** @type {object} sprites section keyed by sheet name */
+    this._sprites = {};
+    /** @type {object} entityMap section */
+    this._entityMap = {};
+    /** @type {object} creatureAnims section */
+    this._creatureAnims = {};
   }
 
   /**
@@ -223,24 +146,69 @@ class SpriteSheetManager {
   }
 
   /**
+   * Get the global render scale from the JSON config.
+   * @returns {number}
+   */
+  getScale() {
+    return this._scale;
+  }
+
+  /**
    * Check if an animated spritesheet is available for a given entity name.
    * @param {string} name - Entity sprite name (e.g. 'princess', 'npc_baker')
    * @returns {boolean}
    */
   hasAnimSheet(name) {
-    const key = ANIM_SHEET_MAP[name];
-    return key ? this._animSheets.has(key) : false;
+    const key = this._entityMap[name] || name;
+    return this._animSheets.has(key);
   }
 
   /**
-   * Load all sprite sheet PNGs (static and animated). Safe to call multiple times.
+   * Get frame configuration for a given entity and animation state.
+   * @param {string} entityName - Entity sprite name (e.g. 'princess', 'npc_baker', 'wolf')
+   * @param {string} state - Animation state: 'idle' or 'walk'
+   * @returns {{ from: number, to: number, frameCount: number, speed: number }|null}
+   */
+  getFrameConfig(entityName, state) {
+    const sheetKey = this._entityMap[entityName] || entityName;
+    const spriteDef = this._sprites[sheetKey];
+    if (!spriteDef || !spriteDef.frameTags) return null;
+
+    const tag = spriteDef.frameTags.find(t => t.name === state);
+    if (!tag) return null;
+
+    return {
+      from: tag.from,
+      to: tag.to,
+      frameCount: tag.to - tag.from + 1,
+      speed: tag.speed,
+    };
+  }
+
+  /**
+   * Load sprite-anims.json config, then all sprite sheet PNGs.
+   * Safe to call multiple times.
    * @returns {Promise<void>}
    */
   async load() {
     if (this._loaded || this._loading) return;
     this._loading = true;
 
-    // Load static sheets
+    // ── Load JSON animation config ────────────────────────────────────
+    try {
+      const resp = await fetch('./sprites/sprite-anims.json');
+      if (resp.ok) {
+        this._animConfig = await resp.json();
+        this._applyConfig(this._animConfig);
+        console.log('SpriteSheetManager: Loaded sprite-anims.json');
+      } else {
+        console.warn('SpriteSheetManager: sprite-anims.json not found, using defaults');
+      }
+    } catch (e) {
+      console.warn('SpriteSheetManager: Failed to load sprite-anims.json:', e);
+    }
+
+    // ── Load static sheets (Kenney Tiny Creatures, unicorn run) ──────
     const staticEntries = Object.entries(SHEET_PATHS);
     const staticResults = await Promise.all(
       staticEntries.map(async ([key, path]) => {
@@ -260,10 +228,11 @@ class SpriteSheetManager {
       }
     }
 
-    // Load animated spritesheets
-    const animEntries = Object.entries(ANIM_SHEET_PATHS);
+    // ── Load animated spritesheets from JSON config ──────────────────
+    const animEntries = Object.entries(this._sprites);
     const animResults = await Promise.all(
-      animEntries.map(async ([key, path]) => {
+      animEntries.map(async ([key, spriteDef]) => {
+        const path = spriteDef.sheet;
         const img = await tryLoadImage(path);
         if (img) {
           console.log(`SpriteSheetManager: Loaded anim "${key}" (${img.width}x${img.height}) from ${path}`);
@@ -285,6 +254,30 @@ class SpriteSheetManager {
   }
 
   /**
+   * Apply parsed JSON config to internal state.
+   * @param {object} config
+   */
+  _applyConfig(config) {
+    if (config.meta) {
+      if (config.meta.frameSize) {
+        this._frameSize = config.meta.frameSize;
+      }
+      if (config.meta.scale !== undefined) {
+        this._scale = config.meta.scale;
+      }
+    }
+    if (config.sprites) {
+      this._sprites = config.sprites;
+    }
+    if (config.entityMap) {
+      this._entityMap = config.entityMap;
+    }
+    if (config.creatureAnims) {
+      this._creatureAnims = config.creatureAnims;
+    }
+  }
+
+  /**
    * Check if a specific sheet is available.
    * @param {string} sheetKey
    * @returns {boolean}
@@ -298,7 +291,7 @@ class SpriteSheetManager {
    * @param {string} name - Sprite name (e.g. 'princess', 'unicorn')
    * @returns {{sheet: string, image: HTMLImageElement, sx: number, sy: number, sw: number, sh: number}|null}
    */
-  getSpriteRect(name) {
+  getSpriteRect(name, animTimer) {
     const def = SPRITE_DEFS[name];
     if (!def) return null;
 
@@ -306,8 +299,17 @@ class SpriteSheetManager {
     if (!img) return null;
 
     const meta = SHEET_META[def.sheet];
-    const col = def.tileIndex % meta.cols;
-    const row = Math.floor(def.tileIndex / meta.cols);
+
+    // Check for creature animation from JSON config (e.g. bird wing flap)
+    let tileIndex = def.tileIndex;
+    const anim = this._creatureAnims[name];
+    if (anim && animTimer !== undefined) {
+      const frameIdx = Math.floor(animTimer / anim.speed) % anim.frames.length;
+      tileIndex = anim.frames[frameIdx];
+    }
+
+    const col = tileIndex % meta.cols;
+    const row = Math.floor(tileIndex / meta.cols);
     const sx = col * (meta.tileW + meta.spacing);
     const sy = row * (meta.tileH + meta.spacing);
 
@@ -336,8 +338,9 @@ class SpriteSheetManager {
   draw(ctx, name, x, y, options = {}) {
     const flipX = options.flipX || false;
     const scale = options.scale || 1;
+    const animTimer = options.animTimer;
 
-    const rect = this.getSpriteRect(name);
+    const rect = this.getSpriteRect(name, animTimer);
 
     if (rect) {
       // Draw from real sprite sheet
@@ -376,60 +379,82 @@ class SpriteSheetManager {
 
   /**
    * Draw a walk animation frame from the Superdark animated spritesheets.
-   * Draws row 1 (walk row) at the given frame index.
+   * Uses the walk frameTag from sprite-anims.json config.
    * Falls back to static sprite if animated sheet is not available.
    *
    * @param {CanvasRenderingContext2D} ctx
    * @param {string} name - Entity sprite name (e.g. 'princess', 'npc_baker', 'wolf')
-   * @param {number} frame - Walk frame index (0-3)
+   * @param {number} frame - Walk frame index (0-based within walk range)
    * @param {number} x - Destination X
    * @param {number} y - Destination Y
    * @param {boolean} [flipX=false] - Flip horizontally (for facing left)
+   * @param {number} [scale] - Scale factor (defaults to config scale)
    */
-  drawWalkFrame(ctx, name, frame, x, y, flipX = false) {
-    const sheetKey = ANIM_SHEET_MAP[name];
-    const sheet = sheetKey ? this._animSheets.get(sheetKey) : null;
+  drawWalkFrame(ctx, name, frame, x, y, flipX = false, scale) {
+    const sheetKey = this._entityMap[name] || name;
+    const sheet = this._animSheets.get(sheetKey);
 
     if (!sheet) {
-      // Fall back to static sprite
-      this.draw(ctx, name, x, y, { flipX });
+      this.draw(ctx, name, x, y, { flipX, scale: scale || 1 });
       return;
     }
 
-    const col = frame % ANIM_WALK_FRAMES;
-    const sx = col * ANIM_FRAME_W;
-    const sy = ANIM_WALK_ROW * ANIM_FRAME_H;
+    // Look up walk frameTag from config
+    const walkConfig = this._getFrameTag(sheetKey, 'walk');
+    const walkStart = walkConfig ? walkConfig.from : 4;
+    const walkFrames = walkConfig ? (walkConfig.to - walkConfig.from + 1) : 4;
 
-    this._drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX);
+    const frameIndex = walkStart + (frame % walkFrames);
+    const sx = frameIndex * this._frameSize.w;
+    const sy = 0;
+
+    this._drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX, scale);
   }
 
   /**
    * Draw an idle animation frame from the Superdark animated spritesheets.
-   * Draws row 0 (idle row) at the given frame index.
+   * Uses the idle frameTag from sprite-anims.json config.
    * Falls back to static sprite if animated sheet is not available.
    *
    * @param {CanvasRenderingContext2D} ctx
    * @param {string} name - Entity sprite name (e.g. 'princess', 'npc_baker', 'wolf')
-   * @param {number} frame - Idle frame index (0-3)
+   * @param {number} frame - Idle frame index (0-based within idle range)
    * @param {number} x - Destination X
    * @param {number} y - Destination Y
    * @param {boolean} [flipX=false] - Flip horizontally (for facing left)
+   * @param {number} [scale] - Scale factor (defaults to config scale)
    */
-  drawIdleFrame(ctx, name, frame, x, y, flipX = false) {
-    const sheetKey = ANIM_SHEET_MAP[name];
-    const sheet = sheetKey ? this._animSheets.get(sheetKey) : null;
+  drawIdleFrame(ctx, name, frame, x, y, flipX = false, scale) {
+    const sheetKey = this._entityMap[name] || name;
+    const sheet = this._animSheets.get(sheetKey);
 
     if (!sheet) {
-      // Fall back to static sprite
-      this.draw(ctx, name, x, y, { flipX });
+      this.draw(ctx, name, x, y, { flipX, scale: scale || 1 });
       return;
     }
 
-    const col = frame % ANIM_IDLE_FRAMES;
-    const sx = col * ANIM_FRAME_W;
-    const sy = ANIM_IDLE_ROW * ANIM_FRAME_H;
+    // Look up idle frameTag from config
+    const idleConfig = this._getFrameTag(sheetKey, 'idle');
+    const idleStart = idleConfig ? idleConfig.from : 0;
+    const idleFrames = idleConfig ? (idleConfig.to - idleConfig.from + 1) : 2;
 
-    this._drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX);
+    const frameIndex = idleStart + (frame % idleFrames);
+    const sx = frameIndex * this._frameSize.w;
+    const sy = 0;
+
+    this._drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX, scale);
+  }
+
+  /**
+   * Look up a frameTag by name for a given sprite sheet key.
+   * @param {string} sheetKey - Sprite sheet key (e.g. 'princess', 'wolf')
+   * @param {string} tagName - Tag name (e.g. 'idle', 'walk')
+   * @returns {{ name: string, from: number, to: number, direction: string, speed: number }|null}
+   */
+  _getFrameTag(sheetKey, tagName) {
+    const spriteDef = this._sprites[sheetKey];
+    if (!spriteDef || !spriteDef.frameTags) return null;
+    return spriteDef.frameTags.find(t => t.name === tagName) || null;
   }
 
   /**
@@ -443,87 +468,71 @@ class SpriteSheetManager {
    * @param {number} x - Destination X
    * @param {number} y - Destination Y
    * @param {boolean} flipX
+   * @param {number} [scale] - Scale factor (defaults to config scale)
    */
-  _drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX) {
+  _drawAnimFrame(ctx, sheet, sx, sy, x, y, flipX, scale) {
+    const fw = this._frameSize.w;
+    const fh = this._frameSize.h;
+    const s = scale !== undefined ? scale : 1;
+    const dw = (fw * s) | 0;
+    const dh = (fh * s) | 0;
+
     if (flipX) {
       ctx.save();
-      ctx.translate(x + ANIM_FRAME_W, y);
+      ctx.translate(x + dw, y);
       ctx.scale(-1, 1);
-      ctx.drawImage(sheet, sx, sy, ANIM_FRAME_W, ANIM_FRAME_H,
-        0, 0, ANIM_FRAME_W, ANIM_FRAME_H);
+      ctx.drawImage(sheet, sx, sy, fw, fh,
+        0, 0, dw, dh);
       ctx.restore();
     } else {
-      ctx.drawImage(sheet, sx, sy, ANIM_FRAME_W, ANIM_FRAME_H,
-        x | 0, y | 0, ANIM_FRAME_W, ANIM_FRAME_H);
+      ctx.drawImage(sheet, sx, sy, fw, fh,
+        x | 0, y | 0, dw, dh);
     }
   }
 
   /**
    * Compute the current animation frame based on elapsed time.
-   * Useful for entities that track their own animTimer.
+   * Uses frame speeds from the JSON config.
    *
    * @param {number} animTimer - Accumulated time in milliseconds
    * @param {boolean} isWalking - Whether the entity is moving
-   * @returns {number} Current frame index (0-3)
+   * @param {string} [entityName] - Optional entity name for config lookup
+   * @returns {number} Current frame index
    */
-  getAnimFrame(animTimer, isWalking) {
-    const interval = isWalking ? WALK_FRAME_INTERVAL : IDLE_FRAME_INTERVAL;
-    const maxFrames = isWalking ? ANIM_WALK_FRAMES : ANIM_IDLE_FRAMES;
+  getAnimFrame(animTimer, isWalking, entityName) {
+    let interval, maxFrames;
+
+    if (entityName) {
+      const state = isWalking ? 'walk' : 'idle';
+      const config = this.getFrameConfig(entityName, state);
+      if (config) {
+        interval = config.speed;
+        maxFrames = config.frameCount;
+      }
+    }
+
+    // Fallback to defaults derived from config (or hardcoded defaults)
+    if (!interval) {
+      // Use the first sprite's config as representative defaults
+      const firstKey = Object.keys(this._sprites)[0];
+      if (firstKey) {
+        const tag = this._getFrameTag(firstKey, isWalking ? 'walk' : 'idle');
+        if (tag) {
+          interval = tag.speed;
+          maxFrames = tag.to - tag.from + 1;
+        }
+      }
+    }
+
+    // Ultimate fallback
+    if (!interval) {
+      interval = isWalking ? 150 : 500;
+      maxFrames = isWalking ? 4 : 2;
+    }
+
     return Math.floor(animTimer / interval) % maxFrames;
   }
 
-  /**
-   * Draw a walk animation frame for the princess from the RPG 8-bit sheet.
-   * Falls back to the static dungeon princess tile if RPG sheet isn't loaded.
-   *
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {number} x - Destination X
-   * @param {number} y - Destination Y
-   * @param {number} direction - 0=down, 1=left, 2=right, 3=up
-   * @param {number} frame - Walk frame (0, 1, 2)
-   * @param {boolean} [flipX=false]
-   */
-  drawWalk(ctx, x, y, direction, frame, flipX = false) {
-    const rpgSheet = this._sheets.get('rpg8bit');
-    if (!rpgSheet) {
-      // Fall back to static sprite
-      this.draw(ctx, 'princess', x, y, { flipX });
-      return;
-    }
-
-    const cfg = RPG_WALK;
-    const meta = SHEET_META.rpg8bit;
-
-    // Map direction to row
-    let dirKey;
-    let needFlip = false;
-    switch (direction) {
-      case 0: dirKey = 'down'; break;
-      case 1: dirKey = 'left'; break;
-      case 2: dirKey = 'right'; needFlip = true; break; // right = flip of left
-      case 3: dirKey = 'up'; break;
-      default: dirKey = 'down';
-    }
-
-    const dirRow = cfg.dirRows[dirKey];
-    const row = cfg.groupRowOffset + dirRow;
-    const col = cfg.charIndex * cfg.colStride + (frame % cfg.framesPerDir);
-
-    const sx = col * meta.tileW;
-    const sy = row * meta.tileH;
-
-    const shouldFlip = needFlip || flipX;
-
-    if (shouldFlip) {
-      ctx.save();
-      ctx.translate(x + meta.tileW, y);
-      ctx.scale(-1, 1);
-      ctx.drawImage(rpgSheet, sx, sy, meta.tileW, meta.tileH, 0, 0, meta.tileW, meta.tileH);
-      ctx.restore();
-    } else {
-      ctx.drawImage(rpgSheet, sx, sy, meta.tileW, meta.tileH, x | 0, y | 0, meta.tileW, meta.tileH);
-    }
-  }
 
   /**
    * Draw a unicorn running animation frame.

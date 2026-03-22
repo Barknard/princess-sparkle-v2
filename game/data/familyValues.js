@@ -27,8 +27,8 @@ const FAMILY_VALUES = {
       breeze: 'Sharing is like sending wishes on the wind.',
       pip: 'Sharing is the best! Let us share everything!'
     },
-    // Rainbow bridge color this value contributes to
-    bridgeColor: '#ff4444'  // Red band
+    // Starlight path color this value contributes to
+    pathColor: '#ff4444'  // Red band
   },
 
   kindness: {
@@ -50,7 +50,7 @@ const FAMILY_VALUES = {
       breeze: 'Kindness floats through the air like a gentle song.',
       pip: 'Hey, being kind is what heroes do!'
     },
-    bridgeColor: '#ffaa00'  // Orange band
+    pathColor: '#ffaa00'  // Orange band
   },
 
   helping: {
@@ -72,7 +72,7 @@ const FAMILY_VALUES = {
       breeze: 'Every helping hand paints a new color in the sky.',
       pip: 'Team work! We can do anything together!'
     },
-    bridgeColor: '#ffdd00'  // Yellow band
+    pathColor: '#ffdd00'  // Yellow band
   },
 
   empathy: {
@@ -94,7 +94,7 @@ const FAMILY_VALUES = {
       breeze: 'Feelings are like clouds — sometimes they need the sun to come out.',
       pip: 'Everyone feels things! And that is okay!'
     },
-    bridgeColor: '#44cc44'  // Green band
+    pathColor: '#44cc44'  // Green band
   },
 
   patience: {
@@ -116,7 +116,7 @@ const FAMILY_VALUES = {
       breeze: 'Patience is like the wind — it arrives in its own time.',
       pip: 'Hmm, waiting... waiting... oh look a butterfly! Oh right, waiting!'
     },
-    bridgeColor: '#4488ff'  // Blue band
+    pathColor: '#4488ff'  // Blue band
   },
 
   cooperation: {
@@ -138,7 +138,7 @@ const FAMILY_VALUES = {
       breeze: 'Two wings are better than one, they say.',
       pip: 'Team Sparkle, go go go!'
     },
-    bridgeColor: '#8844ff'  // Purple band
+    pathColor: '#8844ff'  // Purple band
   }
 };
 
@@ -168,17 +168,17 @@ export function getAllValues() {
 }
 
 /**
- * Get the rainbow bridge colors in order.
+ * Get the starlight path colors in order.
  * @returns {Array<{value: string, color: string}>}
  */
-export function getBridgeColors() {
+export function getPathColors() {
   return [
-    { value: 'sharing', color: FAMILY_VALUES.sharing.bridgeColor },
-    { value: 'kindness', color: FAMILY_VALUES.kindness.bridgeColor },
-    { value: 'helping', color: FAMILY_VALUES.helping.bridgeColor },
-    { value: 'empathy', color: FAMILY_VALUES.empathy.bridgeColor },
-    { value: 'patience', color: FAMILY_VALUES.patience.bridgeColor },
-    { value: 'cooperation', color: FAMILY_VALUES.cooperation.bridgeColor }
+    { value: 'sharing', color: FAMILY_VALUES.sharing.pathColor },
+    { value: 'kindness', color: FAMILY_VALUES.kindness.pathColor },
+    { value: 'helping', color: FAMILY_VALUES.helping.pathColor },
+    { value: 'empathy', color: FAMILY_VALUES.empathy.pathColor },
+    { value: 'patience', color: FAMILY_VALUES.patience.pathColor },
+    { value: 'cooperation', color: FAMILY_VALUES.cooperation.pathColor }
   ];
 }
 

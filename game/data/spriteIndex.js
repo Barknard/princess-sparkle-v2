@@ -11,28 +11,23 @@
  * to load it by convention: sprites/{name}.png
  * Drop a new sprite file in the folder and it just works.
  *
- * When using procedural sprites (sprites.js), these entries serve as
- * the canonical name-to-key mapping and metadata reference.
+ * Characters use Superdark Fantasy RPG animated sheets (sprites/sheets/).
+ * Companions & animals use Kenney Tiny Creatures packed tilemap.
  */
 
 import { tryLoadImage } from './assetDiscovery.js';
 
 const SPRITE_INDEX = {
-  // === Player ===
-  // Static frame from Kenney Tiny Dungeon tilemap_packed.png
-  // Walk animation from rpg_16x16_8bit.png (character 0, 3 frames x 3 dirs)
+  // === Player (Superdark Fantasy RPG - Princess) ===
+  // Animated spritesheet: sprites/sheets/princess.png (4 idle + 4 walk frames)
   princess: {
-    sheet: 'dungeon',
-    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
-    x: 48, y: 128, w: 16, h: 16,  // tile_0099: col=3, row=8 in 12-col packed sheet
-    frames: 1,
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/princess.png',
+    x: 0, y: 0, w: 64, h: 32,
+    frames: 4,
     frameW: 16,
     frameH: 16,
     directions: 1,
-    walkSheet: 'rpg8bit',
-    walkSheetPath: './sprites/characters/rpg_16x16_8bit.png',
-    walkFrames: 3,
-    walkDirections: 3, // down, left/right, up
   },
 
   // === Companions (from Kenney Tiny Creatures tilemap_packed.png) ===
@@ -86,51 +81,62 @@ const SPRITE_INDEX = {
     directions: 1
   },
 
-  // === NPCs (from Kenney Tiny Dungeon tilemap_packed.png) ===
+  // === NPCs (Superdark Fantasy RPG animated sheets) ===
   npc_grandma: {
-    sheet: 'dungeon',
-    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
-    x: 64, y: 128, w: 16, h: 16,  // tile_0100: col=4, row=8
-    frames: 1,
-    frameW: 16,
-    frameH: 16,
-    directions: 1
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/queen.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
   },
   npc_finn: {
-    sheet: 'dungeon',
-    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
-    x: 0, y: 144, w: 16, h: 16,   // tile_0108: col=0, row=9
-    frames: 1,
-    frameW: 16,
-    frameH: 16,
-    directions: 1
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/ranger.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
   },
   npc_lily: {
-    sheet: 'dungeon',
-    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
-    x: 16, y: 144, w: 16, h: 16,  // tile_0109: col=1, row=9
-    frames: 1,
-    frameW: 16,
-    frameH: 16,
-    directions: 1
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/elf-female.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
   },
   npc_baker: {
-    sheet: 'dungeon',
-    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
-    x: 32, y: 144, w: 16, h: 16,  // tile_0110: col=2, row=9
-    frames: 1,
-    frameW: 16,
-    frameH: 16,
-    directions: 1
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/blacksmith.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
   },
   npc_melody: {
-    sheet: 'dungeon',
-    sheetPath: './sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
-    x: 80, y: 128, w: 16, h: 16,  // tile_0101: col=5, row=8
-    frames: 1,
-    frameW: 16,
-    frameH: 16,
-    directions: 1
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/elf-princess.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
+  },
+
+  // === Superdark Forest Creatures (animated sheets) ===
+  bear: {
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/bear.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
+  },
+  ent: {
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/ent.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
+  },
+  mushroom_creature: {
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/mushroom-small.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
+  },
+  forest_guardian: {
+    sheet: 'anim',
+    sheetPath: './sprites/sheets/forest-guardian.png',
+    x: 0, y: 0, w: 128, h: 16,
+    frames: 8, frameW: 16, frameH: 16, directions: 1
   },
 
   // === Animals (from Kenney Tiny Creatures tilemap_packed.png) ===

@@ -151,10 +151,10 @@ export default class NPC {
     const dtMs = dt * 1000;
     let ambientLine = null;
 
-    // Animation: walk frames at 150ms, idle frames at 400ms
+    // Animation: walk frames 4-7 at 150ms, idle frames 0-1 at 500ms
     const isMoving = this.isWandering;
-    const frameInterval = isMoving ? 150 : 400;
-    const frameCount = 4; // Superdark sheets have 4 frames per row
+    const frameInterval = isMoving ? 150 : 500;
+    const frameCount = isMoving ? 4 : 2;
     this.animTimer += dtMs;
     if (this.animTimer >= frameInterval) {
       this.animTimer -= frameInterval;

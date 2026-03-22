@@ -15,6 +15,11 @@ const AUTO_ADVANCE_DELAY = 2000;
 // Fallback: if no voice, auto-advance after this many ms
 const NO_VOICE_ADVANCE_DELAY = 4000;
 
+// Choice nudge escalation thresholds (seconds)
+const NUDGE_PULSE_AT = 8;
+const NUDGE_SPARKLE_AT = 15;
+const NUDGE_COMPANION_AT = 25;
+
 /**
  * @typedef {object} DialogueNode
  * @property {string} id - Unique node ID
@@ -54,6 +59,14 @@ export default class DialogueSystem {
     /** @type {Array<{icon: string, next: string, questTrigger?: string}>|null} */
     this.currentChoices = null;
 
+    // Choice nudge timer (seconds elapsed while choices are shown)
+    this._choiceNudgeTimer = 0;
+    this._currentNudgeLevel = 0;
+
+    // Reference to DialogueBox for nudge level updates
+    /** @type {object|null} */
+    this.dialogueBox = null;
+
     // Callbacks
     /** @type {Function|null} Called with (node) when a new node starts */
     this.onNodeStart = null;
@@ -65,6 +78,8 @@ export default class DialogueSystem {
     this.onQuestTrigger = null;
     /** @type {Function|null} Called with (expression) to set NPC expression */
     this.onSetExpression = null;
+    /** @type {Function|null} Called when companion hint nudge triggers */
+    this.onCompanionHint = null;
 
     // Reference to audio manager for voice playback tracking
     /** @type {object|null} */
@@ -141,6 +156,11 @@ export default class DialogueSystem {
 
     this.showingChoices = false;
     this.currentChoices = null;
+    this._choiceNudgeTimer = 0;
+    this._currentNudgeLevel = 0;
+    if (this.dialogueBox) {
+      this.dialogueBox.setNudgeLevel(0);
+    }
 
     if (choice.next) {
       this._goToNode(choice.next);
@@ -163,6 +183,28 @@ export default class DialogueSystem {
         this.voicePlaying = false;
         this.waitingForAdvance = true;
         this.advanceTimer = AUTO_ADVANCE_DELAY;
+      }
+    }
+
+    // Choice nudge escalation
+    if (this.showingChoices) {
+      this._choiceNudgeTimer += dt;
+      let level = 0;
+      if (this._choiceNudgeTimer >= NUDGE_COMPANION_AT) {
+        level = 3;
+      } else if (this._choiceNudgeTimer >= NUDGE_SPARKLE_AT) {
+        level = 2;
+      } else if (this._choiceNudgeTimer >= NUDGE_PULSE_AT) {
+        level = 1;
+      }
+      if (level !== this._currentNudgeLevel) {
+        this._currentNudgeLevel = level;
+        if (this.dialogueBox) {
+          this.dialogueBox.setNudgeLevel(level);
+        }
+        if (level === 3 && this.onCompanionHint) {
+          this.onCompanionHint();
+        }
       }
     }
 
@@ -244,6 +286,8 @@ export default class DialogueSystem {
     // If choices are pending, show them now instead of auto-advancing
     if (this.currentChoices && this.currentChoices.length > 0) {
       this.showingChoices = true;
+      this._choiceNudgeTimer = 0;
+      this._currentNudgeLevel = 0;
       return;
     }
 
@@ -266,6 +310,8 @@ export default class DialogueSystem {
     this.waitingForAdvance = false;
     this.showingChoices = false;
     this.currentChoices = null;
+    this._choiceNudgeTimer = 0;
+    this._currentNudgeLevel = 0;
 
     if (this.onDialogueEnd) {
       this.onDialogueEnd();

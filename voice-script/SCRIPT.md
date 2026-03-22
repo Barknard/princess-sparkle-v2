@@ -35,8 +35,8 @@ You are recording ALL voices yourself. Here is how to approach each character:
 | Section | Lines |
 |---------|-------|
 | Title Screen | 6 |
-| Companion Selection | 18 |
-| Arriving in Sparkle Village | 17 (x5 companion variants = 37 total) |
+| Companion Selection | 25 (was 18 + 7 new story/bonding lines) |
+| Arriving in Sparkle Village | 23 (x5 companion variants = 43 total, was 37) |
 | Meeting Grandma Rose Quest | 30 (x5 companion variants = 50 total) |
 | Helping Little Finn Quest | 28 (x5 companion variants = 46 total) |
 | Rainbow Bridge Progress | 8 |
@@ -44,7 +44,7 @@ You are recording ALL voices yourself. Here is how to approach each character:
 | Entering Whisper Forest | 18 (x5 companion variants = 33 total) |
 | Kindness Encounters | 18 (x5 companion variants = 33 total) |
 | Idle / Hint Lines | 15 |
-| **Total unique recordings** | **~272** |
+| **Total unique recordings** | **~290** |
 
 ---
 
@@ -190,15 +190,71 @@ You are recording ALL voices yourself. Here is how to approach each character:
 - Voice: Gentle promise. Full of hope. Slow, warm.
 - File: narrator_companion_confirm_02.mp3
 
+### Story Introduction — Pre-Selection Cinematic
+
+*These lines play BEFORE the companions appear, setting up WHY the player is choosing a companion.*
+
+**narrator_companion_story_01**
+- Character: Narrator
+- Text: "Every princess needs a special friend by her side."
+- Voice: Storytelling warmth. Like the beginning of a fairy tale. Slow, meaningful.
+- File: narrator_companion_story_01.mp3
+
+**narrator_companion_story_02**
+- Character: Narrator
+- Text: "Someone to help you, and share the adventure with."
+- Voice: Warm, building anticipation. "Adventure" with a smile.
+- File: narrator_companion_story_02.mp3
+
+### Bonding Moment — After Selection Confirmed
+
+*These play after the child double-taps to confirm their companion. One per companion.*
+
+**narrator_companion_bonding_shimmer**
+- Character: Narrator
+- Text: "You and Shimmer are going to have an amazing adventure!"
+- Voice: Delighted, celebratory. Like announcing best friends. Warm and proud.
+- File: narrator_companion_bonding_shimmer.mp3
+
+**narrator_companion_bonding_ember**
+- Character: Narrator
+- Text: "You and Ember are going to have an amazing adventure!"
+- Voice: Excited, joyful. Matching Ember's playful energy.
+- File: narrator_companion_bonding_ember.mp3
+
+**narrator_companion_bonding_petal**
+- Character: Narrator
+- Text: "You and Petal are going to have an amazing adventure!"
+- Voice: Gentle, warm. Soft and sweet, matching Petal's personality.
+- File: narrator_companion_bonding_petal.mp3
+
+**narrator_companion_bonding_breeze**
+- Character: Narrator
+- Text: "You and Breeze are going to have an amazing adventure!"
+- Voice: Dreamy, whimsical. Light and floating, like Breeze.
+- File: narrator_companion_bonding_breeze.mp3
+
+**narrator_companion_bonding_pip**
+- Character: Narrator
+- Text: "You and Pip are going to have an amazing adventure!"
+- Voice: Bright, peppy. Cheerful and bouncy, like Pip.
+- File: narrator_companion_bonding_pip.mp3
+
 ---
 
 # SCENE: ARRIVING IN SPARKLE VILLAGE (First Time)
 
+The tutorial teaches game mechanics one at a time, so the player learns naturally.
+Each step introduces ONE idea, lets her try it, then moves to the next.
+The sequence is: arrive → learn to walk → explore → learn what stars mean → meet Grandma → learn about quests.
+
 ---
+
+### Step 1: Arrival — "Where are we?"
 
 **narrator_village_arrive_01**
 - Character: Narrator
-- Text: "This is Sparkle Village."
+- Text: "This is Sparkle Village!"
 - Voice: Warm wonder, like revealing a beautiful painting. Pause after.
 - File: narrator_village_arrive_01.mp3
 
@@ -207,6 +263,36 @@ You are recording ALL voices yourself. Here is how to approach each character:
 - Text: "A sweet little town where everyone helps each other."
 - Voice: Cozy, inviting. "Helps each other" spoken with warmth.
 - File: narrator_village_arrive_02.mp3
+
+### Step 2: Teach WALKING — "How do I move?"
+
+**narrator_tutorial_walk_01**
+- Character: Narrator
+- Text: "Tap anywhere to walk there. Try it!"
+- Voice: Simple, clear, friendly. Encouraging her to experiment. Smile on "Try it!"
+- File: narrator_tutorial_walk_01.mp3
+
+**narrator_tutorial_walk_success_01**
+- Character: Narrator
+- Text: "You did it! You can walk anywhere you want!"
+- Voice: Proud, celebrating her first steps. Big warm smile.
+- File: narrator_tutorial_walk_success_01.mp3
+
+### Step 3: Teach TAPPING OBJECTS — "What can I touch?"
+
+**narrator_tutorial_tap_01**
+- Character: Narrator
+- Text: "See those flowers? Try tapping on one!"
+- Voice: Excited discovery. Pointing something out. Wonder in "flowers."
+- File: narrator_tutorial_tap_01.mp3
+
+**narrator_tutorial_tap_success_01**
+- Character: Narrator
+- Text: "Wonderful! You can tap on lots of things in this world."
+- Voice: Delighted, encouraging more exploration.
+- File: narrator_tutorial_tap_success_01.mp3
+
+### Step 4: Teach THE STORY — "Why are we here?"
 
 **narrator_village_arrive_03**
 - Character: Narrator
@@ -226,23 +312,53 @@ You are recording ALL voices yourself. Here is how to approach each character:
 - Voice: Gentle question. Encouraging. She can absolutely do this.
 - File: narrator_village_arrive_05.mp3
 
+### Step 5: Teach QUEST STARS — "How do I find people who need help?"
+
+**narrator_village_tutorial_03**
+- Character: Narrator
+- Text: "When someone needs help, you will see a little star above them."
+- Voice: Informative but warm. "Little star" with delight.
+- File: narrator_village_tutorial_03.mp3
+
+**narrator_tutorial_star_01**
+- Character: Narrator
+- Text: "See that golden star? Follow the golden path to find them!"
+- Voice: Guiding, like pointing the way on an adventure. Excited discovery.
+- File: narrator_tutorial_star_01.mp3
+
+### Step 6: Camera pan to Grandma — "Who needs help?"
+
+**narrator_tutorial_help_01**
+- Character: Narrator
+- Text: "Let's go help someone!"
+- Voice: Warm, motivating. Like suggesting a fun activity. Upbeat.
+- File: narrator_tutorial_help_01.mp3
+
+**narrator_village_quest_hint_01**
+- Character: Narrator
+- Text: "See that sparkle? That means someone needs your help!"
+- Voice: Gentle, guiding. "Needs your help" with warm emphasis.
+- File: narrator_village_quest_hint_01.mp3
+
+### Step 7: Guide to Grandma — "How do I get there?"
+
+**narrator_tutorial_follow_path_01**
+- Character: Narrator
+- Text: "Follow the golden path! It will show you the way."
+- Voice: Encouraging, adventure-starting tone. "Golden path" with wonder.
+- File: narrator_tutorial_follow_path_01.mp3
+
 **narrator_village_tutorial_01**
 - Character: Narrator
-- Text: "Tap anywhere to walk there."
-- Voice: Simple, clear, friendly instruction. Not bossy.
+- Text: "Tap where you want to walk!"
+- Voice: Simple, clear, friendly instruction. Not bossy. Reminder.
 - File: narrator_village_tutorial_01.mp3
 
 **narrator_village_tutorial_02**
 - Character: Narrator
-- Text: "See that little sparkle? Tap on it to say hello."
-- Voice: Gentle, guiding. "Sparkle" with a tiny bit of wonder.
+- Text: "Tap on Grandma Rose to say hello!"
+- Voice: Gentle, guiding. Warm encouragement. Almost there!
 - File: narrator_village_tutorial_02.mp3
-
-**narrator_village_tutorial_03**
-- Character: Narrator
-- Text: "When someone needs help, you will see a little star."
-- Voice: Informative but warm. "Little star" with delight.
-- File: narrator_village_tutorial_03.mp3
 
 ### Companion Reactions — Village Arrival
 

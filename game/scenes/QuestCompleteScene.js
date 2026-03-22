@@ -6,7 +6,7 @@
  * Companion happy animation.
  * Warm completion chime (3-note ascending).
  * Voice: narrator congratulates.
- * Rainbow Bridge piece glows (visual).
+ * Starlight Path piece glows (visual).
  * "Back to Adventure" button after 2000ms (cannot skip — intentional pacing).
  *
  * Canvas only. No DOM. Integer coords.
@@ -54,7 +54,7 @@ export default class QuestCompleteScene {
     // Quest data passed in on enter
     this._questName = '';
     this._heartsEarned = 3;
-    this._bridgeColor = '#ff6b6b'; // color of the Rainbow Bridge piece
+    this._pathColor = '#ff6b6b'; // color of the Starlight Path piece
     this._companionId = '';
 
     // Timer
@@ -83,8 +83,8 @@ export default class QuestCompleteScene {
     // Narrator played flag
     this._narratorPlayed = false;
 
-    // Bridge glow
-    this._bridgeGlowAlpha = 0;
+    // Path glow
+    this._pathGlowAlpha = 0;
 
     // Companion animation
     this._companionBounceTimer = 0;
@@ -106,21 +106,21 @@ export default class QuestCompleteScene {
    * @param {object} [params]
    * @param {string} params.questName
    * @param {number} params.hearts
-   * @param {string} params.bridgeColor
+   * @param {string} params.pathColor
    * @param {string} params.companionId
    */
   enter(params) {
     const p = params || {};
     this._questName = p.questName || '';
     this._heartsEarned = p.hearts || 3;
-    this._bridgeColor = p.bridgeColor || '#ff6b6b';
+    this._pathColor = p.pathColor || '#ff6b6b';
     this._companionId = p.companionId || '';
     this._timer = 0;
     this._goldenAlpha = 0;
     this._autoReturnReady = false;
     this._autoReturnTimer = 0;
     this._narratorPlayed = false;
-    this._bridgeGlowAlpha = 0;
+    this._pathGlowAlpha = 0;
     this._companionBounceTimer = 0;
     this._transition = new TransitionOverlay();
 
@@ -191,9 +191,9 @@ export default class QuestCompleteScene {
       playVoice('narrator_quest_complete_01');
     }
 
-    // Rainbow Bridge piece glow
+    // Starlight Path piece glow
     if (timerMs > 1500) {
-      this._bridgeGlowAlpha = Math.min((timerMs - 1500) / 800, 1) * 0.7;
+      this._pathGlowAlpha = Math.min((timerMs - 1500) / 800, 1) * 0.7;
     }
 
     // Auto-return after celebration finishes (no button needed for 4yo)
@@ -245,8 +245,8 @@ export default class QuestCompleteScene {
     // Companion happy animation (center-bottom area)
     this._drawCompanion(ctx);
 
-    // Rainbow Bridge piece glow
-    this._drawBridgePiece(ctx);
+    // Starlight Path piece glow
+    this._drawPathPiece(ctx);
 
     // Sparkle portal indicator (auto-returns, but show visual cue)
     if (this._autoReturnReady) {
@@ -382,28 +382,28 @@ export default class QuestCompleteScene {
     ctx.restore();
   }
 
-  _drawBridgePiece(ctx) {
-    if (this._bridgeGlowAlpha <= 0) return;
+  _drawPathPiece(ctx) {
+    if (this._pathGlowAlpha <= 0) return;
 
-    const bridgeX = (LOGICAL_WIDTH * 0.75) | 0;
-    const bridgeY = (LOGICAL_HEIGHT * 0.15) | 0;
+    const pathX = (LOGICAL_WIDTH * 0.75) | 0;
+    const pathY = (LOGICAL_HEIGHT * 0.15) | 0;
 
     ctx.save();
-    ctx.globalAlpha = this._bridgeGlowAlpha;
+    ctx.globalAlpha = this._pathGlowAlpha;
 
-    // Bridge arc piece
-    ctx.strokeStyle = this._bridgeColor;
+    // Path arc piece
+    ctx.strokeStyle = this._pathColor;
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(bridgeX, bridgeY + 25, 30, Math.PI, 0);
+    ctx.arc(pathX, pathY + 25, 30, Math.PI, 0);
     ctx.stroke();
 
     // Glow
-    ctx.globalAlpha = this._bridgeGlowAlpha * 0.4;
+    ctx.globalAlpha = this._pathGlowAlpha * 0.4;
     ctx.strokeStyle = '#ffd700';
     ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.arc(bridgeX, bridgeY + 25, 30, Math.PI, 0);
+    ctx.arc(pathX, pathY + 25, 30, Math.PI, 0);
     ctx.stroke();
 
     ctx.restore();

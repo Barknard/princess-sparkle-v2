@@ -5,7 +5,9 @@
   "main": "sw.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:sprites": "node tools/build-spritesheets.js"
+    "build:sprites": "node tools/build-spritesheets.js",
+    "map:export": "node tools/level-to-tmj.js",
+    "map:import": "node tools/tmj-to-level.js"
   },
   "repository": {
     "type": "git",
@@ -20,6 +22,8 @@
   },
   "homepage": "https://github.com/Barknard/princess-sparkle-v2#readme",
   "dependencies": {
-    "sharp": "^0.34.5"
+    "rot-js": "^2.2.1",
+    "sharp": "^0.34.5",
+    "wavefunctioncollapse": "^2.1.0"
   }
 }

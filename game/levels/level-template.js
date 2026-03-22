@@ -113,7 +113,7 @@ const quests = [
   //   giverNpcId: 'npc-id',
   //   value: 'kindness',
   //   heartReward: 3,
-  //   bridgeColor: '#ff6b6b',
+  //   pathColor: '#ff6b6b',
   //   stages: [
   //     { type: 'TALK_TO', targetId: 'npc-id', dialogueId: 'dialogue-id' },
   //   ],

@@ -1,0 +1,2588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tile Catalog Viewer - Kenney Tiny Town</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Left: tile catalog grid ────────────────────────────────────────── */
+  #grid-panel {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #grid-panel h1 { font-size: 18px; margin-bottom: 4px; color: #f0f0f0; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 8px; }
+
+  #stats-bar {
+    display: flex; gap: 16px; margin-bottom: 8px; font-size: 11px; color: #888;
+  }
+  .stat-num { color: #e0e0e0; font-weight: bold; }
+
+  #filter-bar {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; align-items: center;
+  }
+  #filter-bar label { font-size: 12px; color: #aaa; }
+  #search-input {
+    background: #16213e; border: 1px solid #444; color: #e0e0e0;
+    padding: 4px 8px; border-radius: 4px; font-size: 13px; width: 160px;
+  }
+  .filter-btn {
+    background: #16213e; border: 1px solid #444; color: #ccc;
+    padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: #888; }
+  .filter-btn.active { background: #0f3460; border-color: #5390d9; color: #fff; }
+  .filter-btn.deprecated-filter.active { background: #5c1010; border-color: #e74c3c; }
+  .filter-btn.unverified-filter.active { background: #5c4a10; border-color: #f39c12; }
+
+  #legend { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; border: 1px solid #555; }
+
+  /* Mode banner */
+  #mode-banner {
+    display: none; background: #3a0a4a; border: 1px solid #e040fb; border-radius: 6px;
+    padding: 6px 12px; margin-bottom: 8px; font-size: 12px; color: #f0c0ff; text-align: center;
+  }
+  #mode-banner.visible { display: block; }
+
+  /* Tile grid scroll area */
+  #tile-grid-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+  #tile-grid {
+    display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; max-width: 860px;
+  }
+  .tile-cell {
+    position: relative; border: 2px solid transparent; border-radius: 4px;
+    cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s;
+    aspect-ratio: 1; overflow: hidden; min-width: 44px;
+  }
+  .tile-cell:hover { z-index: 10; box-shadow: 0 0 8px rgba(255,255,255,0.25); }
+  .tile-cell.selected {
+    border-color: #e040fb !important;
+    box-shadow: 0 0 12px rgba(224,64,251,0.5);
+    z-index: 9;
+  }
+  .tile-cell.selected::before {
+    content: ''; position: absolute; top:0;left:0;right:0;bottom:0;
+    background: rgba(224,64,251,0.12); pointer-events: none; z-index:1;
+  }
+  .tile-cell.detail-selected {
+    border-color: #fff !important;
+    box-shadow: 0 0 16px rgba(255,255,255,0.5);
+  }
+  .tile-cell canvas {
+    width: 100%; height: 100%; image-rendering: pixelated; display: block;
+  }
+  .tile-id {
+    position: absolute; bottom: 1px; right: 2px; font-size: 8px; font-weight: bold;
+    color: #fff; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; pointer-events: none;
+  }
+  .tile-cell.deprecated { opacity: 0.5; }
+  .tile-cell.deprecated::after {
+    content: ''; position: absolute; top:0;left:0;right:0;bottom:0;
+    background: repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(231,76,60,0.3) 3px,rgba(231,76,60,0.3) 6px);
+    pointer-events: none;
+  }
+  .tile-cell.unverified { border-color: rgba(243,156,18,0.4); }
+  .tile-cell.verified { border-color: rgba(46,204,113,0.3); }
+  .tile-cell.hidden { display: none; }
+  .row-label {
+    grid-column: 1/-1; font-size: 10px; color: #666; padding: 6px 0 2px 0;
+    border-top: 1px solid #2a2a3e;
+  }
+
+  /* ── Right panel ────────────────────────────────────────────────────── */
+  #right-panel {
+    width: 400px; background: #16213e; border-left: 1px solid #333;
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  #panel-tabs { display: flex; border-bottom: 1px solid #333; flex-shrink: 0; }
+  .panel-tab {
+    flex: 1; padding: 10px 6px; text-align: center; font-size: 12px; font-weight: 600;
+    cursor: pointer; background: transparent; border: none; color: #666;
+    border-bottom: 2px solid transparent; transition: all 0.15s;
+  }
+  .panel-tab:hover { color: #aaa; }
+  .panel-tab.active { color: #fff; border-bottom-color: #5390d9; }
+  .panel-tab.active-grp { color: #e040fb; border-bottom-color: #e040fb; }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; padding: 14px; }
+  .tab-content.active { display: block; }
+
+  /* Detail tab */
+  .detail-preview { text-align: center; margin-bottom: 14px; }
+  .detail-preview canvas {
+    image-rendering: pixelated; border: 2px solid #444; border-radius: 4px; background: #222;
+  }
+  .detail-field { margin-bottom: 8px; }
+  .detail-label { font-size: 10px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+  .detail-value { font-size: 13px; color: #e0e0e0; }
+  .detail-value.deprecated-text { color: #e74c3c; }
+  .tag { display:inline-block; background:#0f3460; color:#8ecae6; padding:1px 5px; border-radius:3px; font-size:10px; margin:1px; }
+  .tag .tag-x { cursor:pointer; margin-left:3px; color:#e74c3c; font-weight:bold; opacity:0.6; }
+  .tag .tag-x:hover { opacity:1; }
+  #tag-add-row { display:flex; gap:4px; margin-top:4px; align-items:center; }
+  #tag-input { background:#1a1a2e; border:1px solid #444; color:#e0e0e0; padding:2px 6px; border-radius:3px; font-size:11px; flex:1; }
+  #tag-input:focus { border-color:#e040fb; outline:none; }
+  .tag-add-btn { background:#0f3460; border:1px solid #5390d9; color:#8ecae6; padding:2px 8px; border-radius:3px; font-size:10px; cursor:pointer; }
+  .tag-add-btn:hover { filter:brightness(1.2); }
+  .badge { display:inline-block; padding:2px 6px; border-radius:3px; font-size:10px; font-weight:bold; }
+  .badge-deprecated { background:#5c1010; color:#e74c3c; }
+  .badge-verified { background:#1a4a2e; color:#2ecc71; }
+  .badge-unverified { background:#4a3a10; color:#f39c12; }
+  .badge-walkable { background:#1a3a4a; color:#3498db; }
+  .badge-blocking { background:#3a1a1a; color:#c0392b; }
+  .composite-link { color:#5390d9; cursor:pointer; text-decoration:underline; }
+  .composite-grid { display:inline-grid; gap:1px; background:#333; border:1px solid #555; border-radius:4px; padding:2px; margin-top:4px; }
+  .composite-grid canvas { image-rendering:pixelated; display:block; }
+  .composite-grid .empty-cell { background:#222; }
+
+  /* ── Group Builder tab ──────────────────────────────────────────────── */
+  .gb-section { margin-bottom: 14px; }
+  .gb-section h3 { font-size: 13px; color: #f0f0f0; margin-bottom: 8px; }
+  .gb-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .gb-row label { font-size: 11px; color: #aaa; min-width: 44px; }
+  .gb-input {
+    background: #1a1a2e; border: 1px solid #444; color: #e0e0e0;
+    padding: 3px 6px; border-radius: 3px; font-size: 12px; flex: 1;
+  }
+  .gb-input:focus { border-color: #e040fb; outline: none; }
+  .gb-num { width: 44px; text-align: center; }
+  .gb-btn {
+    padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;
+    cursor: pointer; border: 1px solid; transition: all 0.15s;
+  }
+  .gb-btn:hover { filter: brightness(1.15); }
+  .gb-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+  .gb-btn-primary { background: #e040fb; border-color: #e040fb; color: #fff; }
+  .gb-btn-secondary { background: #0f3460; border-color: #5390d9; color: #8ecae6; }
+  .gb-btn-danger { background: #5c1010; border-color: #e74c3c; color: #e74c3c; }
+  .gb-btn-success { background: #1a4a2e; border-color: #2ecc71; color: #2ecc71; }
+
+  /* Drop zone grid */
+  #drop-zone {
+    background: #111; border: 2px dashed #444; border-radius: 8px;
+    padding: 8px; min-height: 100px; display: flex; align-items: center;
+    justify-content: center; margin-bottom: 8px; transition: border-color 0.15s;
+  }
+  #drop-zone.drag-over { border-color: #e040fb; background: #1a0a2e; }
+  #drop-zone .placeholder {
+    color: #444; font-size: 12px; font-style: italic; text-align: center; padding: 20px;
+  }
+  .dz-grid {
+    display: inline-grid; gap: 1px; background: #222;
+  }
+  .dz-cell {
+    width: 48px; height: 48px; background: #1a1a2e; border: 1px dashed #333;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; cursor: default;
+  }
+  .dz-cell.filled { border-style: solid; border-color: #e040fb55; background: #222; cursor: pointer; }
+  .dz-cell.filled:hover { border-color: #e040fb; }
+  .dz-cell canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+  .dz-cell .dz-remove {
+    position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
+    background: #e74c3c; border-radius: 50%; border: none; color: #fff;
+    font-size: 8px; cursor: pointer; display: none; align-items: center;
+    justify-content: center; line-height: 1; z-index: 2;
+  }
+  .dz-cell.filled:hover .dz-remove { display: flex; }
+  .dz-cell .dz-id {
+    position: absolute; bottom: 0; right: 2px; font-size: 7px; color: #e040fb88;
+    pointer-events: none;
+  }
+
+  /* Saved groups */
+  .saved-group {
+    background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 6px;
+    padding: 8px; margin-bottom: 6px; transition: border-color 0.15s;
+  }
+  .saved-group:hover { border-color: #444; }
+  .sg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .sg-name { font-size: 13px; font-weight: 600; }
+  .sg-meta { font-size: 10px; color: #666; }
+  .sg-actions { display: flex; gap: 3px; }
+  .sg-btn {
+    padding: 2px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;
+    border: 1px solid #333; background: #16213e; color: #888; transition: all 0.15s;
+  }
+  .sg-btn:hover { border-color: #888; color: #fff; }
+  .sg-btn.sg-del:hover { border-color: #e74c3c; color: #e74c3c; }
+
+  #export-area { margin-top: 10px; }
+  #export-textarea {
+    width: 100%; height: 100px; background: #1a1a2e; border: 1px solid #444;
+    color: #8ecae6; border-radius: 4px; padding: 6px; font-family: monospace;
+    font-size: 10px; resize: vertical;
+  }
+
+  /* Drag ghost */
+  .drag-ghost {
+    position: fixed; pointer-events: none; z-index: 9999; opacity: 0.85;
+    image-rendering: pixelated;
+  }
+
+  /* ── Characters tab ──────────────────────────────────────────────────── */
+  #char-tab.active { display: flex; padding: 0; }
+  .char-tab-wrap { display: flex; height: 100%; min-height: 0; flex: 1; }
+  .char-list-col {
+    width: 180px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid #333;
+    padding: 0;
+  }
+  .char-editor-col { flex: 1; overflow-y: auto; padding: 14px; }
+  .char-pack-header {
+    font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 8px 8px 4px 8px; border-top: 1px solid #2a2a3e; background: #0f1528;
+    position: sticky; top: 0; z-index: 1;
+  }
+  .char-pack-header:first-child { border-top: none; }
+  .char-entry {
+    display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+    cursor: pointer; transition: background 0.12s; font-size: 11px; color: #ccc;
+  }
+  .char-entry:hover { background: #1a2540; }
+  .char-entry.active { background: #1a2a4e; color: #fff; border-left: 2px solid #e040fb; }
+  .char-entry canvas { width: 24px; height: 24px; image-rendering: pixelated; flex-shrink: 0; }
+  .char-entry-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .char-editor-empty {
+    color: #555; font-style: italic; text-align: center; padding: 40px 0; font-size: 13px;
+  }
+  .char-frames-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 12px;
+  }
+  .char-frames-row canvas {
+    image-rendering: pixelated; border: 1px solid #333; border-radius: 3px;
+    background: #111;
+  }
+  .char-anim-preview {
+    text-align: center; margin-bottom: 14px; background: #111;
+    border: 2px solid #333; border-radius: 6px; padding: 12px;
+  }
+  .char-anim-preview canvas {
+    image-rendering: pixelated;
+  }
+  .char-controls { margin-bottom: 12px; }
+  .char-controls .gb-row { margin-bottom: 6px; }
+  .char-controls label { font-size: 11px; color: #aaa; min-width: 60px; }
+  .char-state-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px;
+  }
+  .char-state-card {
+    background: #1a1a2e; border: 1px solid #333; border-radius: 4px; padding: 6px 8px;
+  }
+  .char-state-card label { font-size: 10px; color: #888; text-transform: uppercase; display: block; margin-bottom: 2px; }
+  .char-state-card select { width: 100%; background: #16213e; border: 1px solid #444; color: #e0e0e0; padding: 2px 4px; border-radius: 3px; font-size: 10px; }
+  .char-speed-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .char-speed-wrap label { font-size: 11px; color: #aaa; min-width: 50px; }
+  .char-speed-wrap input[type="range"] { flex: 1; accent-color: #e040fb; }
+  .char-speed-wrap .speed-val { font-size: 11px; color: #e0e0e0; min-width: 40px; text-align: right; }
+  .char-export-section { border-top: 1px solid #2a2a3e; padding-top: 12px; margin-top: 12px; }
+  .char-state-speed { font-size: 9px; color: #e040fb; margin-left: 4px; }
+  .char-defaults-row { display: flex; gap: 4px; margin-bottom: 10px; }
+
+  /* ── Buildings tab ──────────────────────────────────────────────────── */
+  #building-tab.active { display: flex; flex-direction: column; }
+  .bld-section { margin-bottom: 14px; padding: 0 14px; }
+  .bld-section:first-child { padding-top: 14px; }
+  .bld-section h3 { font-size: 13px; color: #f0f0f0; margin-bottom: 8px; }
+
+  .bld-props { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .bld-props .gb-row { margin-bottom: 0; }
+  .bld-props-full { grid-column: 1 / -1; }
+
+  .bld-grid-controls { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .bld-grid-controls label { font-size: 11px; color: #aaa; }
+
+  #bld-grid-wrap {
+    background: #111; border: 2px solid #333; border-radius: 8px;
+    padding: 8px; margin-bottom: 10px; overflow: auto; max-height: 340px;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .bld-grid {
+    display: inline-grid; gap: 1px; background: #222;
+  }
+  .bld-cell {
+    width: 48px; height: 48px; background: #1a1a2e;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; cursor: pointer; transition: all 0.12s;
+  }
+  .bld-cell:hover { background: #222; }
+  .bld-cell.bld-active { box-shadow: inset 0 0 0 2px #e040fb; }
+  .bld-cell.bld-door::after {
+    content: 'D'; position: absolute; top: 1px; left: 2px; font-size: 8px;
+    font-weight: bold; color: #2ecc71; z-index: 3; text-shadow: 0 0 3px #000;
+  }
+  .bld-cell canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+  .bld-cell .bld-id {
+    position: absolute; bottom: 0; right: 2px; font-size: 7px; color: #888;
+    pointer-events: none; z-index: 2;
+  }
+  .bld-cell .bld-remove {
+    position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
+    background: #e74c3c; border-radius: 50%; border: none; color: #fff;
+    font-size: 8px; cursor: pointer; display: none; align-items: center;
+    justify-content: center; line-height: 1; z-index: 4;
+  }
+  .bld-cell:hover .bld-remove { display: flex; }
+
+  .bld-layer-ground { border: 2px solid #2ecc71 !important; }
+  .bld-layer-objects { border: 2px solid #3498db !important; }
+  .bld-layer-foreground { border: 2px solid #9b59b6 !important; }
+  .bld-layer-collision { border: 2px solid #e74c3c !important; }
+  .bld-cell-empty { border: 2px dashed #333 !important; }
+
+  #bld-preview-wrap {
+    background: #111; border: 2px solid #333; border-radius: 8px;
+    padding: 12px; text-align: center; margin-bottom: 10px;
+  }
+  #bld-preview-wrap canvas { image-rendering: pixelated; }
+
+  .bld-saved-item {
+    background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 6px;
+    padding: 8px; margin-bottom: 6px; transition: border-color 0.15s;
+  }
+  .bld-saved-item:hover { border-color: #444; }
+  .bld-saved-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .bld-saved-name { font-size: 13px; font-weight: 600; }
+  .bld-saved-meta { font-size: 10px; color: #666; }
+  .bld-saved-preview { margin-top: 4px; }
+
+  .bld-scroll-area { flex: 1; overflow-y: auto; min-height: 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══ LEFT: TILE CATALOG ═══════════════════════════════════════════ -->
+<div id="grid-panel">
+  <h1>Kenney Tiny Town Tile Catalog</h1>
+  <div class="subtitle">tilemap_packed.png &mdash; 12x11 grid, 16x16 px, 132 tiles. Click to inspect. Shift+click or drag-select to multi-select for grouping.</div>
+
+  <div id="stats-bar">
+    <span>Total: <span class="stat-num" id="stat-total">132</span></span>
+    <span>Verified: <span class="stat-num" id="stat-verified">0</span></span>
+    <span>Deprecated: <span class="stat-num" id="stat-deprecated">0</span></span>
+    <span>Selected: <span class="stat-num" id="stat-selected">0</span></span>
+    <span>Showing: <span class="stat-num" id="stat-showing">132</span></span>
+  </div>
+
+  <div id="filter-bar">
+    <label>Filter:</label>
+    <input type="text" id="search-input" placeholder="Search name, tag, id...">
+    <button class="filter-btn active" data-category="all">All</button>
+    <button class="filter-btn" data-category="terrain">Terrain</button>
+    <button class="filter-btn" data-category="path">Path</button>
+    <button class="filter-btn" data-category="building">Building</button>
+    <button class="filter-btn" data-category="vegetation">Vegetation</button>
+    <button class="filter-btn" data-category="water">Water</button>
+    <button class="filter-btn" data-category="decoration">Decoration</button>
+    <button class="filter-btn" data-category="fence">Fence</button>
+    <span style="width:6px"></span>
+    <button class="filter-btn deprecated-filter" id="btn-deprecated">Deprecated</button>
+    <button class="filter-btn unverified-filter" id="btn-unverified">Unverified</button>
+  </div>
+
+  <div id="legend"></div>
+
+  <div id="mode-banner"></div>
+
+  <div id="tile-grid-wrap">
+    <div id="tile-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ RIGHT: DETAIL / GROUP BUILDER ════════════════════════════════ -->
+<div id="right-panel">
+  <div id="panel-tabs">
+    <button class="panel-tab active" data-tab="detail-tab">Detail</button>
+    <button class="panel-tab" data-tab="group-tab">Group Builder</button>
+    <button class="panel-tab" data-tab="char-tab">Characters</button>
+    <button class="panel-tab" data-tab="building-tab">Buildings</button>
+  </div>
+
+  <!-- Detail tab -->
+  <div class="tab-content active" id="detail-tab">
+    <div style="text-align:right;margin-bottom:6px;"><button class="gb-btn gb-btn-success" onclick="exportCatalogWithTags()" style="font-size:10px;padding:3px 10px;">Export Catalog (with tag edits)</button></div>
+    <div id="detail-empty" style="color:#555;font-style:italic;text-align:center;padding:40px 0;font-size:13px;">Click a tile to inspect</div>
+    <div id="detail-content" style="display:none;">
+      <div class="detail-preview"><canvas id="detail-canvas" width="64" height="64"></canvas></div>
+      <div class="detail-field"><div class="detail-label">ID</div><div class="detail-value" id="d-id"></div></div>
+      <div class="detail-field"><div class="detail-label">Name</div><div class="detail-value" id="d-name"></div></div>
+      <div class="detail-field"><div class="detail-label">Category</div><div class="detail-value" id="d-cat"></div></div>
+      <div class="detail-field"><div class="detail-label">Status</div><div class="detail-value" id="d-status"></div></div>
+      <div class="detail-field"><div class="detail-label">Walkable</div><div class="detail-value" id="d-walk"></div></div>
+      <div class="detail-field" id="d-comp-sec" style="display:none"><div class="detail-label">Composite Group</div><div class="detail-value" id="d-comp"></div></div>
+      <div class="detail-field" id="d-comp-role-sec" style="display:none"><div class="detail-label">Role</div><div class="detail-value" id="d-comp-role"></div></div>
+      <div class="detail-field" id="d-dep-sec" style="display:none"><div class="detail-label">Deprecated Reason</div><div class="detail-value deprecated-text" id="d-dep-reason"></div></div>
+      <div class="detail-field"><div class="detail-label">Tags</div><div class="detail-value" id="d-tags"></div>
+        <div id="tag-add-row"><input type="text" id="tag-input" placeholder="Add tag..." onkeydown="if(event.key==='Enter'){addTagToTile();event.preventDefault();}"><button class="tag-add-btn" onclick="addTagToTile()">+</button></div>
+      </div>
+      <div class="detail-field"><div class="detail-label">Position</div><div class="detail-value" id="d-pos"></div></div>
+      <div class="detail-field" id="d-comp-preview-sec" style="display:none"><div class="detail-label">Composite Preview</div><div id="d-comp-preview"></div></div>
+    </div>
+  </div>
+
+  <!-- Group Builder tab -->
+  <div class="tab-content" id="group-tab">
+    <div class="gb-section">
+      <h3>New Tile Group</h3>
+      <p style="font-size:11px;color:#666;margin-bottom:8px;">
+        Multi-select tiles in the catalog (Shift+click to toggle, or click+drag a rectangle). Then drag them into the drop zone below&mdash;they keep their relative positions from the tilemap. Or click tiles one at a time to fill slots. Groups export as JSON for the map builder agent.
+      </p>
+
+      <div class="gb-row">
+        <label>Name</label>
+        <input type="text" class="gb-input" id="gb-name" placeholder="e.g. Red Roof 3-wide">
+      </div>
+      <div class="gb-row">
+        <label>Layer</label>
+        <select class="gb-input" id="gb-layer" style="flex:0 0 120px;">
+          <option value="objects">Objects</option>
+          <option value="ground">Ground</option>
+          <option value="foreground">Foreground</option>
+          <option value="multi">Multi-layer</option>
+        </select>
+        <label style="min-width:auto;">Size</label>
+        <input type="number" class="gb-input gb-num" id="gb-w" value="4" min="1" max="16">
+        <span style="color:#555">x</span>
+        <input type="number" class="gb-input gb-num" id="gb-h" value="4" min="1" max="16">
+      </div>
+      <div class="gb-row">
+        <label>Notes</label>
+        <input type="text" class="gb-input" id="gb-notes" placeholder="Placement rules, context...">
+      </div>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="gb-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <h3 style="margin:0;">Drop Zone</h3>
+        <div style="display:flex;gap:4px;">
+          <button class="gb-btn gb-btn-secondary" onclick="resizeDropZone()" style="font-size:10px;padding:2px 8px;">Resize</button>
+          <button class="gb-btn gb-btn-danger" onclick="clearDropZone()" style="font-size:10px;padding:2px 8px;">Clear</button>
+          <button class="gb-btn gb-btn-primary" onclick="placeSelectedTiles()" style="font-size:10px;padding:2px 8px;">Place Selected</button>
+        </div>
+      </div>
+      <div id="drop-zone">
+        <div class="placeholder">Set size and click "Resize" or start placing tiles</div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:6px;">
+        <button class="gb-btn gb-btn-success" onclick="saveGroup()">Save Group</button>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #2a2a3e;margin:10px 0;">
+
+    <!-- Saved groups -->
+    <div class="gb-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h3 style="margin:0;">Saved Groups (<span id="sg-count">0</span>)</h3>
+        <div style="display:flex;gap:4px;">
+          <button class="gb-btn gb-btn-secondary" onclick="exportGroups()" style="font-size:9px;padding:2px 6px;">Export</button>
+          <button class="gb-btn gb-btn-secondary" onclick="importGroups()" style="font-size:9px;padding:2px 6px;">Import</button>
+        </div>
+      </div>
+      <div id="saved-groups-list"></div>
+      <div id="export-area" style="display:none;">
+        <textarea id="export-textarea" readonly></textarea>
+        <div style="display:flex;justify-content:center;gap:4px;margin-top:4px;">
+          <button class="gb-btn gb-btn-secondary" onclick="copyExport()" style="font-size:10px;">Copy</button>
+          <button class="gb-btn gb-btn-secondary" onclick="document.getElementById('export-area').style.display='none'" style="font-size:10px;">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Characters tab -->
+  <div class="tab-content" id="char-tab">
+    <div class="char-tab-wrap">
+      <div class="char-list-col" id="char-list"></div>
+      <div class="char-editor-col" id="char-editor">
+        <div class="char-editor-empty" id="char-editor-empty">Select a character to preview</div>
+        <div id="char-editor-content" style="display:none;">
+          <h3 id="char-ed-title" style="font-size:14px;margin-bottom:10px;color:#f0f0f0;"></h3>
+          <div class="detail-field"><div class="detail-label">Source</div><div class="detail-value" id="char-ed-source"></div></div>
+          <div class="detail-field"><div class="detail-label">Frame Size</div><div class="detail-value" id="char-ed-frameinfo"></div></div>
+
+          <div class="detail-label" style="margin-top:10px;margin-bottom:6px;">All Frames (4x)</div>
+          <div class="char-frames-row" id="char-ed-frames"></div>
+
+          <div class="detail-label" style="margin-bottom:6px;">Animation Preview</div>
+          <div class="char-anim-preview">
+            <canvas id="char-anim-canvas" width="64" height="64"></canvas>
+            <div style="margin-top:8px;">
+              <button class="gb-btn gb-btn-secondary" id="char-anim-toggle" onclick="charToggleAnim()" style="font-size:10px;padding:3px 10px;">Play</button>
+              <select class="gb-input" id="char-anim-state-select" onchange="charSwitchAnimState()" style="width:auto;display:inline-block;font-size:10px;padding:2px 6px;margin-left:6px;">
+                <option value="idle">Idle</option>
+                <option value="walk">Walk</option>
+                <option value="interact">Interact</option>
+                <option value="celebrate">Celebrate</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="char-speed-wrap">
+            <label>Speed</label>
+            <input type="range" id="char-speed-slider" min="50" max="500" value="200" oninput="charSpeedChange(this.value)">
+            <span class="speed-val" id="char-speed-val">200ms</span>
+          </div>
+
+          <div class="detail-label" style="margin-bottom:6px;">Animation States</div>
+          <div class="char-state-grid" id="char-state-grid"></div>
+
+          <div class="char-controls">
+            <div class="gb-row">
+              <label>Role</label>
+              <select class="gb-input" id="char-role" onchange="charConfigChanged()">
+                <option value="princess">Princess</option>
+                <option value="npc">NPC</option>
+                <option value="companion">Companion</option>
+                <option value="animal">Animal</option>
+                <option value="creature">Creature</option>
+                <option value="decoration">Decoration</option>
+              </select>
+            </div>
+            <div class="gb-row">
+              <label>Name</label>
+              <input type="text" class="gb-input" id="char-ingame-name" placeholder="e.g. Grandma Rose" oninput="charConfigChanged()">
+            </div>
+          </div>
+
+          <div class="char-export-section">
+            <button class="gb-btn gb-btn-primary" onclick="charExportConfig()" style="width:100%;">Export Character Config</button>
+            <button class="gb-btn" onclick="charCopySpriteAnimsJson()" style="width:100%; margin-top:6px;">Copy to sprite-anims.json</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buildings tab -->
+  <div class="tab-content" id="building-tab">
+    <div class="bld-scroll-area">
+      <div class="bld-section" style="padding-top:14px;">
+        <h3>Building Assembly</h3>
+        <p style="font-size:11px;color:#666;margin-bottom:8px;">
+          Click a grid cell, then click a tile in the catalog to place it. Set the layer per-cell. Collision is auto-generated from tile walkable flags.
+        </p>
+
+        <div class="bld-props">
+          <div class="gb-row">
+            <label style="font-size:11px;color:#aaa;min-width:44px;">Name</label>
+            <input type="text" class="gb-input" id="bld-name" placeholder="e.g. Grandma's Cottage">
+          </div>
+          <div class="gb-row">
+            <label style="font-size:11px;color:#aaa;min-width:44px;">Type</label>
+            <select class="gb-input" id="bld-type">
+              <option value="house">House</option>
+              <option value="shop">Shop</option>
+              <option value="fence">Fence</option>
+              <option value="decoration">Decoration</option>
+              <option value="landmark">Landmark</option>
+            </select>
+          </div>
+          <div class="gb-row bld-props-full">
+            <label style="font-size:11px;color:#aaa;min-width:44px;">Notes</label>
+            <input type="text" class="gb-input" id="bld-notes" placeholder="Placement rules, context...">
+          </div>
+        </div>
+
+        <div class="bld-grid-controls">
+          <label>Grid</label>
+          <input type="number" class="gb-input gb-num" id="bld-w" value="4" min="1" max="10">
+          <span style="color:#555">x</span>
+          <input type="number" class="gb-input gb-num" id="bld-h" value="3" min="1" max="10">
+          <button class="gb-btn gb-btn-secondary" onclick="bldResizeGrid()" style="font-size:10px;padding:2px 8px;">Resize</button>
+          <button class="gb-btn gb-btn-danger" onclick="bldClearGrid()" style="font-size:10px;padding:2px 8px;">Clear</button>
+          <span style="width:8px"></span>
+          <label>Layer</label>
+          <select class="gb-input" id="bld-layer-select" style="width:100px;font-size:11px;">
+            <option value="ground">Ground</option>
+            <option value="objects" selected>Objects</option>
+            <option value="foreground">Foreground</option>
+          </select>
+          <span style="width:8px"></span>
+          <label title="Click a cell to mark/unmark as door">Door</label>
+          <input type="checkbox" id="bld-door-mode" title="Toggle door placement mode">
+        </div>
+
+        <div id="bld-grid-wrap">
+          <div style="color:#444;font-style:italic;font-size:12px;">Set size and click Resize</div>
+        </div>
+
+        <div style="margin-bottom:6px;">
+          <div class="detail-label" style="margin-bottom:4px;">Composited Preview (4x)</div>
+          <div id="bld-preview-wrap">
+            <canvas id="bld-preview-canvas"></canvas>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:center;gap:6px;margin-bottom:14px;">
+          <button class="gb-btn gb-btn-success" onclick="bldSave()">Save Building</button>
+          <button class="gb-btn gb-btn-secondary" onclick="bldExportAll()">Export All JSON</button>
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #2a2a3e;margin:0 14px 10px 14px;">
+
+      <div class="bld-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h3 style="margin:0;">Saved Buildings (<span id="bld-count">0</span>)</h3>
+        </div>
+        <div id="bld-saved-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════
+const TS = 16, COLS = 12, ROWS = 11, TOTAL = 132;
+const TILEMAP_PATH = '../sprites/town/tilemap_packed.png';
+const STORAGE_KEY = 'tileGroups_v2';
+const CAT_COLORS = {
+  terrain:'#4CAF50', path:'#8D6E63', building:'#F44336', vegetation:'#2E7D32',
+  water:'#2196F3', decoration:'#FF9800', fence:'#795548', animation:'#9C27B0', unknown:'#9E9E9E'
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════
+let catalog, tileIdx = {}, compIdx = {}, img;
+let detailTileId = null;
+let selectedSet = new Set();      // multi-select tile IDs
+let activeFilter = 'all', depOnly = false, unvOnly = false, searchQ = '';
+
+// Drop zone grid: 2D array, -1 = empty
+let dzW = 4, dzH = 4, dzTiles = null;
+
+// Saved groups
+let savedGroups = [];
+
+// Drag state
+let dragging = false, dragIds = [], dragGhost = null;
+let dragOffX = 0, dragOffY = 0;
+let dragMinCol = 0, dragMinRow = 0, dragCols = 0, dragRows = 0, dragGrid = null;
+
+// ═══════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════
+async function init() {
+  const resp = await fetch('./tile-catalog.json');
+  catalog = await resp.json();
+  for (const t of catalog.tiles) tileIdx[t.id] = t;
+  for (const c of catalog.compositeObjects) compIdx[c.id] = c;
+
+  loadSaved();
+  loadTagOverrides();
+  initDropZone();
+
+  img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => { buildLegend(); buildGrid(); updateStats(); renderSaved(); loadUserTileGroups(); bldRenderSavedList(); };
+  img.onerror = () => {
+    document.getElementById('tile-grid').innerHTML =
+      '<div style="color:#e74c3c;grid-column:1/-1;padding:20px;">Failed to load tilemap. Serve via HTTP: npx serve .</div>';
+  };
+  img.src = TILEMAP_PATH;
+
+  // Filter events
+  document.getElementById('search-input').addEventListener('input', e => { searchQ = e.target.value.toLowerCase(); applyFilters(); });
+  document.querySelectorAll('.filter-btn[data-category]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn[data-category]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.category;
+      applyFilters();
+    });
+  });
+  document.getElementById('btn-deprecated').addEventListener('click', function() {
+    depOnly = !depOnly; this.classList.toggle('active', depOnly); applyFilters();
+  });
+  document.getElementById('btn-unverified').addEventListener('click', function() {
+    unvOnly = !unvOnly; this.classList.toggle('active', unvOnly); applyFilters();
+  });
+
+  // Tab switching
+  document.querySelectorAll('.panel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active','active-grp'));
+      document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+      const tabId = tab.dataset.tab;
+      tab.classList.add(tabId === 'group-tab' ? 'active-grp' : 'active');
+      document.getElementById(tabId).classList.add('active');
+      if (tabId === 'char-tab' && !charTabLoaded) loadCharacters();
+      if (tabId === 'building-tab' && !bldGridInited) { bldResizeGrid(); bldGridInited = true; }
+    });
+  });
+
+  // Global mouse events for drag
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+
+  // Esc clears selection
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { selectedSet.clear(); updateSelectionVisuals(); }
+  });
+
+  // Drop zone drag events
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', onDropZoneDrop);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TILE DRAWING
+// ═══════════════════════════════════════════════════════════════════════
+function drawTile(canvas, id, scale) {
+  const ctx = canvas.getContext('2d');
+  const c = id % COLS, r = (id / COLS) | 0, s = scale || 1;
+  canvas.width = TS * s; canvas.height = TS * s;
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, c * TS, r * TS, TS, TS, 0, 0, TS * s, TS * s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GRID BUILD
+// ═══════════════════════════════════════════════════════════════════════
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = Object.entries(CAT_COLORS).map(([cat,col]) =>
+    `<div class="legend-item"><div class="legend-swatch" style="background:${col}"></div>${cat}</div>`
+  ).join('') +
+  '<div class="legend-item"><div class="legend-swatch" style="background:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(231,76,60,0.5) 2px,rgba(231,76,60,0.5) 4px);border-color:#e74c3c"></div>deprecated</div>';
+}
+
+function buildGrid() {
+  const grid = document.getElementById('tile-grid');
+  grid.innerHTML = '';
+  for (let id = 0; id < TOTAL; id++) {
+    if (id % COLS === 0) {
+      const lbl = document.createElement('div');
+      lbl.className = 'row-label';
+      lbl.textContent = `Row ${(id/COLS)|0} (${id}-${id+COLS-1})`;
+      grid.appendChild(lbl);
+    }
+    const t = tileIdx[id], cell = document.createElement('div');
+    cell.className = 'tile-cell'; cell.dataset.tileId = id;
+    if (t) {
+      const cc = CAT_COLORS[t.category] || CAT_COLORS.unknown;
+      cell.style.borderColor = t.verified ? `${cc}88` : 'rgba(243,156,18,0.4)';
+      cell.style.background = `${cc}18`;
+      if (t.deprecated) cell.classList.add('deprecated');
+      if (!t.verified) cell.classList.add('unverified');
+      if (t.verified) cell.classList.add('verified');
+    }
+    const cvs = document.createElement('canvas');
+    drawTile(cvs, id, 3);
+    cell.appendChild(cvs);
+    const lbl = document.createElement('div');
+    lbl.className = 'tile-id'; lbl.textContent = id;
+    cell.appendChild(lbl);
+
+    // Click: shift=toggle selection, normal=inspect+select
+    cell.addEventListener('mousedown', e => onTileMouseDown(e, id));
+    cell.addEventListener('click', e => onTileClick(e, id));
+    cell.setAttribute('draggable', 'false'); // we handle our own drag
+    grid.appendChild(cell);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TILE INTERACTION
+// ═══════════════════════════════════════════════════════════════════════
+let mouseDownId = null, mouseDownX = 0, mouseDownY = 0, didDrag = false;
+
+function onTileMouseDown(e, id) {
+  mouseDownId = id; mouseDownX = e.clientX; mouseDownY = e.clientY; didDrag = false;
+}
+
+function onMouseMove(e) {
+  if (mouseDownId === null) return;
+  const dx = e.clientX - mouseDownX, dy = e.clientY - mouseDownY;
+  if (!didDrag && Math.hypot(dx, dy) > 5) {
+    didDrag = true;
+    startDrag(e);
+  }
+  if (dragging && dragGhost) {
+    dragGhost.style.left = (e.clientX - dragOffX) + 'px';
+    dragGhost.style.top = (e.clientY - dragOffY) + 'px';
+  }
+}
+
+function onMouseUp(e) {
+  if (dragging) endDrag(e);
+  mouseDownId = null;
+}
+
+function onTileClick(e, id) {
+  if (didDrag) return; // was a drag, not a click
+
+  if (e.shiftKey) {
+    // Toggle selection
+    if (selectedSet.has(id)) selectedSet.delete(id);
+    else selectedSet.add(id);
+    updateSelectionVisuals();
+  } else {
+    // Normal click: inspect detail
+    showDetail(id);
+  }
+}
+
+function updateSelectionVisuals() {
+  document.querySelectorAll('.tile-cell.selected').forEach(el => el.classList.remove('selected'));
+  for (const id of selectedSet) {
+    const cell = document.querySelector(`.tile-cell[data-tile-id="${id}"]`);
+    if (cell) cell.classList.add('selected');
+  }
+  document.getElementById('stat-selected').textContent = selectedSet.size;
+
+  // Update banner
+  const banner = document.getElementById('mode-banner');
+  if (selectedSet.size > 0) {
+    banner.textContent = `${selectedSet.size} tile(s) selected. Drag to drop zone, or click "Place Selected" in Group Builder.`;
+    banner.classList.add('visible');
+  } else {
+    banner.classList.remove('visible');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════════════════════════
+function startDrag(e) {
+  dragging = true;
+
+  // If dragged tile isn't in selection, make it the only one
+  if (!selectedSet.has(mouseDownId)) {
+    selectedSet.clear();
+    selectedSet.add(mouseDownId);
+    updateSelectionVisuals();
+  }
+
+  dragIds = [...selectedSet];
+
+  // Compute bounding box in tilemap coords
+  let minC = 99, minR = 99, maxC = 0, maxR = 0;
+  for (const id of dragIds) {
+    const c = id % COLS, r = (id / COLS) | 0;
+    if (c < minC) minC = c; if (c > maxC) maxC = c;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  }
+  dragMinCol = minC; dragMinRow = minR;
+  dragCols = maxC - minC + 1; dragRows = maxR - minR + 1;
+
+  // Build a ghost grid of the selection
+  dragGrid = [];
+  for (let r = 0; r < dragRows; r++) {
+    const row = [];
+    for (let c = 0; c < dragCols; c++) row.push(-1);
+    dragGrid.push(row);
+  }
+  for (const id of dragIds) {
+    const c = id % COLS - minC, r = ((id / COLS) | 0) - minR;
+    dragGrid[r][c] = id;
+  }
+
+  // Create visual ghost
+  const ghostScale = 3;
+  const ghostCanvas = document.createElement('canvas');
+  ghostCanvas.width = dragCols * TS * ghostScale;
+  ghostCanvas.height = dragRows * TS * ghostScale;
+  const ctx = ghostCanvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  for (let r = 0; r < dragRows; r++) {
+    for (let c = 0; c < dragCols; c++) {
+      const id = dragGrid[r][c];
+      if (id >= 0) {
+        const sc = id % COLS, sr = (id / COLS) | 0;
+        ctx.drawImage(img, sc * TS, sr * TS, TS, TS, c * TS * ghostScale, r * TS * ghostScale, TS * ghostScale, TS * ghostScale);
+      }
+    }
+  }
+
+  dragGhost = ghostCanvas;
+  dragGhost.className = 'drag-ghost';
+  dragGhost.style.width = ghostCanvas.width + 'px';
+  dragGhost.style.height = ghostCanvas.height + 'px';
+  dragOffX = ghostCanvas.width / 2;
+  dragOffY = ghostCanvas.height / 2;
+  dragGhost.style.left = (e.clientX - dragOffX) + 'px';
+  dragGhost.style.top = (e.clientY - dragOffY) + 'px';
+  document.body.appendChild(dragGhost);
+}
+
+function endDrag(e) {
+  dragging = false;
+  if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+
+  // Check if dropped on the drop zone
+  const dz = document.getElementById('drop-zone');
+  const rect = dz.getBoundingClientRect();
+  if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+    dropTilesOnZone();
+  }
+  dz.classList.remove('drag-over');
+}
+
+function onDropZoneDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  // If we have selected tiles, place them
+  if (selectedSet.size > 0) {
+    computeDragGrid();
+    dropTilesOnZone();
+  }
+}
+
+function computeDragGrid() {
+  dragIds = [...selectedSet];
+  let minC = 99, minR = 99, maxC = 0, maxR = 0;
+  for (const id of dragIds) {
+    const c = id % COLS, r = (id / COLS) | 0;
+    if (c < minC) minC = c; if (c > maxC) maxC = c;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  }
+  dragMinCol = minC; dragMinRow = minR;
+  dragCols = maxC - minC + 1; dragRows = maxR - minR + 1;
+  dragGrid = [];
+  for (let r = 0; r < dragRows; r++) {
+    const row = []; for (let c = 0; c < dragCols; c++) row.push(-1); dragGrid.push(row);
+  }
+  for (const id of dragIds) {
+    const c = id % COLS - minC, r = ((id / COLS) | 0) - minR;
+    dragGrid[r][c] = id;
+  }
+}
+
+function dropTilesOnZone() {
+  if (!dragGrid || !dzTiles) return;
+
+  // Find first empty spot that fits, or place at 0,0
+  let placed = false;
+  outer: for (let startR = 0; startR <= dzH - dragRows; startR++) {
+    for (let startC = 0; startC <= dzW - dragCols; startC++) {
+      // Check if area is empty
+      let fits = true;
+      for (let r = 0; r < dragRows && fits; r++) {
+        for (let c = 0; c < dragCols && fits; c++) {
+          if (dragGrid[r][c] >= 0 && dzTiles[startR + r][startC + c] >= 0) fits = false;
+        }
+      }
+      if (fits) {
+        for (let r = 0; r < dragRows; r++) {
+          for (let c = 0; c < dragCols; c++) {
+            if (dragGrid[r][c] >= 0) dzTiles[startR + r][startC + c] = dragGrid[r][c];
+          }
+        }
+        placed = true;
+        break outer;
+      }
+    }
+  }
+
+  if (!placed) {
+    // Auto-expand if needed, or overlay at 0,0
+    const needW = Math.max(dzW, dragCols);
+    const needH = Math.max(dzH, dragRows);
+    if (needW > dzW || needH > dzH) {
+      resizeDzTo(needW, needH);
+    }
+    for (let r = 0; r < dragRows; r++) {
+      for (let c = 0; c < dragCols; c++) {
+        if (dragGrid[r][c] >= 0) dzTiles[r][c] = dragGrid[r][c];
+      }
+    }
+  }
+
+  renderDropZone();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DROP ZONE
+// ═══════════════════════════════════════════════════════════════════════
+function initDropZone() {
+  dzW = parseInt(document.getElementById('gb-w').value) || 4;
+  dzH = parseInt(document.getElementById('gb-h').value) || 4;
+  dzTiles = [];
+  for (let r = 0; r < dzH; r++) {
+    const row = []; for (let c = 0; c < dzW; c++) row.push(-1); dzTiles.push(row);
+  }
+}
+
+function resizeDropZone() {
+  const w = parseInt(document.getElementById('gb-w').value) || 4;
+  const h = parseInt(document.getElementById('gb-h').value) || 4;
+  resizeDzTo(w, h);
+  renderDropZone();
+}
+
+function resizeDzTo(w, h) {
+  const old = dzTiles || [];
+  dzW = w; dzH = h;
+  dzTiles = [];
+  for (let r = 0; r < h; r++) {
+    const row = [];
+    for (let c = 0; c < w; c++) {
+      row.push(old[r] && old[r][c] !== undefined ? old[r][c] : -1);
+    }
+    dzTiles.push(row);
+  }
+  document.getElementById('gb-w').value = w;
+  document.getElementById('gb-h').value = h;
+}
+
+function clearDropZone() {
+  for (let r = 0; r < dzH; r++) for (let c = 0; c < dzW; c++) dzTiles[r][c] = -1;
+  renderDropZone();
+}
+
+function removeDzTile(r, c) {
+  dzTiles[r][c] = -1;
+  renderDropZone();
+}
+
+function placeSelectedTiles() {
+  if (selectedSet.size === 0) return;
+  computeDragGrid();
+  dropTilesOnZone();
+  // Clear selection
+  selectedSet.clear();
+  updateSelectionVisuals();
+}
+
+function renderDropZone() {
+  const dz = document.getElementById('drop-zone');
+  if (!dzTiles) { dz.innerHTML = '<div class="placeholder">Set size and click Resize</div>'; return; }
+
+  let html = `<div class="dz-grid" style="grid-template-columns:repeat(${dzW}, 48px);">`;
+  for (let r = 0; r < dzH; r++) {
+    for (let c = 0; c < dzW; c++) {
+      const id = dzTiles[r][c];
+      if (id >= 0) {
+        html += `<div class="dz-cell filled">
+          <canvas data-tid="${id}" data-sc="3"></canvas>
+          <span class="dz-id">${id}</span>
+          <button class="dz-remove" onclick="removeDzTile(${r},${c})">x</button>
+        </div>`;
+      } else {
+        html += `<div class="dz-cell" onclick="onDzCellClick(${r},${c})"></div>`;
+      }
+    }
+  }
+  html += '</div>';
+  dz.innerHTML = html;
+
+  // Render canvases
+  dz.querySelectorAll('canvas[data-tid]').forEach(cvs => {
+    drawTile(cvs, parseInt(cvs.dataset.tid), parseInt(cvs.dataset.sc));
+  });
+}
+
+function onDzCellClick(r, c) {
+  // If exactly 1 tile selected, place it here
+  if (selectedSet.size === 1) {
+    const id = [...selectedSet][0];
+    dzTiles[r][c] = id;
+    renderDropZone();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DETAIL
+// ═══════════════════════════════════════════════════════════════════════
+function showDetail(id) {
+  const t = tileIdx[id]; if (!t) return;
+  detailTileId = id;
+
+  // Visual highlight
+  document.querySelectorAll('.tile-cell.detail-selected').forEach(el => el.classList.remove('detail-selected'));
+  const cell = document.querySelector(`.tile-cell[data-tile-id="${id}"]`);
+  if (cell) cell.classList.add('detail-selected');
+
+  // Switch to detail tab
+  document.querySelectorAll('.panel-tab').forEach(tab => tab.classList.remove('active','active-grp'));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.querySelector('[data-tab="detail-tab"]').classList.add('active');
+  document.getElementById('detail-tab').classList.add('active');
+
+  document.getElementById('detail-empty').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'block';
+
+  drawTile(document.getElementById('detail-canvas'), id, 4);
+  document.getElementById('d-id').textContent = id;
+  document.getElementById('d-name').textContent = t.name;
+  const cc = CAT_COLORS[t.category] || CAT_COLORS.unknown;
+  document.getElementById('d-cat').innerHTML = `<span style="color:${cc};font-weight:bold">${t.category}</span>`;
+
+  let st = '';
+  if (t.deprecated) st += '<span class="badge badge-deprecated">DEPRECATED</span> ';
+  st += t.verified ? '<span class="badge badge-verified">VERIFIED</span>' : '<span class="badge badge-unverified">UNVERIFIED</span>';
+  document.getElementById('d-status').innerHTML = st;
+  document.getElementById('d-walk').innerHTML = t.walkable ? '<span class="badge badge-walkable">Walkable</span>' : '<span class="badge badge-blocking">Blocking</span>';
+
+  const cs = document.getElementById('d-comp-sec'), crs = document.getElementById('d-comp-role-sec');
+  if (t.compositeGroup) {
+    cs.style.display = 'block'; crs.style.display = 'block';
+    const comp = compIdx[t.compositeGroup];
+    document.getElementById('d-comp').innerHTML = `<span class="composite-link" onclick="showComposite('${t.compositeGroup}')">${comp ? comp.name : t.compositeGroup}</span>`;
+    document.getElementById('d-comp-role').textContent = t.compositeRole || 'N/A';
+  } else { cs.style.display = 'none'; crs.style.display = 'none'; }
+
+  const ds = document.getElementById('d-dep-sec');
+  if (t.deprecated && t.deprecatedReason) { ds.style.display = 'block'; document.getElementById('d-dep-reason').textContent = t.deprecatedReason; }
+  else ds.style.display = 'none';
+
+  document.getElementById('d-tags').innerHTML = t.tags.map(x => `<span class="tag">${esc(x)}<span class="tag-x" onclick="removeTagFromTile('${esc(x)}')">&times;</span></span>`).join('');
+  const col = id % COLS, row = (id / COLS) | 0;
+  document.getElementById('d-pos').textContent = `Row ${row}, Col ${col} (px: ${col*16}, ${row*16})`;
+
+  const cps = document.getElementById('d-comp-preview-sec');
+  if (t.compositeGroup && compIdx[t.compositeGroup]) { cps.style.display = 'block'; renderCompPreview(t.compositeGroup); }
+  else cps.style.display = 'none';
+}
+
+function showComposite(gid) {
+  const comp = compIdx[gid]; if (!comp) return;
+  selectedSet.clear();
+  for (const row of comp.tiles) for (const id of row) if (id >= 0) selectedSet.add(id);
+  updateSelectionVisuals();
+}
+
+function renderCompPreview(gid) {
+  const comp = compIdx[gid], el = document.getElementById('d-comp-preview');
+  el.innerHTML = '';
+  const scale = 3, grid = document.createElement('div');
+  grid.className = 'composite-grid';
+  grid.style.gridTemplateColumns = `repeat(${comp.width}, ${TS*scale}px)`;
+  for (let r = 0; r < comp.height; r++) {
+    for (let c = 0; c < comp.width; c++) {
+      const id = comp.tiles[r][c];
+      if (id >= 0 && id !== null) {
+        const cvs = document.createElement('canvas');
+        drawTile(cvs, id, scale);
+        cvs.style.cursor = 'pointer';
+        cvs.addEventListener('click', () => showDetail(id));
+        grid.appendChild(cvs);
+      } else {
+        const e = document.createElement('div');
+        e.className = 'empty-cell';
+        e.style.width = TS*scale+'px'; e.style.height = TS*scale+'px';
+        grid.appendChild(e);
+      }
+    }
+  }
+  el.appendChild(grid);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FILTERS
+// ═══════════════════════════════════════════════════════════════════════
+function applyFilters() {
+  let showing = 0;
+  document.querySelectorAll('.tile-cell').forEach(cell => {
+    const id = parseInt(cell.dataset.tileId), t = tileIdx[id];
+    if (!t) { cell.classList.add('hidden'); return; }
+    let vis = true;
+    if (activeFilter !== 'all' && t.category !== activeFilter) vis = false;
+    if (depOnly && !t.deprecated) vis = false;
+    if (unvOnly && t.verified) vis = false;
+    if (searchQ) {
+      const hay = `${id} ${t.name} ${t.category} ${t.tags.join(' ')} ${t.compositeGroup||''} ${t.compositeRole||''}`.toLowerCase();
+      if (!hay.includes(searchQ)) vis = false;
+    }
+    cell.classList.toggle('hidden', !vis);
+    if (vis) showing++;
+  });
+  document.getElementById('stat-showing').textContent = showing;
+}
+
+function updateStats() {
+  let v = 0, u = 0, d = 0;
+  for (const t of catalog.tiles) { if (t.verified) v++; else u++; if (t.deprecated) d++; }
+  document.getElementById('stat-total').textContent = TOTAL;
+  document.getElementById('stat-verified').textContent = v;
+  document.getElementById('stat-deprecated').textContent = d;
+  document.getElementById('stat-showing').textContent = TOTAL;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SAVE / LOAD / EXPORT GROUPS
+// ═══════════════════════════════════════════════════════════════════════
+function saveGroup() {
+  const name = document.getElementById('gb-name').value.trim();
+  if (!name) { document.getElementById('gb-name').focus(); document.getElementById('gb-name').style.borderColor = '#e74c3c'; setTimeout(() => document.getElementById('gb-name').style.borderColor = '#444', 1200); return; }
+  if (!dzTiles) return;
+
+  // Check at least 1 tile
+  let any = false;
+  for (const row of dzTiles) for (const id of row) if (id >= 0) { any = true; break; }
+  if (!any) { alert('Place at least one tile in the drop zone.'); return; }
+
+  // Trim empty rows/cols from edges
+  let minR=dzH,maxR=0,minC=dzW,maxC=0;
+  for (let r = 0; r < dzH; r++) for (let c = 0; c < dzW; c++) {
+    if (dzTiles[r][c] >= 0) { if (r<minR) minR=r; if (r>maxR) maxR=r; if (c<minC) minC=c; if (c>maxC) maxC=c; }
+  }
+  const trimW = maxC-minC+1, trimH = maxR-minR+1;
+  const trimmed = [];
+  for (let r = minR; r <= maxR; r++) {
+    const row = [];
+    for (let c = minC; c <= maxC; c++) row.push(dzTiles[r][c]);
+    trimmed.push(row);
+  }
+
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/(^_|_$)/g,'');
+  const layer = document.getElementById('gb-layer').value;
+  const notes = document.getElementById('gb-notes').value.trim();
+
+  savedGroups.push({
+    id: `user_${slug}_${Date.now().toString(36)}`,
+    name, layer, width: trimW, height: trimH, notes,
+    tiles: trimmed,
+    tileNames: trimmed.flat().filter(id => id >= 0).map(id => tileIdx[id]?.name || `tile_${id}`),
+    createdAt: new Date().toISOString()
+  });
+
+  persistSaved();
+  renderSaved();
+  clearDropZone();
+  document.getElementById('gb-name').value = '';
+  document.getElementById('gb-notes').value = '';
+}
+
+function deleteGroup(i) {
+  if (!confirm(`Delete "${savedGroups[i].name}"?`)) return;
+  savedGroups.splice(i, 1);
+  persistSaved(); renderSaved();
+}
+
+function editGroup(i) {
+  const g = savedGroups[i];
+  document.getElementById('gb-name').value = g.name;
+  document.getElementById('gb-notes').value = g.notes || '';
+  document.getElementById('gb-layer').value = g.layer || 'objects';
+
+  // Load into drop zone
+  resizeDzTo(g.width, g.height);
+  for (let r = 0; r < g.height; r++) for (let c = 0; c < g.width; c++) dzTiles[r][c] = g.tiles[r][c];
+  renderDropZone();
+
+  // Switch to group tab
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active','active-grp'));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.querySelector('[data-tab="group-tab"]').classList.add('active-grp');
+  document.getElementById('group-tab').classList.add('active');
+
+  // Remove from saved
+  savedGroups.splice(i, 1);
+  persistSaved(); renderSaved();
+}
+
+function highlightGroup(i) {
+  const g = savedGroups[i];
+  selectedSet.clear();
+  for (const row of g.tiles) for (const id of row) if (id >= 0) selectedSet.add(id);
+  updateSelectionVisuals();
+}
+
+function renderSaved() {
+  const list = document.getElementById('saved-groups-list');
+  document.getElementById('sg-count').textContent = savedGroups.length;
+  if (!savedGroups.length) { list.innerHTML = '<div style="color:#444;font-style:italic;text-align:center;padding:16px;font-size:12px;">No groups yet</div>'; return; }
+
+  let html = '';
+  for (let i = 0; i < savedGroups.length; i++) {
+    const g = savedGroups[i];
+    const cnt = g.tiles.flat().filter(id => id >= 0).length;
+    html += `<div class="saved-group">
+      <div class="sg-header">
+        <span class="sg-name">${esc(g.name)}</span>
+        <div class="sg-actions">
+          <button class="sg-btn" onclick="highlightGroup(${i})">Show</button>
+          <button class="sg-btn" onclick="editGroup(${i})">Edit</button>
+          <button class="sg-btn sg-del" onclick="deleteGroup(${i})">Del</button>
+        </div>
+      </div>
+      <div class="sg-meta">${g.width}x${g.height} &middot; ${cnt} tiles &middot; ${g.layer}${g.notes ? ' &middot; '+esc(g.notes) : ''}</div>
+      <div class="sg-preview" id="sgp-${i}"></div>
+    </div>`;
+  }
+  list.innerHTML = html;
+  for (let i = 0; i < savedGroups.length; i++) renderGroupPreview(i);
+}
+
+function renderGroupPreview(i) {
+  const g = savedGroups[i], el = document.getElementById(`sgp-${i}`);
+  if (!el || !img) return;
+  const scale = 2, grid = document.createElement('div');
+  grid.className = 'composite-grid';
+  grid.style.gridTemplateColumns = `repeat(${g.width}, ${TS*scale}px)`;
+  for (let r = 0; r < g.height; r++) {
+    for (let c = 0; c < g.width; c++) {
+      const id = g.tiles[r][c];
+      if (id >= 0) {
+        const cvs = document.createElement('canvas');
+        drawTile(cvs, id, scale);
+        grid.appendChild(cvs);
+      } else {
+        const e = document.createElement('div');
+        e.className = 'empty-cell';
+        e.style.width = TS*scale+'px'; e.style.height = TS*scale+'px';
+        grid.appendChild(e);
+      }
+    }
+  }
+  el.appendChild(grid);
+}
+
+function loadSaved() {
+  try { const r = localStorage.getItem(STORAGE_KEY); if (r) savedGroups = JSON.parse(r); } catch(e) { savedGroups = []; }
+}
+function persistSaved() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(savedGroups)); } catch(e) {}
+}
+
+function exportGroups() {
+  const out = savedGroups.map(g => ({
+    id: g.id, name: g.name, layer: g.layer, width: g.width, height: g.height,
+    tiles: g.tiles, tileNames: g.tileNames || [], notes: g.notes || null,
+    createdAt: g.createdAt, source: 'user-grouped'
+  }));
+  document.getElementById('export-textarea').value = JSON.stringify({ userTileGroups: out }, null, 2);
+  document.getElementById('export-area').style.display = 'block';
+}
+
+function importGroups() {
+  const input = prompt('Paste JSON (userTileGroups array):');
+  if (!input) return;
+  try {
+    const data = JSON.parse(input);
+    const arr = data.userTileGroups || data;
+    if (!Array.isArray(arr)) throw new Error('Expected array');
+    let n = 0;
+    for (const g of arr) {
+      if (!g.name || !g.tiles) continue;
+      if (g.id && savedGroups.some(s => s.id === g.id)) continue;
+      savedGroups.push({
+        id: g.id || `imp_${Date.now().toString(36)}_${n}`,
+        name: g.name, layer: g.layer||'objects', width: g.width, height: g.height,
+        notes: g.notes||'', tiles: g.tiles, tileNames: g.tileNames||[],
+        createdAt: g.createdAt||new Date().toISOString()
+      });
+      n++;
+    }
+    persistSaved(); renderSaved();
+    alert(`Imported ${n} group(s).`);
+  } catch(e) { alert('Invalid JSON: '+e.message); }
+}
+
+function copyExport() {
+  const ta = document.getElementById('export-textarea');
+  ta.select(); document.execCommand('copy');
+  const btn = event.target; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1200);
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAG EDITING
+// ═══════════════════════════════════════════════════════════════════════
+const TAG_OVERRIDES_KEY = 'psv2_tile_tag_overrides';
+let tagOverrides = {}; // { tileId: [...tags] }
+
+function loadTagOverrides() {
+  try { const r = localStorage.getItem(TAG_OVERRIDES_KEY); if (r) tagOverrides = JSON.parse(r); } catch(e) { tagOverrides = {}; }
+  // Merge overrides into catalog
+  for (const [id, tags] of Object.entries(tagOverrides)) {
+    const t = tileIdx[parseInt(id)];
+    if (t) t.tags = tags;
+  }
+}
+
+function persistTagOverrides() {
+  try { localStorage.setItem(TAG_OVERRIDES_KEY, JSON.stringify(tagOverrides)); } catch(e) {}
+}
+
+function addTagToTile() {
+  if (detailTileId === null) return;
+  const input = document.getElementById('tag-input');
+  const tag = input.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  if (!tag) return;
+  const t = tileIdx[detailTileId];
+  if (!t || t.tags.includes(tag)) { input.value = ''; return; }
+  t.tags.push(tag);
+  tagOverrides[detailTileId] = [...t.tags];
+  persistTagOverrides();
+  input.value = '';
+  showDetail(detailTileId);
+}
+
+function removeTagFromTile(tag) {
+  if (detailTileId === null) return;
+  const t = tileIdx[detailTileId];
+  if (!t) return;
+  t.tags = t.tags.filter(x => x !== tag);
+  tagOverrides[detailTileId] = [...t.tags];
+  persistTagOverrides();
+  showDetail(detailTileId);
+}
+
+function exportCatalogWithTags() {
+  // Merge current tag state into a full catalog export
+  const exportCatalog = JSON.parse(JSON.stringify(catalog));
+  for (const [id, tags] of Object.entries(tagOverrides)) {
+    const t = exportCatalog.tiles.find(x => x.id === parseInt(id));
+    if (t) t.tags = tags;
+  }
+  exportCatalog.meta.lastUpdated = new Date().toISOString().split('T')[0];
+  const blob = new Blob([JSON.stringify(exportCatalog, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'tile-catalog.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Auto-load user tile groups from file
+async function loadUserTileGroups() {
+  try {
+    const resp = await fetch('./user-tile-groups.json');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const arr = data.userTileGroups || [];
+    let n = 0;
+    for (const g of arr) {
+      if (!g.name || !g.tiles) continue;
+      if (g.id && savedGroups.some(s => s.id === g.id)) continue;
+      savedGroups.push({
+        id: g.id, name: g.name, layer: g.layer||'objects',
+        width: g.width, height: g.height, notes: g.notes||'',
+        tiles: g.tiles, tileNames: g.tileNames||[],
+        createdAt: g.createdAt||new Date().toISOString()
+      });
+      n++;
+    }
+    if (n > 0) { persistSaved(); renderSaved(); }
+  } catch(e) { /* no user groups file — that's fine */ }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CHARACTERS TAB
+// ═══════════════════════════════════════════════════════════════════════
+const CHAR_STORAGE_KEY = 'psv2_character_configs';
+let charTabLoaded = false;
+let charDefs = [];       // all character definitions
+let charSelected = null; // currently selected char def
+let charAnimTimer = null;
+let charAnimPlaying = false;
+let charAnimFrame = 0;
+let charAnimSpeed = 200;
+let charAnimStateKey = 'idle';
+let charConfigs = {};    // persisted configs keyed by char id
+
+function loadCharConfigs() {
+  try { const r = localStorage.getItem(CHAR_STORAGE_KEY); if (r) charConfigs = JSON.parse(r); } catch(e) { charConfigs = {}; }
+}
+function persistCharConfigs() {
+  try { localStorage.setItem(CHAR_STORAGE_KEY, JSON.stringify(charConfigs)); } catch(e) {}
+}
+
+function loadCharacters() {
+  charTabLoaded = true;
+  loadCharConfigs();
+  charDefs = [];
+
+  // 1. Pre-built sheets (sprites/sheets/*.png)
+  const sheetChars = [
+    { id: 'sheet_princess', name: 'Princess', file: '../sprites/sheets/princess.png' },
+    { id: 'sheet_merchant', name: 'Merchant', file: '../sprites/sheets/merchant.png' },
+    { id: 'sheet_townsfolk_male', name: 'Townsfolk Male', file: '../sprites/sheets/townsfolk-male.png' },
+    { id: 'sheet_townsfolk_female', name: 'Townsfolk Female', file: '../sprites/sheets/townsfolk-female.png' },
+    { id: 'sheet_wolf', name: 'Wolf', file: '../sprites/sheets/wolf.png' },
+    { id: 'sheet_fairy', name: 'Fairy', file: '../sprites/sheets/fairy.png' },
+  ];
+  for (const sc of sheetChars) {
+    charDefs.push({
+      id: sc.id, name: sc.name, pack: 'Pre-built Sheets',
+      type: 'sheet', src: sc.file,
+      frameW: 16, frameH: 16, sheetCols: 4, sheetRows: 2,
+      frames: [], loaded: false, img: null
+    });
+  }
+
+  // 2. Superdark Fantasy NPCs (individual frames)
+  const sdNPCBase = '../sprites/characters/superdark-fantasy/Fantasy RPG NPCs - Individuel Frames';
+  const sdNPCs = [
+    { folder: 'Princess', prefix: 'Princess', name: 'Princess' },
+    { folder: 'Queen', prefix: 'Queen', name: 'Queen' },
+    { folder: 'King', prefix: 'King', name: 'King' },
+    { folder: 'Merchant', prefix: 'Merchant', name: 'Merchant' },
+    { folder: 'Blacksmith', prefix: 'Blacksmith', name: 'Blacksmith' },
+    { folder: 'Townsfolk - Male', prefix: 'Townsfolk_M', name: 'Townsfolk Male' },
+    { folder: 'Townsfolk - Female', prefix: 'Townsfolk_F', name: 'Townsfolk Female' },
+    { folder: 'Mage', prefix: 'Mage', name: 'Mage' },
+    { folder: 'Thief', prefix: 'Thief', name: 'Thief' },
+    { folder: 'Alchemist', prefix: 'Alchemist', name: 'Alchemist' },
+    { folder: 'Archer', prefix: 'Archer', name: 'Archer' },
+    { folder: 'Bishop', prefix: 'Bishop', name: 'Bishop' },
+    { folder: 'Butcher', prefix: 'Butcher', name: 'Butcher' },
+    { folder: 'Herald', prefix: 'Herald', name: 'Herald' },
+    { folder: 'Knight - Standard', prefix: 'Knight', name: 'Knight' },
+    { folder: 'Nun - Normal', prefix: 'NormalNun', name: 'Nun', combined: true },
+  ];
+  for (const npc of sdNPCs) {
+    const base = `${sdNPCBase}/${npc.folder}`;
+    if (npc.combined) {
+      // Idle + Walk combined: 4 frames only
+      charDefs.push({
+        id: `sdnpc_${npc.prefix.toLowerCase()}`, name: npc.name, pack: 'Superdark Fantasy NPCs',
+        type: 'individual', frameW: 16, frameH: 16,
+        framePaths: [1,2,3,4].map(i => `${base}/${npc.prefix}_Idle + Walk_${i}.png`),
+        idleRange: [0,3], walkRange: [0,3],
+        frames: [], loaded: false
+      });
+    } else {
+      charDefs.push({
+        id: `sdnpc_${npc.prefix.toLowerCase()}`, name: npc.name, pack: 'Superdark Fantasy NPCs',
+        type: 'individual', frameW: 16, frameH: 16,
+        framePaths: [
+          ...[1,2,3,4].map(i => `${base}/${npc.prefix}_Idle_${i}.png`),
+          ...[1,2,3,4].map(i => `${base}/${npc.prefix}_Walk_${i}.png`)
+        ],
+        idleRange: [0,1], walkRange: [4,7],
+        idleSpeed: 500, walkSpeed: 150,
+        frames: [], loaded: false
+      });
+    }
+  }
+
+  // 3. Superdark Forest Creatures (individual frames)
+  const sdForestBase = '../sprites/creatures/superdark-forest/Enchanted Forest - Individual Frames';
+  const sdCreatures = [
+    { folder: 'Wolf', prefix: 'Wolf', name: 'Wolf' },
+    { folder: 'Bear', prefix: 'Bear', name: 'Bear' },
+    { folder: 'Fairy', prefix: 'Fairy', name: 'Fairy', combined: true },
+    { folder: 'Elf - Female', prefix: 'Elf_F', name: 'Elf Female' },
+    { folder: 'Elf Princess', prefix: 'HighElf_F', name: 'Elf Princess' },
+    { folder: 'Ent', prefix: 'Ent', name: 'Ent' },
+    { folder: 'Mushroom - Normal', prefix: 'NormalMushroom', name: 'Mushroom' },
+    { folder: 'Mushroom - Small', prefix: 'SmallMushroom', name: 'Small Mushroom' },
+    { folder: 'Golem', prefix: 'Golem', name: 'Golem' },
+  ];
+  for (const cr of sdCreatures) {
+    const base = `${sdForestBase}/${cr.folder}`;
+    if (cr.combined) {
+      charDefs.push({
+        id: `sdcr_${cr.prefix.toLowerCase()}`, name: cr.name, pack: 'Superdark Forest Creatures',
+        type: 'individual', frameW: 16, frameH: 16,
+        framePaths: [1,2,3,4].map(i => `${base}/${cr.prefix}_Idle + Walk_${i}.png`),
+        idleRange: [0,3], walkRange: [0,3],
+        frames: [], loaded: false
+      });
+    } else {
+      charDefs.push({
+        id: `sdcr_${cr.prefix.toLowerCase()}`, name: cr.name, pack: 'Superdark Forest Creatures',
+        type: 'individual', frameW: 16, frameH: 16,
+        framePaths: [
+          ...[1,2,3,4].map(i => `${base}/${cr.prefix}_Idle_${i}.png`),
+          ...[1,2,3,4].map(i => `${base}/${cr.prefix}_Walk_${i}.png`)
+        ],
+        idleRange: [0,1], walkRange: [4,7],
+        idleSpeed: 500, walkSpeed: 150,
+        frames: [], loaded: false
+      });
+    }
+  }
+
+  // 4. Kenney Tiny Creatures tilemap
+  charDefs.push({
+    id: 'kenney_tiny_creatures', name: 'Tiny Creatures (tilemap)', pack: 'Kenney Tiny Creatures',
+    type: 'tilemap', src: '../sprites/creatures/tiny-creatures/tiny-creatures/Tilemap/tilemap_packed.png',
+    frameW: 16, frameH: 16,
+    frames: [], loaded: false, img: null
+  });
+
+  // 5. Kenney Tiny Dungeon tilemap
+  charDefs.push({
+    id: 'kenney_tiny_dungeon', name: 'Tiny Dungeon (tilemap)', pack: 'Kenney Tiny Dungeon',
+    type: 'tilemap', src: '../sprites/characters/kenney-tiny-dungeon/Tilemap/tilemap_packed.png',
+    frameW: 16, frameH: 16,
+    frames: [], loaded: false, img: null
+  });
+
+  // 6. Individual sprites
+  charDefs.push({
+    id: 'ind_unicorn', name: 'Unicorn (running)', pack: 'Individual Sprites',
+    type: 'horizontal_strip', src: '../sprites/creatures/unicorn_running.png',
+    frameW: 16, frameH: 16, frameCount: 4, gap: 1,
+    frames: [], loaded: false, img: null
+  });
+  charDefs.push({
+    id: 'ind_duck', name: 'Duck', pack: 'Individual Sprites',
+    type: 'vertical_strip', src: '../sprites/creatures/duck_spritesheet.png',
+    frameW: 16, frameH: 16, frameCount: 4,
+    frames: [], loaded: false, img: null
+  });
+  charDefs.push({
+    id: 'ind_rpg_8bit', name: 'RPG 8-bit Characters', pack: 'Individual Sprites',
+    type: 'full_sheet', src: '../sprites/characters/rpg_16x16_8bit.png',
+    frameW: 16, frameH: 16,
+    frames: [], loaded: false, img: null
+  });
+
+  renderCharList();
+}
+
+function renderCharList() {
+  const list = document.getElementById('char-list');
+  let html = '';
+  let currentPack = '';
+  for (let i = 0; i < charDefs.length; i++) {
+    const ch = charDefs[i];
+    if (ch.pack !== currentPack) {
+      currentPack = ch.pack;
+      html += `<div class="char-pack-header">${esc(currentPack)}</div>`;
+    }
+    html += `<div class="char-entry" data-char-idx="${i}" onclick="charSelect(${i})">
+      <canvas width="24" height="24" id="char-thumb-${i}"></canvas>
+      <span class="char-entry-name">${esc(ch.name)}</span>
+    </div>`;
+  }
+  list.innerHTML = html;
+  // Lazy-load thumbnails
+  for (let i = 0; i < charDefs.length; i++) {
+    loadCharThumb(i);
+  }
+}
+
+function loadCharThumb(idx) {
+  const ch = charDefs[idx];
+  const canvas = document.getElementById(`char-thumb-${idx}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  if (ch.type === 'sheet') {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      ctx.drawImage(im, 0, 0, ch.frameW, ch.frameH, 0, 0, 24, 24);
+    };
+    im.src = ch.src;
+  } else if (ch.type === 'individual') {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      ctx.drawImage(im, 0, 0, im.width, im.height, 0, 0, 24, 24);
+    };
+    im.src = ch.framePaths[0];
+  } else if (ch.type === 'tilemap') {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      ctx.drawImage(im, 0, 0, 16, 16, 0, 0, 24, 24);
+    };
+    im.src = ch.src;
+  } else if (ch.type === 'horizontal_strip') {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      ctx.drawImage(im, 0, 0, ch.frameW, ch.frameH, 0, 0, 24, 24);
+    };
+    im.src = ch.src;
+  } else if (ch.type === 'vertical_strip') {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      ctx.drawImage(im, 0, 0, ch.frameW, ch.frameH, 0, 0, 24, 24);
+    };
+    im.src = ch.src;
+  } else if (ch.type === 'full_sheet') {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      ctx.drawImage(im, 0, 0, ch.frameW, ch.frameH, 0, 0, 24, 24);
+    };
+    im.src = ch.src;
+  }
+}
+
+async function charLoadFrames(ch) {
+  if (ch.loaded) return;
+
+  if (ch.type === 'sheet') {
+    await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        ch.img = im;
+        const cols = ch.sheetCols || (im.width / ch.frameW);
+        const rows = ch.sheetRows || (im.height / ch.frameH);
+        ch.frames = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cvs = document.createElement('canvas');
+            cvs.width = ch.frameW; cvs.height = ch.frameH;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(im, c * ch.frameW, r * ch.frameH, ch.frameW, ch.frameH, 0, 0, ch.frameW, ch.frameH);
+            ch.frames.push(cvs);
+          }
+        }
+        if (!ch.idleRange) ch.idleRange = [0, Math.min(3, ch.frames.length - 1)];
+        if (!ch.walkRange) ch.walkRange = [Math.min(4, ch.frames.length - 1), Math.min(7, ch.frames.length - 1)];
+        ch.loaded = true;
+        resolve();
+      };
+      im.onerror = reject;
+      im.src = ch.src;
+    });
+  } else if (ch.type === 'individual') {
+    const imgs = await Promise.all(ch.framePaths.map(p => new Promise((resolve) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = p;
+    })));
+    ch.frames = [];
+    for (const im of imgs) {
+      if (!im) continue;
+      const cvs = document.createElement('canvas');
+      cvs.width = im.width; cvs.height = im.height;
+      ch.frameW = im.width; ch.frameH = im.height;
+      const ctx = cvs.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(im, 0, 0);
+      ch.frames.push(cvs);
+    }
+    ch.loaded = true;
+  } else if (ch.type === 'tilemap') {
+    await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        ch.img = im;
+        const cols = Math.floor(im.width / ch.frameW);
+        const rows = Math.floor(im.height / ch.frameH);
+        ch.frames = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cvs = document.createElement('canvas');
+            cvs.width = ch.frameW; cvs.height = ch.frameH;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(im, c * ch.frameW, r * ch.frameH, ch.frameW, ch.frameH, 0, 0, ch.frameW, ch.frameH);
+            ch.frames.push(cvs);
+          }
+        }
+        if (!ch.idleRange) ch.idleRange = [0, Math.min(3, ch.frames.length - 1)];
+        if (!ch.walkRange) ch.walkRange = [0, Math.min(3, ch.frames.length - 1)];
+        ch.loaded = true;
+        resolve();
+      };
+      im.onerror = reject;
+      im.src = ch.src;
+    });
+  } else if (ch.type === 'horizontal_strip') {
+    await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        ch.img = im;
+        ch.frames = [];
+        const gap = ch.gap || 0;
+        const step = ch.frameW + gap;
+        for (let i = 0; i < ch.frameCount; i++) {
+          const cvs = document.createElement('canvas');
+          cvs.width = ch.frameW; cvs.height = ch.frameH;
+          const ctx = cvs.getContext('2d');
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(im, i * step, 0, ch.frameW, ch.frameH, 0, 0, ch.frameW, ch.frameH);
+          ch.frames.push(cvs);
+        }
+        if (!ch.idleRange) ch.idleRange = [0, Math.min(3, ch.frames.length - 1)];
+        if (!ch.walkRange) ch.walkRange = [0, Math.min(3, ch.frames.length - 1)];
+        ch.loaded = true;
+        resolve();
+      };
+      im.onerror = reject;
+      im.src = ch.src;
+    });
+  } else if (ch.type === 'vertical_strip') {
+    await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        ch.img = im;
+        ch.frames = [];
+        for (let i = 0; i < ch.frameCount; i++) {
+          const cvs = document.createElement('canvas');
+          cvs.width = ch.frameW; cvs.height = ch.frameH;
+          const ctx = cvs.getContext('2d');
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(im, 0, i * ch.frameH, ch.frameW, ch.frameH, 0, 0, ch.frameW, ch.frameH);
+          ch.frames.push(cvs);
+        }
+        if (!ch.idleRange) ch.idleRange = [0, Math.min(3, ch.frames.length - 1)];
+        if (!ch.walkRange) ch.walkRange = [0, Math.min(3, ch.frames.length - 1)];
+        ch.loaded = true;
+        resolve();
+      };
+      im.onerror = reject;
+      im.src = ch.src;
+    });
+  } else if (ch.type === 'full_sheet') {
+    await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        ch.img = im;
+        const cols = Math.floor(im.width / ch.frameW);
+        const rows = Math.floor(im.height / ch.frameH);
+        ch.frames = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cvs = document.createElement('canvas');
+            cvs.width = ch.frameW; cvs.height = ch.frameH;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(im, c * ch.frameW, r * ch.frameH, ch.frameW, ch.frameH, 0, 0, ch.frameW, ch.frameH);
+            ch.frames.push(cvs);
+          }
+        }
+        if (!ch.idleRange) ch.idleRange = [0, Math.min(3, ch.frames.length - 1)];
+        if (!ch.walkRange) ch.walkRange = [Math.min(4, ch.frames.length - 1), Math.min(7, ch.frames.length - 1)];
+        ch.loaded = true;
+        resolve();
+      };
+      im.onerror = reject;
+      im.src = ch.src;
+    });
+  }
+}
+
+async function charSelect(idx) {
+  // Highlight in list
+  document.querySelectorAll('.char-entry.active').forEach(e => e.classList.remove('active'));
+  const entry = document.querySelector(`.char-entry[data-char-idx="${idx}"]`);
+  if (entry) entry.classList.add('active');
+
+  const ch = charDefs[idx];
+  charSelected = ch;
+
+  // Stop any running animation
+  charStopAnim();
+
+  // Load frames if needed
+  await charLoadFrames(ch);
+
+  // Load saved config
+  const cfg = charConfigs[ch.id] || {};
+
+  document.getElementById('char-editor-empty').style.display = 'none';
+  document.getElementById('char-editor-content').style.display = 'block';
+
+  document.getElementById('char-ed-title').textContent = ch.name;
+  document.getElementById('char-ed-source').textContent = ch.pack;
+  document.getElementById('char-ed-frameinfo').textContent = `${ch.frameW}x${ch.frameH} px, ${ch.frames.length} frame(s)`;
+
+  // Render all frames at 4x
+  const framesEl = document.getElementById('char-ed-frames');
+  framesEl.innerHTML = '';
+  const scale = 4;
+  for (let i = 0; i < ch.frames.length; i++) {
+    const cvs = document.createElement('canvas');
+    cvs.width = ch.frameW * scale;
+    cvs.height = ch.frameH * scale;
+    cvs.title = `Frame ${i}`;
+    const ctx = cvs.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(ch.frames[i], 0, 0, ch.frameW, ch.frameH, 0, 0, cvs.width, cvs.height);
+    framesEl.appendChild(cvs);
+  }
+
+  // Set up animation state selectors
+  const stateGrid = document.getElementById('char-state-grid');
+  const states = ['idle', 'walk', 'interact', 'celebrate'];
+  let stateHtml = '';
+  for (const st of states) {
+    const range = cfg[st + 'Range'] || (st === 'idle' ? ch.idleRange : (st === 'walk' ? ch.walkRange : null));
+    const fromVal = range ? range[0] : '';
+    const toVal = range ? range[1] : '';
+    const stSpeed = cfg[st + 'Speed'] || (st === 'idle' ? (ch.idleSpeed || 500) : (st === 'walk' ? (ch.walkSpeed || 150) : 200));
+    stateHtml += `<div class="char-state-card">
+      <label>${st}<span class="char-state-speed" id="char-st-${st}-speed-label">${stSpeed}ms</span></label>
+      <div style="display:flex;gap:3px;align-items:center;font-size:10px;color:#888;">
+        <span>From</span>
+        <input type="number" class="gb-input gb-num" id="char-st-${st}-from" value="${fromVal}" min="0" max="${ch.frames.length-1}" style="width:36px;font-size:10px;padding:1px 3px;" onchange="charStateChanged()">
+        <span>To</span>
+        <input type="number" class="gb-input gb-num" id="char-st-${st}-to" value="${toVal}" min="0" max="${ch.frames.length-1}" style="width:36px;font-size:10px;padding:1px 3px;" onchange="charStateChanged()">
+        <span>@</span>
+        <input type="number" class="gb-input gb-num" id="char-st-${st}-speed" value="${stSpeed}" min="50" max="2000" style="width:44px;font-size:10px;padding:1px 3px;" onchange="charStateSpeedChanged('${st}')">
+        <span>ms</span>
+      </div>
+    </div>`;
+  }
+  stateGrid.innerHTML = stateHtml;
+
+  // Superdark defaults buttons (show only for Superdark packs)
+  const defaultsRow = document.getElementById('char-defaults-row');
+  if (defaultsRow) defaultsRow.remove();
+  if (ch.pack && ch.pack.includes('Superdark')) {
+    const row = document.createElement('div');
+    row.className = 'char-defaults-row';
+    row.id = 'char-defaults-row';
+    row.innerHTML = `<button class="gb-btn gb-btn-secondary" onclick="charApplySuperdarkDefaults()" style="font-size:10px;padding:3px 8px;">Apply Superdark Defaults</button>
+      <button class="gb-btn gb-btn-secondary" onclick="charApplySuperdarkAll()" style="font-size:10px;padding:3px 8px;">Apply to All Superdark</button>`;
+    stateGrid.parentNode.insertBefore(row, stateGrid.nextSibling);
+  }
+
+  // Role and name
+  document.getElementById('char-role').value = cfg.role || 'npc';
+  document.getElementById('char-ingame-name').value = cfg.ingameName || '';
+
+  // Speed — use per-state defaults from sprite def if available
+  const stateSpeed = charAnimStateKey === 'idle' ? (ch.idleSpeed || 400) : (ch.walkSpeed || 200);
+  const speed = cfg.speed || stateSpeed;
+  charAnimSpeed = speed;
+  document.getElementById('char-speed-slider').value = speed;
+  document.getElementById('char-speed-val').textContent = speed + 'ms';
+
+  // Draw first frame in preview
+  charAnimStateKey = 'idle';
+  document.getElementById('char-anim-state-select').value = 'idle';
+  charAnimFrame = 0;
+  charDrawAnimFrame();
+}
+
+function charGetStateRange(state) {
+  if (!charSelected) return null;
+  const fromEl = document.getElementById(`char-st-${state}-from`);
+  const toEl = document.getElementById(`char-st-${state}-to`);
+  if (!fromEl || !toEl) return null;
+  const from = parseInt(fromEl.value);
+  const to = parseInt(toEl.value);
+  if (isNaN(from) || isNaN(to)) return null;
+  return [from, to];
+}
+
+function charDrawAnimFrame() {
+  if (!charSelected || !charSelected.frames.length) return;
+  const range = charGetStateRange(charAnimStateKey);
+  const canvas = document.getElementById('char-anim-canvas');
+  const scale = 4;
+  canvas.width = charSelected.frameW * scale;
+  canvas.height = charSelected.frameH * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  let frameIdx = 0;
+  if (range) {
+    const rangeLen = range[1] - range[0] + 1;
+    frameIdx = range[0] + (charAnimFrame % rangeLen);
+  } else {
+    frameIdx = charAnimFrame % charSelected.frames.length;
+  }
+  if (frameIdx >= 0 && frameIdx < charSelected.frames.length) {
+    ctx.drawImage(charSelected.frames[frameIdx], 0, 0, charSelected.frameW, charSelected.frameH, 0, 0, canvas.width, canvas.height);
+  }
+}
+
+function charToggleAnim() {
+  if (charAnimPlaying) {
+    charStopAnim();
+  } else {
+    charStartAnim();
+  }
+}
+
+function charStartAnim() {
+  charAnimPlaying = true;
+  document.getElementById('char-anim-toggle').textContent = 'Pause';
+  charAnimFrame = 0;
+  charAnimTick();
+}
+
+function charStopAnim() {
+  charAnimPlaying = false;
+  if (charAnimTimer) { clearTimeout(charAnimTimer); charAnimTimer = null; }
+  const btn = document.getElementById('char-anim-toggle');
+  if (btn) btn.textContent = 'Play';
+}
+
+function charAnimTick() {
+  if (!charAnimPlaying || !charSelected) return;
+  charDrawAnimFrame();
+  charAnimFrame++;
+  charAnimTimer = setTimeout(charAnimTick, charAnimSpeed);
+}
+
+function charSwitchAnimState() {
+  charAnimStateKey = document.getElementById('char-anim-state-select').value;
+  charAnimFrame = 0;
+  // Use per-state speed from config or sprite def
+  const ch = charSelected;
+  const cfg = charConfigs[ch?.id] || {};
+  const stateSpeedKey = charAnimStateKey + 'Speed';
+  const defSpeed = charAnimStateKey === 'idle' ? (ch?.idleSpeed || 500) : (ch?.walkSpeed || 150);
+  const speed = cfg[stateSpeedKey] || defSpeed;
+  charAnimSpeed = speed;
+  document.getElementById('char-speed-slider').value = speed;
+  document.getElementById('char-speed-val').textContent = speed + 'ms';
+  charDrawAnimFrame();
+}
+
+function charSpeedChange(val) {
+  charAnimSpeed = parseInt(val);
+  document.getElementById('char-speed-val').textContent = val + 'ms';
+  charConfigChanged();
+}
+
+function charStateChanged() {
+  charConfigChanged();
+  charAnimFrame = 0;
+  charDrawAnimFrame();
+}
+
+function charConfigChanged() {
+  if (!charSelected) return;
+  const states = ['idle', 'walk', 'interact', 'celebrate'];
+  const cfg = {};
+  for (const st of states) {
+    const range = charGetStateRange(st);
+    if (range) cfg[st + 'Range'] = range;
+    const speedEl = document.getElementById(`char-st-${st}-speed`);
+    if (speedEl && speedEl.value) cfg[st + 'Speed'] = parseInt(speedEl.value);
+  }
+  cfg.role = document.getElementById('char-role').value;
+  cfg.ingameName = document.getElementById('char-ingame-name').value.trim();
+  cfg.speed = charAnimSpeed;
+
+  charConfigs[charSelected.id] = cfg;
+  persistCharConfigs();
+}
+
+function charStateSpeedChanged(state) {
+  const speedEl = document.getElementById(`char-st-${state}-speed`);
+  const label = document.getElementById(`char-st-${state}-speed-label`);
+  if (speedEl && label) label.textContent = speedEl.value + 'ms';
+  // If this is the currently playing state, update the animation speed
+  if (state === charAnimStateKey) {
+    charAnimSpeed = parseInt(speedEl.value);
+    document.getElementById('char-speed-slider').value = charAnimSpeed;
+    document.getElementById('char-speed-val').textContent = charAnimSpeed + 'ms';
+  }
+  charConfigChanged();
+}
+
+function charApplySuperdarkDefaults() {
+  if (!charSelected) return;
+  // idle = 0-1 @500ms, walk = 4-7 @150ms
+  const idleFrom = document.getElementById('char-st-idle-from');
+  const idleTo = document.getElementById('char-st-idle-to');
+  const idleSpd = document.getElementById('char-st-idle-speed');
+  const walkFrom = document.getElementById('char-st-walk-from');
+  const walkTo = document.getElementById('char-st-walk-to');
+  const walkSpd = document.getElementById('char-st-walk-speed');
+  if (idleFrom) idleFrom.value = 0;
+  if (idleTo) idleTo.value = 1;
+  if (idleSpd) { idleSpd.value = 500; charStateSpeedChanged('idle'); }
+  if (walkFrom) walkFrom.value = 4;
+  if (walkTo) walkTo.value = 7;
+  if (walkSpd) { walkSpd.value = 150; charStateSpeedChanged('walk'); }
+  charStateChanged();
+}
+
+function charApplySuperdarkAll() {
+  if (!confirm('Apply Superdark defaults (idle=0-1 @500ms, walk=4-7 @150ms) to ALL Superdark characters?')) return;
+  let count = 0;
+  for (const ch of charDefs) {
+    if (!ch.pack || !ch.pack.includes('Superdark')) continue;
+    const cfg = charConfigs[ch.id] || {};
+    cfg.idleRange = [0, 1];
+    cfg.idleSpeed = 500;
+    cfg.walkRange = [4, 7];
+    cfg.walkSpeed = 150;
+    charConfigs[ch.id] = cfg;
+    count++;
+  }
+  persistCharConfigs();
+  // Refresh current view if a Superdark char is selected
+  if (charSelected && charSelected.pack && charSelected.pack.includes('Superdark')) {
+    const idx = charDefs.indexOf(charSelected);
+    if (idx >= 0) charSelect(idx);
+  }
+  alert(`Applied Superdark defaults to ${count} character(s).`);
+}
+
+function charExportConfig() {
+  const exportData = {};
+  for (const ch of charDefs) {
+    const cfg = charConfigs[ch.id];
+    if (!cfg) continue;
+    exportData[ch.id] = {
+      id: ch.id,
+      name: ch.name,
+      pack: ch.pack,
+      frameWidth: ch.frameW,
+      frameHeight: ch.frameH,
+      totalFrames: ch.frames.length,
+      role: cfg.role || 'npc',
+      ingameName: cfg.ingameName || '',
+      speed: cfg.speed || 200,
+      states: {}
+    };
+    for (const st of ['idle', 'walk', 'interact', 'celebrate']) {
+      if (cfg[st + 'Range']) {
+        exportData[ch.id].states[st] = { from: cfg[st + 'Range'][0], to: cfg[st + 'Range'][1], speed: cfg[st + 'Speed'] || 200 };
+      }
+    }
+  }
+
+  const json = JSON.stringify({ characterConfigs: exportData }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'character-configs.json'; a.click();
+  URL.revokeObjectURL(url);
+
+  // Also save to localStorage
+  persistCharConfigs();
+}
+
+/**
+ * Copy the selected character's config in sprite-anims.json format
+ * to the clipboard, ready to paste into sprites/sprite-anims.json.
+ */
+function charCopySpriteAnimsJson() {
+  const exportSprites = {};
+  for (const ch of charDefs) {
+    const cfg = charConfigs[ch.id];
+    if (!cfg) continue;
+
+    const frameTags = [];
+    for (const st of ['idle', 'walk', 'interact', 'celebrate']) {
+      if (cfg[st + 'Range']) {
+        frameTags.push({
+          name: st,
+          from: cfg[st + 'Range'][0],
+          to: cfg[st + 'Range'][1],
+          direction: 'forward',
+          speed: cfg[st + 'Speed'] || (st === 'idle' ? 500 : 150)
+        });
+      }
+    }
+
+    exportSprites[ch.id] = {
+      sheet: './sprites/sheets/' + ch.id + '.png',
+      frameCount: ch.frames.length,
+      frameTags: frameTags,
+      role: cfg.role || 'npc'
+    };
+  }
+
+  const json = JSON.stringify(exportSprites, null, 2);
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(json).then(() => {
+      alert('Copied sprite-anims.json "sprites" entries to clipboard.\nPaste into sprites/sprite-anims.json under the "sprites" key.');
+    }).catch(() => {
+      prompt('Copy the JSON below:', json);
+    });
+  } else {
+    prompt('Copy the JSON below:', json);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BUILDINGS TAB
+// ═══════════════════════════════════════════════════════════════════════
+const BLD_STORAGE_KEY = 'userBuildings_v1';
+let bldGridInited = false;
+let bldW = 4, bldH = 3;
+// Per-cell data: { tileId, layer } or null
+let bldCells = null; // 2D array [row][col] = { tileId: int, layer: string } | null
+let bldActiveCell = null; // { r, c }
+let bldDoorCell = null; // { x, y } (col, row)
+let savedBuildings = [];
+
+function bldInit() {
+  try { const r = localStorage.getItem(BLD_STORAGE_KEY); if (r) savedBuildings = JSON.parse(r); } catch(e) { savedBuildings = []; }
+}
+bldInit();
+
+function bldPersist() {
+  try { localStorage.setItem(BLD_STORAGE_KEY, JSON.stringify(savedBuildings)); } catch(e) {}
+}
+
+function bldResizeGrid() {
+  const w = Math.min(10, Math.max(1, parseInt(document.getElementById('bld-w').value) || 4));
+  const h = Math.min(10, Math.max(1, parseInt(document.getElementById('bld-h').value) || 3));
+  document.getElementById('bld-w').value = w;
+  document.getElementById('bld-h').value = h;
+  const oldCells = bldCells;
+  bldW = w; bldH = h;
+  bldCells = [];
+  for (let r = 0; r < h; r++) {
+    const row = [];
+    for (let c = 0; c < w; c++) {
+      row.push(oldCells && oldCells[r] && oldCells[r][c] ? oldCells[r][c] : null);
+    }
+    bldCells.push(row);
+  }
+  // Validate door cell
+  if (bldDoorCell && (bldDoorCell.x >= w || bldDoorCell.y >= h)) bldDoorCell = null;
+  bldActiveCell = null;
+  bldRenderGrid();
+  bldRenderPreview();
+}
+
+function bldClearGrid() {
+  for (let r = 0; r < bldH; r++) for (let c = 0; c < bldW; c++) bldCells[r][c] = null;
+  bldDoorCell = null;
+  bldActiveCell = null;
+  bldRenderGrid();
+  bldRenderPreview();
+}
+
+function bldRenderGrid() {
+  const wrap = document.getElementById('bld-grid-wrap');
+  if (!bldCells) { wrap.innerHTML = '<div style="color:#444;font-style:italic;font-size:12px;">Set size and click Resize</div>'; return; }
+
+  let html = `<div class="bld-grid" style="grid-template-columns:repeat(${bldW}, 48px);">`;
+  for (let r = 0; r < bldH; r++) {
+    for (let c = 0; c < bldW; c++) {
+      const cell = bldCells[r][c];
+      const isActive = bldActiveCell && bldActiveCell.r === r && bldActiveCell.c === c;
+      const isDoor = bldDoorCell && bldDoorCell.x === c && bldDoorCell.y === r;
+      let cls = 'bld-cell';
+      if (isActive) cls += ' bld-active';
+      if (isDoor) cls += ' bld-door';
+      if (cell) {
+        cls += ` bld-layer-${cell.layer}`;
+        html += `<div class="${cls}" onclick="bldCellClick(${r},${c})">
+          <canvas data-btid="${cell.tileId}" data-bsc="3"></canvas>
+          <span class="bld-id">${cell.tileId}</span>
+          <button class="bld-remove" onclick="event.stopPropagation();bldRemoveTile(${r},${c})">x</button>
+        </div>`;
+      } else {
+        cls += ' bld-cell-empty';
+        html += `<div class="${cls}" onclick="bldCellClick(${r},${c})"></div>`;
+      }
+    }
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+
+  // Render tile canvases
+  if (img && img.complete) {
+    wrap.querySelectorAll('canvas[data-btid]').forEach(cvs => {
+      drawTile(cvs, parseInt(cvs.dataset.btid), parseInt(cvs.dataset.bsc));
+    });
+  }
+}
+
+function bldCellClick(r, c) {
+  // Door mode?
+  if (document.getElementById('bld-door-mode').checked) {
+    if (bldDoorCell && bldDoorCell.x === c && bldDoorCell.y === r) {
+      bldDoorCell = null;
+    } else {
+      bldDoorCell = { x: c, y: r };
+    }
+    bldRenderGrid();
+    return;
+  }
+
+  // Set active cell
+  bldActiveCell = { r, c };
+  bldRenderGrid();
+
+  // If a tile is selected in the catalog (single selection), place it
+  if (selectedSet.size === 1) {
+    const tileId = [...selectedSet][0];
+    const layer = document.getElementById('bld-layer-select').value;
+    bldCells[r][c] = { tileId, layer };
+    bldRenderGrid();
+    bldRenderPreview();
+  }
+}
+
+function bldRemoveTile(r, c) {
+  bldCells[r][c] = null;
+  bldRenderGrid();
+  bldRenderPreview();
+}
+
+function bldRenderPreview() {
+  const canvas = document.getElementById('bld-preview-canvas');
+  if (!canvas || !bldCells || !img || !img.complete) return;
+  const scale = 4;
+  canvas.width = bldW * TS * scale;
+  canvas.height = bldH * TS * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw checkerboard background
+  for (let r = 0; r < bldH; r++) {
+    for (let c = 0; c < bldW; c++) {
+      ctx.fillStyle = (r + c) % 2 === 0 ? '#1a1a2e' : '#222244';
+      ctx.fillRect(c * TS * scale, r * TS * scale, TS * scale, TS * scale);
+    }
+  }
+
+  // Draw layers in order: ground, objects, foreground
+  const layerOrder = ['ground', 'objects', 'foreground'];
+  for (const layer of layerOrder) {
+    for (let r = 0; r < bldH; r++) {
+      for (let c = 0; c < bldW; c++) {
+        const cell = bldCells[r][c];
+        if (cell && cell.layer === layer) {
+          const tc = cell.tileId % COLS, tr = (cell.tileId / COLS) | 0;
+          ctx.drawImage(img, tc * TS, tr * TS, TS, TS, c * TS * scale, r * TS * scale, TS * scale, TS * scale);
+        }
+      }
+    }
+  }
+
+  // Draw door marker
+  if (bldDoorCell && bldDoorCell.x < bldW && bldDoorCell.y < bldH) {
+    const dx = bldDoorCell.x * TS * scale, dy = bldDoorCell.y * TS * scale;
+    ctx.strokeStyle = '#2ecc71';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(dx + 2, dy + 2, TS * scale - 4, TS * scale - 4);
+    ctx.fillStyle = '#2ecc71';
+    ctx.font = `bold ${10 * (scale / 2)}px sans-serif`;
+    ctx.fillText('DOOR', dx + 4, dy + TS * scale - 4);
+  }
+}
+
+function bldBuildLayerData() {
+  const layers = {
+    ground: [], objects: [], foreground: [], collision: []
+  };
+  for (let r = 0; r < bldH; r++) {
+    const gRow = [], oRow = [], fRow = [], cRow = [];
+    for (let c = 0; c < bldW; c++) {
+      const cell = bldCells[r][c];
+      let gVal = -1, oVal = -1, fVal = -1, cVal = 0;
+      if (cell) {
+        if (cell.layer === 'ground') gVal = cell.tileId;
+        else if (cell.layer === 'objects') oVal = cell.tileId;
+        else if (cell.layer === 'foreground') fVal = cell.tileId;
+        // Auto-generate collision from walkable flag
+        const t = tileIdx[cell.tileId];
+        cVal = (t && !t.walkable) ? 1 : 0;
+      }
+      // Door cell is always walkable
+      if (bldDoorCell && bldDoorCell.x === c && bldDoorCell.y === r) cVal = 0;
+      gRow.push(gVal); oRow.push(oVal); fRow.push(fVal); cRow.push(cVal);
+    }
+    layers.ground.push(gRow);
+    layers.objects.push(oRow);
+    layers.foreground.push(fRow);
+    layers.collision.push(cRow);
+  }
+  return layers;
+}
+
+function bldSave() {
+  const name = document.getElementById('bld-name').value.trim();
+  if (!name) {
+    document.getElementById('bld-name').focus();
+    document.getElementById('bld-name').style.borderColor = '#e74c3c';
+    setTimeout(() => document.getElementById('bld-name').style.borderColor = '#444', 1200);
+    return;
+  }
+  if (!bldCells) return;
+
+  // Check at least 1 tile placed
+  let any = false;
+  for (let r = 0; r < bldH; r++) for (let c = 0; c < bldW; c++) if (bldCells[r][c]) { any = true; break; }
+  if (!any) { alert('Place at least one tile in the building grid.'); return; }
+
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
+  const type = document.getElementById('bld-type').value;
+  const notes = document.getElementById('bld-notes').value.trim();
+  const layers = bldBuildLayerData();
+
+  const building = {
+    id: `building_${slug}_${Date.now().toString(36)}`,
+    name,
+    type,
+    width: bldW,
+    height: bldH,
+    doorCell: bldDoorCell ? { x: bldDoorCell.x, y: bldDoorCell.y } : null,
+    layers,
+    notes: notes || null,
+    createdAt: new Date().toISOString()
+  };
+
+  savedBuildings.push(building);
+  bldPersist();
+  bldRenderSavedList();
+
+  // Reset form
+  document.getElementById('bld-name').value = '';
+  document.getElementById('bld-notes').value = '';
+  bldClearGrid();
+}
+
+function bldRenderSavedList() {
+  const list = document.getElementById('bld-saved-list');
+  const countEl = document.getElementById('bld-count');
+  if (countEl) countEl.textContent = savedBuildings.length;
+  if (!savedBuildings.length) {
+    list.innerHTML = '<div style="color:#444;font-style:italic;text-align:center;padding:16px;font-size:12px;">No buildings yet</div>';
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < savedBuildings.length; i++) {
+    const b = savedBuildings[i];
+    html += `<div class="bld-saved-item">
+      <div class="bld-saved-header">
+        <span class="bld-saved-name">${esc(b.name)}</span>
+        <div class="sg-actions">
+          <button class="sg-btn" onclick="bldLoadBuilding(${i})">Edit</button>
+          <button class="sg-btn sg-del" onclick="bldDeleteBuilding(${i})">Del</button>
+        </div>
+      </div>
+      <div class="bld-saved-meta">${b.width}x${b.height} &middot; ${b.type}${b.notes ? ' &middot; ' + esc(b.notes) : ''}</div>
+      <div class="bld-saved-preview" id="bld-sp-${i}"></div>
+    </div>`;
+  }
+  list.innerHTML = html;
+
+  // Render preview thumbnails
+  if (img && img.complete) {
+    for (let i = 0; i < savedBuildings.length; i++) bldRenderSavedPreview(i);
+  }
+}
+
+function bldRenderSavedPreview(i) {
+  const b = savedBuildings[i];
+  const el = document.getElementById(`bld-sp-${i}`);
+  if (!el || !img) return;
+  const scale = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = b.width * TS * scale;
+  canvas.height = b.height * TS * scale;
+  canvas.style.imageRendering = 'pixelated';
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  // Draw layers in order
+  const layerOrder = ['ground', 'objects', 'foreground'];
+  for (const layer of layerOrder) {
+    const data = b.layers[layer];
+    if (!data) continue;
+    for (let r = 0; r < b.height; r++) {
+      for (let c = 0; c < b.width; c++) {
+        const tileId = data[r] && data[r][c] !== undefined ? data[r][c] : -1;
+        if (tileId >= 0) {
+          const tc = tileId % COLS, tr = (tileId / COLS) | 0;
+          ctx.drawImage(img, tc * TS, tr * TS, TS, TS, c * TS * scale, r * TS * scale, TS * scale, TS * scale);
+        }
+      }
+    }
+  }
+  el.appendChild(canvas);
+}
+
+function bldLoadBuilding(i) {
+  const b = savedBuildings[i];
+  document.getElementById('bld-name').value = b.name;
+  document.getElementById('bld-type').value = b.type || 'house';
+  document.getElementById('bld-notes').value = b.notes || '';
+  document.getElementById('bld-w').value = b.width;
+  document.getElementById('bld-h').value = b.height;
+  bldDoorCell = b.doorCell ? { x: b.doorCell.x, y: b.doorCell.y } : null;
+
+  // Rebuild cells from layer data
+  bldW = b.width; bldH = b.height;
+  bldCells = [];
+  for (let r = 0; r < bldH; r++) {
+    const row = [];
+    for (let c = 0; c < bldW; c++) {
+      // Find which layer has a tile in this cell (priority: foreground > objects > ground)
+      let cellData = null;
+      if (b.layers.foreground && b.layers.foreground[r] && b.layers.foreground[r][c] >= 0) {
+        cellData = { tileId: b.layers.foreground[r][c], layer: 'foreground' };
+      } else if (b.layers.objects && b.layers.objects[r] && b.layers.objects[r][c] >= 0) {
+        cellData = { tileId: b.layers.objects[r][c], layer: 'objects' };
+      } else if (b.layers.ground && b.layers.ground[r] && b.layers.ground[r][c] >= 0) {
+        cellData = { tileId: b.layers.ground[r][c], layer: 'ground' };
+      }
+      row.push(cellData);
+    }
+    bldCells.push(row);
+  }
+
+  // Remove from saved
+  savedBuildings.splice(i, 1);
+  bldPersist();
+  bldRenderSavedList();
+  bldRenderGrid();
+  bldRenderPreview();
+}
+
+function bldDeleteBuilding(i) {
+  if (!confirm(`Delete "${savedBuildings[i].name}"?`)) return;
+  savedBuildings.splice(i, 1);
+  bldPersist();
+  bldRenderSavedList();
+}
+
+function bldExportAll() {
+  if (!savedBuildings.length) { alert('No buildings to export.'); return; }
+  const json = JSON.stringify({ userBuildings: savedBuildings }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'user-buildings.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Hook into tile click: if building tab is active and a cell is active, place tile
+const origShowDetail = showDetail;
+showDetail = function(id) {
+  // Check if building tab is active and a cell is selected
+  const bldTab = document.getElementById('building-tab');
+  if (bldTab && bldTab.classList.contains('active') && bldActiveCell && bldCells) {
+    const { r, c } = bldActiveCell;
+    const layer = document.getElementById('bld-layer-select').value;
+    bldCells[r][c] = { tileId: id, layer };
+    bldRenderGrid();
+    bldRenderPreview();
+    return; // Don't switch to detail tab
+  }
+  origShowDetail(id);
+};
+
+init();
+</script>
+</body>
+</html>

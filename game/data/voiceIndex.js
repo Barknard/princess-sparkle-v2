@@ -18,6 +18,8 @@
  *   3. If both fail, log the error and return 0 (game continues)
  */
 
+import { SUBTITLES } from './subtitles.js';
+
 const VOICE_BASE = './voice-script/audio/voice/';
 const VOICE_EXT = '.mp3';
 
@@ -34,6 +36,27 @@ let _voiceGain = null;
 
 // Track whether user has interacted (for autoplay policy)
 let _userHasInteracted = false;
+
+// Subtitle callback — set by main.js to display text for parents
+let _onSubtitleChange = null;
+
+// ── Voice queue system ─────────────────────────────────────────────────
+// Prevents narrator/companion lines from overlapping.
+// If a voice is playing, new requests queue up and play sequentially.
+const VOICE_GAP_MS = 300;          // silence between queued lines
+let _currentVoiceId = null;        // ID of the currently playing voice
+let _currentVoiceEndTime = 0;      // Date.now() + duration when current voice ends
+let _voiceQueue = [];              // [{id, resolve}] — waiting voices
+let _queueTimer = null;            // setTimeout handle for next queue drain
+
+/**
+ * Set a callback that fires whenever a voice line plays or stops.
+ * Callback signature: (text: string) => void
+ * Called with subtitle text when voice starts, empty string when voice ends.
+ */
+export function setSubtitleCallback(cb) {
+  _onSubtitleChange = cb;
+}
 
 // Queue of voice IDs that were blocked by autoplay — replay on unlock
 const _pendingVoices = [];
@@ -195,44 +218,92 @@ let _currentWebAudioSource = null;
 
 /**
  * Play a voice line by ID.
- * If the file exists, plays it and returns the duration in ms.
- * If not, returns 0 (game continues without pause).
+ * If another voice is currently playing, this line is QUEUED
+ * and will play after the current one finishes (+300ms gap).
  *
- * Strategy:
- *   1. Try HTML Audio .play()
- *   2. If autoplay blocked, try Web Audio API fallback
- *   3. If both fail, queue for replay on next user gesture
+ * Returns the duration in ms (0 if file doesn't exist).
  *
  * Usage in scenes/dialogue:
  *   const duration = await playVoice('narrator_title_01');
- *   // wait duration ms, then continue
  */
 export async function playVoice(id) {
   console.log(`[Voice] playVoice("${id}") called — unlocked: ${_userHasInteracted}`);
 
+  // If a voice is currently playing, queue this one
+  const now = Date.now();
+  if (_currentVoiceId && now < _currentVoiceEndTime) {
+    console.log(`[Voice] "${id}" queued — "${_currentVoiceId}" still playing (${(_currentVoiceEndTime - now).toFixed(0)}ms remaining)`);
+    return new Promise((resolve) => {
+      _voiceQueue.push({ id, resolve });
+      _scheduleQueueDrain();
+    });
+  }
+
+  return _playVoiceImmediate(id);
+}
+
+/**
+ * Actually play a voice line right now (no queue check).
+ * @param {string} id
+ * @returns {Promise<number>} duration in ms
+ */
+async function _playVoiceImmediate(id) {
   const audio = await loadVoice(id);
   if (!audio) {
     console.log(`[Voice] "${id}" not found or failed to load — skipping`);
+    _currentVoiceId = null;
+    _currentVoiceEndTime = 0;
     return 0;
+  }
+
+  // Show subtitle for parents
+  if (_onSubtitleChange) {
+    _onSubtitleChange(SUBTITLES[id] || '');
   }
 
   // Strategy 1: Try HTML Audio element
   try {
     audio.currentTime = 0;
     await audio.play();
-    console.log(`[Voice] Playing "${id}" via HTML Audio (${((audio.duration || 0) * 1000).toFixed(0)}ms)`);
-    return (audio.duration || 0) * 1000;
+    const durationMs = (audio.duration || 0) * 1000;
+    console.log(`[Voice] Playing "${id}" via HTML Audio (${durationMs.toFixed(0)}ms)`);
+
+    _currentVoiceId = id;
+    _currentVoiceEndTime = Date.now() + durationMs;
+
+    // Clear subtitle when voice ends
+    if (_onSubtitleChange && durationMs > 0) {
+      setTimeout(() => {
+        if (_currentVoiceId === id && _onSubtitleChange) _onSubtitleChange('');
+      }, durationMs + 200);
+    }
+
+    // Schedule queue drain after this voice ends
+    _scheduleQueueDrain();
+
+    return durationMs;
   } catch (e) {
     console.warn(`[Voice] HTML Audio blocked for "${id}": ${e.name} — trying Web Audio fallback`);
   }
 
-  // Strategy 2: Web Audio API fallback (works if AudioContext is unlocked)
+  // Strategy 2: Web Audio API fallback
   if (_audioCtx && _audioCtx.state === 'running') {
     try {
       const buffer = await _loadWebAudioBuffer(id);
       if (buffer) {
         const durationMs = _playViaWebAudio(buffer);
         console.log(`[Voice] Playing "${id}" via Web Audio API (${durationMs.toFixed(0)}ms)`);
+
+        _currentVoiceId = id;
+        _currentVoiceEndTime = Date.now() + durationMs;
+
+        if (_onSubtitleChange && durationMs > 0) {
+          setTimeout(() => {
+            if (_currentVoiceId === id && _onSubtitleChange) _onSubtitleChange('');
+          }, durationMs + 200);
+        }
+
+        _scheduleQueueDrain();
         return durationMs;
       }
     } catch (e) {
@@ -243,12 +314,62 @@ export async function playVoice(id) {
   // Strategy 3: Queue for replay after user gesture
   if (!_userHasInteracted) {
     console.log(`[Voice] Queuing "${id}" for replay after user gesture`);
-    // Only keep the latest pending voice (don't pile up)
     _pendingVoices.length = 0;
     _pendingVoices.push(id);
   }
 
+  _currentVoiceId = null;
+  _currentVoiceEndTime = 0;
   return 0;
+}
+
+/**
+ * Schedule the next queued voice to play after the current one ends.
+ */
+function _scheduleQueueDrain() {
+  if (_queueTimer) return; // already scheduled
+  if (_voiceQueue.length === 0) return;
+
+  const now = Date.now();
+  const waitMs = Math.max(0, _currentVoiceEndTime - now) + VOICE_GAP_MS;
+
+  _queueTimer = setTimeout(() => {
+    _queueTimer = null;
+    _currentVoiceId = null;
+    _currentVoiceEndTime = 0;
+
+    if (_voiceQueue.length > 0) {
+      const next = _voiceQueue.shift();
+      _playVoiceImmediate(next.id).then(next.resolve);
+    }
+  }, waitMs);
+}
+
+/**
+ * Check if a voice line is currently playing.
+ * @returns {boolean}
+ */
+export function isVoicePlaying() {
+  return _currentVoiceId !== null && Date.now() < _currentVoiceEndTime;
+}
+
+/**
+ * Get remaining time in ms for the current voice line.
+ * @returns {number} 0 if nothing is playing
+ */
+export function getVoiceRemainingMs() {
+  if (!_currentVoiceId) return 0;
+  return Math.max(0, _currentVoiceEndTime - Date.now());
+}
+
+/**
+ * Clear the voice queue (e.g., on scene change).
+ * Does NOT stop the currently playing voice.
+ */
+export function clearVoiceQueue() {
+  for (const item of _voiceQueue) item.resolve(0);
+  _voiceQueue.length = 0;
+  if (_queueTimer) { clearTimeout(_queueTimer); _queueTimer = null; }
 }
 
 /**
@@ -278,6 +399,11 @@ export function stopAllVoice() {
     try { _currentWebAudioSource.stop(); } catch (_) {}
     _currentWebAudioSource = null;
   }
+  // Clear queue and tracking state
+  _currentVoiceId = null;
+  _currentVoiceEndTime = 0;
+  clearVoiceQueue();
+  if (_onSubtitleChange) _onSubtitleChange('');
 }
 
 /**
@@ -373,7 +499,7 @@ export const SCENE_VOICES = {
     'narrator_finn_complete_01', 'narrator_finn_complete_02',
     'narrator_finn_complete_03', 'narrator_finn_complete_04',
   ],
-  rainbowBridge: [
+  starlightPath: [
     'narrator_bridge_01', 'narrator_bridge_02',
     'narrator_bridge_piece_01', 'narrator_bridge_piece_02',
     'narrator_bridge_piece_03', 'narrator_bridge_piece_04',
