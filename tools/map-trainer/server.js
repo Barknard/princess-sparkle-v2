@@ -1256,19 +1256,24 @@ app.post('/api/batch/evolve', async (req, res) => {
         for (const dna of population) {
           const mapData = evolver.generateFromDNA(dna);
           const audit = auditMap(mapData);
-          scored.push({ dna, fitness: audit.score, mapData, audit });
+          // Use last known vision score to blend into fitness
+          // This makes vision the PRIMARY driver, audit is structural validation
+          const lastVision = batchState.bestVisionScore || 30;
+          const fitness = audit.score * 0.3 + lastVision * 0.7;
+          scored.push({ dna, fitness, mapData, audit });
         }
         scored.sort((a, b) => b.fitness - a.fitness);
 
         const bestOrganism = scored[0];
         const stats = evolver.getStats(scored);
 
-        // Vision-score the best organism periodically
+        // Vision-score EVERY generation — vision is the real quality signal
         let visionScore = 0;
         let critique = '';
         let tilePlacementRules = [];
+        let visionResult = null;
 
-        if (scoreMapWithVision && renderMapToPng && (gen === 1 || gen % VISION_EVERY === 0)) {
+        if (scoreMapWithVision && renderMapToPng) {
           try {
             const pngBuf = await renderMapToPng(bestOrganism.mapData, TILESET_PATH);
             const visionResult = await scoreMapWithVision({
@@ -1311,7 +1316,11 @@ app.post('/api/batch/evolve', async (req, res) => {
             batchState.topResults.sort((a, b) => b.combinedScore - a.combinedScore);
             if (batchState.topResults.length > 20) batchState.topResults = batchState.topResults.slice(0, 20);
 
-            addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)} | VISION=${visionScore}`);
+            // Update fitness with REAL vision score for evolution selection
+            bestOrganism.fitness = bestOrganism.audit.score * 0.3 + visionScore * 0.7;
+            scored[0] = bestOrganism;
+
+            addLog(`Gen ${gen}: audit=${bestOrganism.audit.score} vision=${visionScore} fitness=${bestOrganism.fitness.toFixed(0)} diversity=${stats.diversity.toFixed(1)}`);
 
             // LOG: detailed generation + vision data
             if (logger) {
