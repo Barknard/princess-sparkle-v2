@@ -7,28 +7,47 @@
 
 const Anthropic = require("@anthropic-ai/sdk");
 
-const SCORING_SYSTEM_PROMPT = `You are an expert RPG game visual quality inspector. You compare generated tile-based maps against a reference image of a well-designed RPG village. Score the generated map on how close it is to the quality and feel of the reference.`;
+const SCORING_SYSTEM_PROMPT = `You are an expert RPG tile map inspector. You analyze how 16x16 pixel tiles are assembled in generated maps compared to a reference. You focus on TILE PLACEMENT RULES — how tiles connect to each other, what goes next to what, and the spatial patterns that make a village look correct.
 
-const SCORING_USER_PROMPT = `Compare the generated map (Image 2) to the reference (Image 1). Evaluate on these criteria:
+The maps use Kenney Tiny Town tiles (16x16 pixels each). Key tile types:
+- GREEN GRASS: solid green ground fill
+- DIRT PATHS: tan/brown walkways, should be 2+ tiles wide with edge transitions
+- BUILDINGS: colored roof tiles on top, wall tiles below (wood=brown planks, stone=dark gray)
+- TREES: round canopy tops (green or orange) with trunk tiles below them
+- FENCES: white picket or brown wood, horizontal rows below buildings
+- WATER: blue tiles with grass-to-water edge transitions on all sides
+- DECORATIONS: barrels, lanterns, wells, flowers placed near buildings and paths`;
 
-1. TILE COHERENCE (0-20): Do tiles connect properly? Are there visual artifacts, wrong tiles, or jarring transitions?
-2. VILLAGE LAYOUT (0-20): Does the village have a sensible layout? Buildings, paths, open spaces, water features arranged logically?
-3. VISUAL VARIETY (0-20): Is there good mix of ground tiles, tree types, decorations? Or is it repetitive/monotonous?
-4. READABILITY (0-20): Can you clearly identify buildings, paths, trees, water? Or are objects ambiguous/unidentifiable?
-5. CHARM/POLISH (0-20): Does it feel like a real RPG village? Would a child find it inviting? Does it have the warmth of the reference?
+const SCORING_USER_PROMPT = `Compare the generated map (Image 2) to the reference village (Image 1). Focus on TILE PLACEMENT RULES.
+
+Score these aspects:
+
+1. BUILDING ASSEMBLY (0-20): Do buildings have proper roof→wall→door structure? Are they complete or broken?
+2. PATH CONNECTIVITY (0-20): Are paths 2+ tiles wide? Do they connect buildings? Are there proper edge tiles?
+3. TREE STRUCTURE (0-20): Do trees have canopy above trunk? Are they clustered naturally, not scattered randomly?
+4. DECORATION PLACEMENT (0-20): Are decorations (fences, flowers, barrels) placed logically near buildings/paths?
+5. OVERALL COMPOSITION (0-20): Does the village have distinct areas (houses, plaza, garden)? Good spatial flow?
+
+CRITICAL: In "tilePlacementRules", list SPECIFIC rules about how tiles should be placed relative to each other. Examples:
+- "Roof tiles must be directly above wall tiles, never floating"
+- "Fences should run below buildings with a gap for the door"
+- "Trees need canopy tiles above trunk tiles, never reversed"
+- "Paths should connect to building doors within 2 tiles"
+- "Flowers cluster in groups of 2-4 near buildings, not scattered alone"
 
 Respond in EXACTLY this JSON format:
 {
   "score": <total 0-100>,
-  "tileCoherence": <0-20>,
-  "villageLayout": <0-20>,
-  "visualVariety": <0-20>,
-  "readability": <0-20>,
-  "charmPolish": <0-20>,
-  "critique": "<2-3 sentence overall assessment>",
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "weaknesses": ["<weakness 1>", "<weakness 2>"],
-  "suggestions": ["<specific actionable suggestion 1>", "<specific actionable suggestion 2>"]
+  "buildingAssembly": <0-20>,
+  "pathConnectivity": <0-20>,
+  "treeStructure": <0-20>,
+  "decorationPlacement": <0-20>,
+  "overallComposition": <0-20>,
+  "critique": "<2-3 sentence assessment focusing on what tile patterns are wrong>",
+  "strengths": ["<what tile patterns look correct>"],
+  "weaknesses": ["<what tile patterns are broken or missing>"],
+  "tilePlacementRules": ["<specific rule 1>", "<specific rule 2>", "<specific rule 3>", "<specific rule 4>", "<specific rule 5>"],
+  "suggestions": ["<specific fix for the worst tile placement issue>", "<second fix>"]
 }
 Return ONLY the JSON, no other text.`;
 
@@ -255,14 +274,35 @@ async function scoreMapWithVision(options) {
  * @returns {Array<{ rule: string, source: string, confidence: number }>}
  */
 function extractRulesFromCritique(critique, genId) {
-  if (!critique || typeof critique !== "string") {
-    return [];
-  }
-
   const rules = [];
   const source = `vision-gen-${genId}`;
-  const confidence = 0.6;
   const seen = new Set();
+
+  // Handle both string critique and full vision result object
+  let critiqueText = '';
+  let tilePlacementRules = [];
+  if (typeof critique === 'object' && critique !== null) {
+    critiqueText = [critique.critique, ...(critique.suggestions || []), ...(critique.weaknesses || [])].filter(Boolean).join('. ');
+    tilePlacementRules = critique.tilePlacementRules || [];
+  } else if (typeof critique === 'string') {
+    critiqueText = critique;
+  }
+  if (!critiqueText && tilePlacementRules.length === 0) return [];
+
+  // HIGH CONFIDENCE: tile placement rules directly from vision model
+  // These are specific, actionable rules about how tiles relate to each other
+  const tileRuleConfidence = 0.8; // higher than generic critique rules
+  for (const rule of tilePlacementRules) {
+    if (typeof rule === 'string' && rule.length > 10 && rule.length < 200) {
+      const normalized = rule.trim();
+      if (!seen.has(normalized.toLowerCase())) {
+        seen.add(normalized.toLowerCase());
+        rules.push({ rule: normalized, source, confidence: tileRuleConfidence });
+      }
+    }
+  }
+
+  const confidence = 0.6; // lower confidence for pattern-extracted rules
 
   /**
    * Add a rule if it hasn't been seen yet.

@@ -921,6 +921,7 @@ async function runBatch(totalGens, mapParams, addLog) {
           bestOfWave.strengths = visionResult.strengths || [];
           bestOfWave.weaknesses = visionResult.weaknesses || [];
           bestOfWave.suggestions = visionResult.suggestions || [];
+          bestOfWave.tilePlacementRules = visionResult.tilePlacementRules || [];
           addLog(`  Vision score for wave winner: ${visionResult.score} → combined ${bestOfWave.combinedScore}`);
           // Track best vision score
           if (visionResult.score > batchState.bestVisionScore) {
@@ -969,8 +970,15 @@ async function runBatch(totalGens, mapParams, addLog) {
       if (memory.bestMaps.length > 5) memory.bestMaps = memory.bestMaps.slice(-5);
 
       // Extract learned rules from wave winner
-      if (extractRulesFromCritique && visionFeedback) {
-        const newRules = extractRulesFromCritique(visionFeedback, bestOfWave.generationId);
+      if (extractRulesFromCritique) {
+        // Pass the full vision result (with tilePlacementRules) for high-quality rule extraction
+        const visionData = {
+          critique: bestOfWave.critique,
+          suggestions: bestOfWave.suggestions,
+          weaknesses: bestOfWave.weaknesses,
+          tilePlacementRules: bestOfWave.tilePlacementRules || []
+        };
+        const newRules = extractRulesFromCritique(visionData, bestOfWave.generationId);
         for (const rule of newRules) {
           const existing = memory.learnedRules.find(r =>
             r.rule.toLowerCase().includes(rule.rule.toLowerCase().slice(0, 20))
