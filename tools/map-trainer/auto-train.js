@@ -79,6 +79,7 @@ const { renderMapToPng } = require('./tile-renderer');
 const { scoreMapWithVision, extractRulesFromCritique } = require('./vision-scorer');
 const { TileRelationshipLearner } = require('./tile-relationship-learner');
 const { EvolutionLogger } = require('./evolution-logger');
+const { loadTargetMap, scoreTileMatch } = require('./tile-match-scorer');
 
 // ── Load reference image ────────────────────────────────────────────────
 const refPath = path.join(TRAINER_DIR, 'reference-images', 'kenney-tiny-town-sample.png');
@@ -87,6 +88,16 @@ if (!fs.existsSync(refPath)) {
   process.exit(1);
 }
 const refImageBuf = fs.readFileSync(refPath);
+
+// ── Load target level for tile-by-tile matching ─────────────────────────
+const targetLevelPath = path.join(PROJECT_ROOT, 'game', 'levels', 'level-sparkle-village.js');
+let targetMap = null;
+try {
+  targetMap = loadTargetMap(targetLevelPath);
+  console.log(`  Target map loaded: ${targetMap.width}x${targetMap.height} (${targetMap.ground.length} tiles/layer)`);
+} catch (e) {
+  console.log(`  Warning: Could not load target map: ${e.message}`);
+}
 
 // ── Load prior knowledge ────────────────────────────────────────────────
 const learner = new TileRelationshipLearner();
@@ -135,7 +146,15 @@ async function main() {
     for (const dna of population) {
       const mapData = evolver.generateFromDNA(dna);
       const audit = auditMap(mapData);
-      scored.push({ dna, fitness: audit.score, mapData, audit });
+      // PRIMARY fitness: tile-by-tile match to target (if available)
+      let fitness = audit.score;
+      let tileMatchPct = 0;
+      if (targetMap) {
+        const match = scoreTileMatch(mapData, targetMap);
+        tileMatchPct = match.score;
+        fitness = tileMatchPct; // tile match IS the fitness
+      }
+      scored.push({ dna, fitness, mapData, audit, tileMatchPct });
     }
     scored.sort((a, b) => b.fitness - a.fitness);
     const bestOrganism = scored[0];
@@ -143,14 +162,13 @@ async function main() {
     // ── Track best by audit score ─────────────────────────────────────
     let visionScore = 0;
     let visionResult = null;
-    const isNewBest = bestOrganism.audit.score > bestVisionScore;
+    const isNewBest = bestOrganism.fitness > bestVisionScore;
     const shouldRender = gen === 1 || gen % 10 === 0 || isNewBest;
 
     if (isNewBest) {
-      bestVisionScore = bestOrganism.audit.score;
+      bestVisionScore = bestOrganism.fitness;
       bestVisionGen = gen;
       bestDna = JSON.parse(JSON.stringify(bestOrganism.dna));
-      bestDna._lastAudit = bestOrganism.audit.score;
     }
 
     // Only render PNG when needed (every 10th gen or new best) — saves ~5s/gen
@@ -201,11 +219,12 @@ async function main() {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
     const genTime = ((Date.now() - genStart) / 1000).toFixed(1);
 
-    const auditPct = bestOrganism.audit.score;
-    const bar = '█'.repeat(Math.floor(auditPct / 5)) + '░'.repeat(20 - Math.floor(auditPct / 5));
-    const structLabel = `str:${bestOrganism.audit.structuralScore || '?'}/50`;
-    const designLabel = `des:${bestOrganism.audit.designScore || '?'}/50`;
-    let line = `  Gen ${String(gen).padStart(4)} | ${bar} ${String(auditPct).padStart(3)}/100 | ${structLabel} ${designLabel} | best ${bestVisionScore} (gen ${bestVisionGen}) | ${genTime}s | ${elapsed}s`;
+    const fitPct = bestOrganism.fitness;
+    const barLen = Math.min(20, Math.floor(fitPct / 5));
+    const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
+    const matchLabel = targetMap ? `match:${bestOrganism.tileMatchPct.toFixed(2)}%` : '';
+    const auditLabel = `audit:${bestOrganism.audit.score}`;
+    let line = `  Gen ${String(gen).padStart(4)} | ${bar} ${fitPct.toFixed(2)}% | ${matchLabel} ${auditLabel} | best ${bestVisionScore.toFixed(2)} (gen ${bestVisionGen}) | ${genTime}s | ${elapsed}s`;
     if (visionScore > 0) line += ` | VISION=${visionScore}`;
     console.log(line);
 
@@ -222,7 +241,7 @@ async function main() {
     if (visionResult) logger.logVisionResult(gen, visionResult);
 
     // ── Report to dashboard ─────────────────────────────────────────
-    const logLine = `[${new Date().toISOString().slice(11,19)}] Gen ${gen}: score=${bestOrganism.audit.score} (str:${bestOrganism.audit.structuralScore||'?'} des:${bestOrganism.audit.designScore||'?'}) best=${bestVisionScore} div=${stats.diversity.toFixed(1)}${visionScore > 0 ? ' VISION=' + visionScore : ''}`;
+    const logLine = `[${new Date().toISOString().slice(11,19)}] Gen ${gen}: ${bestOrganism.fitness.toFixed(2)}% match | audit=${bestOrganism.audit.score} | best=${bestVisionScore.toFixed(2)}% (gen ${bestVisionGen}) | div=${stats.diversity.toFixed(1)}`;
     logEntries.push(logLine);
     if (visionResult?.critique) logEntries.push(`  └─ ${visionResult.critique.slice(0, 120)}`);
     if (visionResult?.tilePlacementRules?.length > 0) {
@@ -263,13 +282,9 @@ async function main() {
       topResults: dashTopResults
     });
 
-    // ── Check target (audit score for local, vision for API checkpoints) ─
-    if (bestOrganism.audit.score >= TARGET_SCORE) {
-      console.log(`\n  ✓ TARGET REACHED! Audit score ${bestOrganism.audit.score} >= ${TARGET_SCORE} at gen ${gen}\n`);
-      break;
-    }
-    if (visionScore >= TARGET_SCORE) {
-      console.log(`\n  ✓ VISION TARGET REACHED! Score ${visionScore} >= ${TARGET_SCORE} at gen ${gen}\n`);
+    // ── Check target ─────────────────────────────────────────────────
+    if (bestOrganism.fitness >= TARGET_SCORE) {
+      console.log(`\n  ✓ TARGET REACHED! ${bestOrganism.fitness.toFixed(4)}% >= ${TARGET_SCORE}% at gen ${gen}\n`);
       break;
     }
 
