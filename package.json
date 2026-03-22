@@ -9,6 +9,7 @@
     "map:export": "node tools/level-to-tmj.js",
     "map:import": "node tools/tmj-to-level.js",
     "train": "node tools/map-trainer/server.js",
+    "train:auto": "node tools/map-trainer/auto-train.js",
     "train:build-semantics": "node tools/map-trainer/build-semantics.js"
   },
   "repository": {
