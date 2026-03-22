@@ -652,18 +652,311 @@ function checkTreeVariety(mapData) {
   return null;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DESIGN QUALITY CHECKS (scored 0-50, measures visual quality not just validity)
+// These differentiate good maps from boring ones.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const DECORATION_TILES = new Set([15, 18, 19, 28, 29, 92, 93, 104, 107, 128]);
+const BUILDING_ROOF_TILES = new Set([51, 52, 53, 55, 63, 64, 65, 67]);
+const FENCE_TILES = new Set([96, 97, 98, 99, 100, 101, 108]);
+const SMALL_TREE_TILES = new Set([6, 9, 16, 17]);
+
+/**
+ * Design quality scoring — returns a score 0-50 measuring visual design quality.
+ * This is separate from structural validation and measures how good the map LOOKS.
+ */
+function scoreDesignQuality(mapData) {
+  const { width, height, ground, objects, foreground, collision } = mapData;
+  const total = width * height;
+  let designScore = 0;
+  const details = [];
+
+  // ── DQ1: Path network quality (0-8) ──────────────────────────────────
+  // Good paths: connected, 2-wide, reach multiple areas, not too sparse or dominant
+  {
+    let pathCells = 0;
+    let pathClusters = 0;
+    const visited = new Uint8Array(total);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (PATH_TILES.has(ground[i]) && !visited[i]) {
+          pathClusters++;
+          // BFS to mark connected path
+          const queue = [{ x, y }];
+          visited[i] = 1;
+          while (queue.length > 0) {
+            const { x: cx, y: cy } = queue.shift();
+            pathCells++;
+            for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+              const nx = cx + dx, ny = cy + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const ni = ny * width + nx;
+                if (PATH_TILES.has(ground[ni]) && !visited[ni]) {
+                  visited[ni] = 1;
+                  queue.push({ x: nx, y: ny });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    const pathPct = pathCells / total;
+    let pathScore = 0;
+    // Good: 5-15% path coverage
+    if (pathPct >= 0.05 && pathPct <= 0.15) pathScore += 3;
+    else if (pathPct >= 0.02 && pathPct <= 0.25) pathScore += 1;
+    // Good: 1-3 connected path clusters (not fragmented)
+    if (pathClusters >= 1 && pathClusters <= 3) pathScore += 3;
+    else if (pathClusters <= 5) pathScore += 1;
+    // Bonus: paths exist at all
+    if (pathCells > 10) pathScore += 2;
+    designScore += Math.min(8, pathScore);
+    details.push(`Paths: ${pathCells} cells (${(pathPct*100).toFixed(1)}%), ${pathClusters} clusters → ${Math.min(8, pathScore)}/8`);
+  }
+
+  // ── DQ2: Building quality & variety (0-8) ─────────────────────────────
+  {
+    // Find building clusters by grouping roof tiles
+    const buildings = [];
+    const roofVisited = new Uint8Array(total);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (BUILDING_ROOF_TILES.has(objects[i]) && !roofVisited[i]) {
+          let minX = x, maxX = x, minY = y, maxY = y;
+          const queue = [{ x, y }];
+          roofVisited[i] = 1;
+          while (queue.length > 0) {
+            const { x: cx, y: cy } = queue.shift();
+            minX = Math.min(minX, cx); maxX = Math.max(maxX, cx);
+            minY = Math.min(minY, cy); maxY = Math.max(maxY, cy);
+            for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+              const nx = cx + dx, ny = cy + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const ni = ny * width + nx;
+                if ((BUILDING_ROOF_TILES.has(objects[ni]) || WALL_TILES.has(objects[ni])) && !roofVisited[ni]) {
+                  roofVisited[ni] = 1;
+                  queue.push({ x: nx, y: ny });
+                }
+              }
+            }
+          }
+          buildings.push({ cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX + 1 });
+        }
+      }
+    }
+    let bldgScore = 0;
+    // Good: 3-5 buildings
+    if (buildings.length >= 3 && buildings.length <= 5) bldgScore += 3;
+    else if (buildings.length >= 2 && buildings.length <= 6) bldgScore += 1;
+    else if (buildings.length === 0) bldgScore += 0;
+    // Good: varied building sizes
+    if (buildings.length >= 2) {
+      const widths = new Set(buildings.map(b => b.w));
+      if (widths.size >= 2) bldgScore += 2;
+    }
+    // Good: buildings spread across map (not all in one corner)
+    if (buildings.length >= 2) {
+      const xs = buildings.map(b => b.cx);
+      const ys = buildings.map(b => b.cy);
+      const xSpread = Math.max(...xs) - Math.min(...xs);
+      const ySpread = Math.max(...ys) - Math.min(...ys);
+      if (xSpread > width * 0.3 && ySpread > height * 0.3) bldgScore += 3;
+      else if (xSpread > width * 0.2 || ySpread > height * 0.2) bldgScore += 1;
+    }
+    designScore += Math.min(8, bldgScore);
+    details.push(`Buildings: ${buildings.length}, spread score → ${Math.min(8, bldgScore)}/8`);
+  }
+
+  // ── DQ3: Decoration density & placement (0-8) ─────────────────────────
+  {
+    let decoCount = 0;
+    let decoNearBuilding = 0;
+    let decoNearPath = 0;
+    let fenceCount = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        const tile = objects[i];
+        if (DECORATION_TILES.has(tile)) {
+          decoCount++;
+          // Check if near a building (within 5 tiles)
+          let nearBldg = false, nearPath = false;
+          for (let dy = -5; dy <= 5 && !nearBldg; dy++) {
+            for (let dx = -5; dx <= 5 && !nearBldg; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                if (BUILDING_ROOF_TILES.has(objects[ny * width + nx]) || WALL_TILES.has(objects[ny * width + nx])) nearBldg = true;
+                if (PATH_TILES.has(ground[ny * width + nx])) nearPath = true;
+              }
+            }
+          }
+          if (nearBldg) decoNearBuilding++;
+          if (nearPath) decoNearPath++;
+        }
+        if (FENCE_TILES.has(tile)) fenceCount++;
+      }
+    }
+    let decoScore = 0;
+    // Good: 10-40 decorations
+    if (decoCount >= 10 && decoCount <= 40) decoScore += 2;
+    else if (decoCount >= 5) decoScore += 1;
+    // Good: decorations near buildings (not random scatter)
+    if (decoCount > 0 && decoNearBuilding / decoCount > 0.5) decoScore += 3;
+    else if (decoCount > 0 && decoNearBuilding > 2) decoScore += 1;
+    // Good: fences present
+    if (fenceCount >= 3) decoScore += 2;
+    // Bonus: decorations near paths
+    if (decoNearPath > 3) decoScore += 1;
+    designScore += Math.min(8, decoScore);
+    details.push(`Decorations: ${decoCount} (${decoNearBuilding} near buildings, ${fenceCount} fences) → ${Math.min(8, decoScore)}/8`);
+  }
+
+  // ── DQ4: Ground texture quality (0-8) ──────────────────────────────────
+  {
+    // Measure: organic variation, not monotonous
+    let grassPlain = 0, grassVar = 0, grassFlower = 0;
+    let maxSameRun = 0, currentRun = 0, lastTile = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const t = ground[y * width + x];
+        if (t === 1) grassPlain++;
+        else if (t === 2) grassVar++;
+        else if (t === 43) grassFlower++;
+        // Track monotony (longest run of same tile in a row)
+        if (t === lastTile) { currentRun++; maxSameRun = Math.max(maxSameRun, currentRun); }
+        else { currentRun = 1; lastTile = t; }
+      }
+    }
+    const grassTotal = grassPlain + grassVar + grassFlower;
+    let groundScore = 0;
+    if (grassTotal > 0) {
+      const plainPct = grassPlain / grassTotal;
+      const varPct = grassVar / grassTotal;
+      const flowerPct = grassFlower / grassTotal;
+      // Good: 50-70% plain, 20-35% variant, 5-15% flower (target: 60/30/10)
+      if (plainPct >= 0.45 && plainPct <= 0.75) groundScore += 2;
+      if (varPct >= 0.15 && varPct <= 0.40) groundScore += 2;
+      if (flowerPct >= 0.03 && flowerPct <= 0.20) groundScore += 2;
+      // Bad: monotonous (long runs of same tile)
+      if (maxSameRun <= 6) groundScore += 2;
+      else if (maxSameRun <= 10) groundScore += 1;
+    }
+    designScore += Math.min(8, groundScore);
+    details.push(`Ground: plain=${grassPlain} var=${grassVar} flower=${grassFlower}, max run=${maxSameRun} → ${Math.min(8, groundScore)}/8`);
+  }
+
+  // ── DQ5: Tree coverage & border quality (0-8) ─────────────────────────
+  {
+    let treeCanopies = 0;
+    let borderTrees = 0; // trees in first/last 3 rows/cols
+    let interiorTrees = 0;
+    let treeTypes = new Set();
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const ft = foreground[y * width + x];
+        if (CANOPY_TILES.has(ft)) {
+          treeCanopies++;
+          if (y < 3 || y >= height - 3 || x < 3 || x >= width - 3) borderTrees++;
+          else interiorTrees++;
+          if (TREE_TYPE_GREEN.has(ft)) treeTypes.add('green');
+          if (TREE_TYPE_AUTUMN.has(ft)) treeTypes.add('autumn');
+          if (TREE_TYPE_PINE.has(ft)) treeTypes.add('pine');
+          if (TREE_TYPE_DENSE.has(ft)) treeTypes.add('dense');
+        }
+        if (SMALL_TREE_TILES.has(objects[y * width + x])) {
+          treeTypes.add('small');
+          interiorTrees++;
+        }
+      }
+    }
+    let treeScore = 0;
+    // Good: tree border exists (>20 border canopies)
+    if (borderTrees >= 20) treeScore += 2;
+    else if (borderTrees >= 10) treeScore += 1;
+    // Good: interior trees exist (groves, not empty)
+    if (interiorTrees >= 5 && interiorTrees <= 60) treeScore += 2;
+    else if (interiorTrees >= 2) treeScore += 1;
+    // Good: 3+ tree types for variety
+    if (treeTypes.size >= 3) treeScore += 2;
+    else if (treeTypes.size >= 2) treeScore += 1;
+    // Good: overall coverage 10-30% of map
+    const treePct = treeCanopies / total;
+    if (treePct >= 0.08 && treePct <= 0.30) treeScore += 2;
+    else if (treePct >= 0.04) treeScore += 1;
+    designScore += Math.min(8, treeScore);
+    details.push(`Trees: ${treeCanopies} canopies (${borderTrees} border, ${interiorTrees} interior), ${treeTypes.size} types → ${Math.min(8, treeScore)}/8`);
+  }
+
+  // ── DQ6: Spatial composition (0-10) ────────────────────────────────────
+  {
+    // Divide map into 4 quadrants, check each has SOMETHING interesting
+    const qw = Math.floor(width / 2), qh = Math.floor(height / 2);
+    const quadrants = [
+      { x0: 0, y0: 0, x1: qw, y1: qh },       // NW
+      { x0: qw, y0: 0, x1: width, y1: qh },    // NE
+      { x0: 0, y0: qh, x1: qw, y1: height },   // SW
+      { x0: qw, y0: qh, x1: width, y1: height } // SE
+    ];
+    let occupiedQuadrants = 0;
+    let quadrantDiversity = 0;
+    for (const q of quadrants) {
+      let hasBuilding = false, hasTree = false, hasPath = false, hasDeco = false;
+      for (let y = q.y0; y < q.y1; y++) {
+        for (let x = q.x0; x < q.x1; x++) {
+          const i = y * width + x;
+          if (BUILDING_ROOF_TILES.has(objects[i]) || WALL_TILES.has(objects[i])) hasBuilding = true;
+          if (CANOPY_TILES.has(foreground[i])) hasTree = true;
+          if (PATH_TILES.has(ground[i])) hasPath = true;
+          if (DECORATION_TILES.has(objects[i])) hasDeco = true;
+        }
+      }
+      const features = [hasBuilding, hasTree, hasPath, hasDeco].filter(Boolean).length;
+      if (features >= 2) occupiedQuadrants++;
+      quadrantDiversity += features;
+    }
+    let compScore = 0;
+    // Good: all 4 quadrants have 2+ feature types
+    if (occupiedQuadrants === 4) compScore += 4;
+    else if (occupiedQuadrants >= 3) compScore += 2;
+    else if (occupiedQuadrants >= 2) compScore += 1;
+    // Good: high total diversity across quadrants (max 16)
+    if (quadrantDiversity >= 12) compScore += 3;
+    else if (quadrantDiversity >= 8) compScore += 2;
+    else if (quadrantDiversity >= 5) compScore += 1;
+    // Good: center area (middle 50%) has path intersection or village square
+    let centerPaths = 0;
+    const cx0 = Math.floor(width * 0.25), cx1 = Math.floor(width * 0.75);
+    const cy0 = Math.floor(height * 0.25), cy1 = Math.floor(height * 0.75);
+    for (let y = cy0; y < cy1; y++) {
+      for (let x = cx0; x < cx1; x++) {
+        if (PATH_TILES.has(ground[y * width + x])) centerPaths++;
+      }
+    }
+    if (centerPaths >= 20) compScore += 3;
+    else if (centerPaths >= 8) compScore += 2;
+    designScore += Math.min(10, compScore);
+    details.push(`Composition: ${occupiedQuadrants}/4 quadrants active, diversity=${quadrantDiversity}, center paths=${centerPaths} → ${Math.min(10, compScore)}/10`);
+  }
+
+  return { designScore: Math.min(50, designScore), details };
+}
+
 // ── Main audit function ────────────────────────────────────────────────────────
 
 /**
  * Audit a generated map against all validation rules.
  *
  * @param {Object} mapData - Map data with width, height, ground, objects, foreground, collision
- * @returns {Object} Audit result with score, passed, violations, summary
+ * @returns {Object} Audit result with score, passed, violations, summary, designScore, designDetails
  */
 function auditMap(mapData) {
   const violations = [];
 
-  // Run all 13 rules, collecting non-null violations
+  // Run all 13 structural rules, collecting non-null violations
   const checks = [
     // Critical rules
     checkGroundFill,
@@ -690,62 +983,53 @@ function auditMap(mapData) {
     }
   }
 
-  // ── Scoring ──────────────────────────────────────────────────────────────
-  // Deductions per severity:
+  // ── Design Quality Score (0-50) ──────────────────────────────────────
+  const { designScore, details: designDetails } = scoreDesignQuality(mapData);
+
+  // ── Structural Score (0-50, based on violations) ───────────────────
+  // Deductions per severity (from max 50):
   //   critical: -10 per violation count
   //   major:    -3  per violation count
   //   minor:    -1  per violation count
 
   const SEVERITY_COST = { critical: 10, major: 3, minor: 1 };
 
-  let score = 100;
+  let structuralScore = 50;
   let criticalCount = 0;
   let majorCount = 0;
   let minorCount = 0;
 
   for (const v of violations) {
     const cost = SEVERITY_COST[v.severity] || 0;
-    score -= cost * v.count;
-
+    structuralScore -= cost * v.count;
     if (v.severity === 'critical') criticalCount += v.count;
     else if (v.severity === 'major') majorCount += v.count;
     else minorCount += v.count;
   }
+  structuralScore = Math.max(0, structuralScore);
 
-  // Cap score at 0 minimum
-  score = Math.max(0, score);
+  // Combined: structural (0-50) + design quality (0-50) = 0-100
+  const score = structuralScore + designScore;
 
-  // Fail if score < 60 OR any single critical rule has count > 5
   let hasCriticalOverflow = false;
   for (const v of violations) {
-    if (v.severity === 'critical' && v.count > 5) {
-      hasCriticalOverflow = true;
-      break;
-    }
+    if (v.severity === 'critical' && v.count > 5) { hasCriticalOverflow = true; break; }
   }
+  const passed = score >= 40 && !hasCriticalOverflow;
 
-  const passed = score >= 60 && !hasCriticalOverflow;
-
-  // Build summary
-  const summaryParts = [`Score ${score}/100.`];
+  const summaryParts = [`Score ${score}/100 (structural: ${structuralScore}/50, design: ${designScore}/50).`];
   if (criticalCount > 0) summaryParts.push(`${criticalCount} critical`);
   if (majorCount > 0) summaryParts.push(`${majorCount} major`);
   if (minorCount > 0) summaryParts.push(`${minorCount} minor`);
-
-  if (criticalCount === 0 && majorCount === 0 && minorCount === 0) {
-    summaryParts.push('No violations.');
-  } else {
-    summaryParts.push(
-      `violation${(criticalCount + majorCount + minorCount) > 1 ? 's' : ''}.`
-    );
-  }
-
-  if (hasCriticalOverflow) {
-    summaryParts.push('FAILED: critical rule exceeded 5 violations.');
-  }
+  if (criticalCount + majorCount + minorCount === 0) summaryParts.push('No structural violations.');
+  else summaryParts.push(`violation${(criticalCount + majorCount + minorCount) > 1 ? 's' : ''}.`);
+  if (hasCriticalOverflow) summaryParts.push('FAILED: critical rule exceeded 5 violations.');
 
   return {
     score,
+    structuralScore,
+    designScore,
+    designDetails,
     passed,
     violations,
     summary: summaryParts.join(' ')
