@@ -588,7 +588,8 @@
       <div class="form-group">
         <label for="cfgMode">Generation Mode</label>
         <select id="cfgMode">
-          <option value="cloud">Cloud (Claude API) — best quality, ~30s/gen, costs ~$0.03/gen</option>
+          <option value="evolve" selected>Genetic Evolution — AI learns to walk (Recommended)</option>
+          <option value="cloud">Cloud (Claude API) — LLM blueprints, ~30s/gen, ~$0.03/gen</option>
           <option value="wfc">Local WFC — instant (40ms/map), free, 1000 maps in seconds</option>
           <option value="ollama">Local LLM (Ollama) — free, ~5s/gen, requires Ollama installed</option>
         </select>
@@ -795,7 +796,7 @@
     selectedWinner = null;
 
     // Choose endpoint based on mode
-    var endpoint = mode === 'wfc' ? '/api/batch/wfc' : '/api/batch/start';
+    var endpoint = mode === 'evolve' ? '/api/batch/evolve' : mode === 'wfc' ? '/api/batch/wfc' : '/api/batch/start';
 
     fetch(endpoint, {
       method: 'POST',

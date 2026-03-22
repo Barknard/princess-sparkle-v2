@@ -1182,6 +1182,147 @@ app.post('/api/batch/wfc', async (req, res) => {
   })();
 });
 
+// ── API: Genetic Evolution (fully automated, like AI learning to walk) ──
+let GeneticEvolver;
+try {
+  ({ GeneticEvolver } = require('./genetic-evolver'));
+  console.log('  Genetic evolver loaded');
+} catch (e) { console.warn('  Genetic evolver not loaded:', e.message); }
+
+app.post('/api/batch/evolve', async (req, res) => {
+  if (!GeneticEvolver) return res.status(500).json({ error: 'Genetic evolver not loaded' });
+  if (batchState.running) return res.status(409).json({ error: 'Batch already running' });
+  if (!batchState.referenceImage) return res.status(400).json({ error: 'Upload a reference image first' });
+
+  const maxGens = Math.min(10000, parseInt(req.body.generations) || 500);
+  const popSize = Math.min(30, parseInt(req.body.populationSize) || 12);
+  const targetScore = parseInt(req.body.targetVisionScore) || 65;
+  const mapW = 60, mapH = 40;
+
+  batchState.running = true;
+  batchState.aborted = false;
+  batchState.totalGenerations = maxGens;
+  batchState.completedGenerations = 0;
+  batchState.startTime = Date.now();
+  batchState.topResults = [];
+  batchState.errors = 0;
+  batchState.log = [];
+  batchState.targetVisionScore = targetScore;
+  batchState.bestVisionScore = 0;
+
+  const addLog = (msg) => {
+    batchState.log.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
+    console.log(`[Evolve] ${msg}`);
+  };
+
+  addLog(`Genetic evolution: pop=${popSize}, max=${maxGens} gens, target vision=${targetScore}`);
+  res.json({ success: true, mode: 'genetic-evolve', totalGenerations: maxGens, populationSize: popSize });
+
+  // Run evolution async
+  (async () => {
+    try {
+      const evolver = new GeneticEvolver({ populationSize: popSize, mapSize: { width: mapW, height: mapH } });
+      let population = evolver.initPopulation();
+      const refImageBuf = Buffer.from(batchState.referenceImage, 'base64');
+      const VISION_EVERY = 3; // vision-score best organism every Nth generation
+
+      for (let gen = 1; gen <= maxGens && !batchState.aborted; gen++) {
+        batchState.currentGeneration = gen;
+
+        // Generate maps from all DNA, get audit scores (fast, local)
+        const scored = [];
+        for (const dna of population) {
+          const mapData = evolver.generateFromDNA(dna);
+          const audit = auditMap(mapData);
+          scored.push({ dna, fitness: audit.score, mapData, audit });
+        }
+        scored.sort((a, b) => b.fitness - a.fitness);
+
+        const bestOrganism = scored[0];
+        const stats = evolver.getStats(scored);
+
+        // Vision-score the best organism periodically
+        let visionScore = 0;
+        let critique = '';
+        let tilePlacementRules = [];
+
+        if (scoreMapWithVision && renderMapToPng && (gen === 1 || gen % VISION_EVERY === 0)) {
+          try {
+            const pngBuf = await renderMapToPng(bestOrganism.mapData, TILESET_PATH);
+            const visionResult = await scoreMapWithVision({
+              apiKey,
+              generatedMapPng: pngBuf,
+              referenceImagePng: refImageBuf,
+              generationNumber: gen,
+              candidateId: `evo_gen${gen}`,
+              variation: 'genetic',
+              rationale: `Gen ${gen} best (audit=${bestOrganism.fitness})`,
+              learnedRules: []
+            });
+            visionScore = visionResult.score || 0;
+            critique = visionResult.critique || '';
+            tilePlacementRules = visionResult.tilePlacementRules || [];
+
+            if (visionScore > batchState.bestVisionScore) {
+              batchState.bestVisionScore = visionScore;
+            }
+
+            // Save the best map image
+            const pngFilename = `evo_gen${gen}_audit${bestOrganism.fitness}_vision${visionScore}.png`;
+            fs.writeFileSync(path.join(BATCH_RESULTS_DIR, pngFilename), pngBuf);
+
+            const combinedScore = Math.round(visionScore * 0.6 + bestOrganism.fitness * 0.4);
+            batchState.topResults.push({
+              generationId: gen,
+              candidateId: `evo_gen${gen}`,
+              variation: 'genetic',
+              visionScore,
+              auditScore: bestOrganism.fitness,
+              combinedScore,
+              rationale: `Gen ${gen}: ${JSON.stringify(stats)}`,
+              critique,
+              strengths: [],
+              weaknesses: [],
+              imagePath: `/batch-results/${pngFilename}`,
+              dna: bestOrganism.dna
+            });
+            batchState.topResults.sort((a, b) => b.combinedScore - a.combinedScore);
+            if (batchState.topResults.length > 20) batchState.topResults = batchState.topResults.slice(0, 20);
+
+            addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)} | VISION=${visionScore}`);
+
+            // Check target
+            if (visionScore >= targetScore) {
+              addLog(`TARGET REACHED! Vision ${visionScore} >= ${targetScore}`);
+              break;
+            }
+          } catch (e) {
+            addLog(`Gen ${gen} vision error: ${e.message.slice(0, 60)}`);
+          }
+        } else {
+          addLog(`Gen ${gen}: best=${stats.best.toFixed(0)} avg=${stats.avg.toFixed(0)} diversity=${stats.diversity.toFixed(1)}`);
+        }
+
+        // Evolve to next generation
+        population = evolver.evolveGeneration(scored);
+        batchState.completedGenerations = gen;
+
+        // Rate limit pause on vision generations
+        if (gen % VISION_EVERY === 0) {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+
+      batchState.running = false;
+      const elapsed = Math.round((Date.now() - batchState.startTime) / 1000);
+      addLog(`Evolution complete: ${batchState.completedGenerations} gens in ${elapsed}s. Best vision: ${batchState.bestVisionScore}`);
+    } catch (err) {
+      addLog(`FATAL: ${err.message}`);
+      batchState.running = false;
+    }
+  })();
+});
+
 // ── API: Check local capabilities ───────────────────────────────────────
 app.get('/api/local/status', async (req, res) => {
   const wfcAvailable = !!generateWithWFC;
