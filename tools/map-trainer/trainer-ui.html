@@ -750,11 +750,13 @@ function addLog(text, cls, sub) {
 //  UPDATE FUNCTIONS
 // ===================================================================
 function updateKPIs(status) {
-  const vision = status.bestVisionScore ?? status.visionScore ?? 0;
-  const audit = status.bestAuditScore ?? status.auditScore ?? 0;
-  const gen = status.completedGenerations ?? status.currentGeneration ?? status.generation ?? 0;
-  const maxGen = status.totalGenerations ?? status.maxGenerations ?? state.maxGenerations;
-  const target = status.targetVisionScore ?? status.targetScore ?? state.targetScore;
+  // bestVisionScore doubles as audit score in local mode
+  const bestScore = status.bestVisionScore || status.bestAuditScore || 0;
+  const vision = bestScore;
+  const audit = bestScore; // In local mode these are the same
+  const gen = status.completedGenerations || status.currentGeneration || 0;
+  const maxGen = status.totalGenerations || state.maxGenerations || 5000;
+  const target = status.targetVisionScore || state.targetScore || 90;
 
   state.generation = gen;
   state.maxGenerations = maxGen;
@@ -792,7 +794,7 @@ function updateKPIs(status) {
 
   // Time KPI
   if (!state.startTime && gen > 0) {
-    state.startTime = Date.now() - (status.elapsedMs || 0);
+    state.startTime = Date.now() - (status.elapsed || status.elapsedMs || 0);
   }
   const elapsed = state.startTime ? Date.now() - state.startTime : 0;
   $('kpiTime').textContent = formatTime(elapsed);
