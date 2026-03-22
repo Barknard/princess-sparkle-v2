@@ -585,6 +585,15 @@
         <label>Theme</label>
         <div class="info-badge">Village <span style="color:var(--text-dim); margin-left:6px; font-weight:400; font-size:12px;">(forest, dungeon coming soon)</span></div>
       </div>
+      <div class="form-group">
+        <label for="cfgMode">Generation Mode</label>
+        <select id="cfgMode">
+          <option value="cloud">Cloud (Claude API) — best quality, ~30s/gen, costs ~$0.03/gen</option>
+          <option value="wfc">Local WFC — instant (40ms/map), free, 1000 maps in seconds</option>
+          <option value="ollama">Local LLM (Ollama) — free, ~5s/gen, requires Ollama installed</option>
+        </select>
+        <p class="helper" id="modeHelper">Cloud mode uses Claude Sonnet for blueprints + Haiku for vision scoring.</p>
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="goToStep(1)">&larr; Back</button>
@@ -776,6 +785,7 @@
     var generations = parseInt(document.getElementById('cfgGenerations').value) || 100;
     var buildings = parseInt(document.getElementById('cfgBuildings').value) || 3;
     var treeDensity = document.getElementById('cfgTreeDensity').value;
+    var mode = document.getElementById('cfgMode').value;
 
     // Reset state
     lastLogLength = 0;
@@ -784,7 +794,10 @@
     document.getElementById('abortBtn').disabled = false;
     selectedWinner = null;
 
-    fetch('/api/batch/start', {
+    // Choose endpoint based on mode
+    var endpoint = mode === 'wfc' ? '/api/batch/wfc' : '/api/batch/start';
+
+    fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -1007,6 +1007,162 @@ async function runBatch(totalGens, mapParams, addLog) {
 }
 
 // ── Start server ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// LOCAL MODE — WFC + optional Ollama
+// ══════════════════════════════════════════════════════════════════════════
+
+let generateWithWFC, buildWFCRules, generateBlueprintLocal, checkOllamaStatus;
+try {
+  ({ generateWithWFC, buildWFCRules } = require('./wfc-generator'));
+  console.log('  WFC generator loaded');
+} catch (e) { console.warn('  WFC generator not loaded:', e.message); }
+try {
+  ({ generateBlueprintLocal, checkOllamaStatus } = require('./local-llm'));
+  console.log('  Local LLM module loaded');
+} catch (e) { console.warn('  Local LLM not loaded:', e.message); }
+
+// ── API: WFC batch (pure local, no API calls) ──────────────────────────
+app.post('/api/batch/wfc', async (req, res) => {
+  if (!generateWithWFC) return res.status(500).json({ error: 'WFC generator not loaded' });
+  if (batchState.running) return res.status(409).json({ error: 'Batch already running' });
+
+  const totalGens = Math.max(10, Math.min(100000, parseInt(req.body.generations) || 1000));
+  const mapParams = req.body.mapParams || { width: 60, height: 40, theme: 'village', buildingCount: 3, treeDensity: 'medium' };
+
+  batchState.running = true;
+  batchState.aborted = false;
+  batchState.totalGenerations = totalGens;
+  batchState.completedGenerations = 0;
+  batchState.startTime = Date.now();
+  batchState.topResults = [];
+  batchState.errors = 0;
+  batchState.log = [];
+
+  const addLog = (msg) => {
+    batchState.log.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
+    console.log(`[WFC Batch] ${msg}`);
+  };
+
+  addLog(`Starting WFC batch: ${totalGens} maps (pure local, no API)`);
+  res.json({ success: true, totalGenerations: totalGens, mode: 'wfc-local' });
+
+  // Run WFC batch async
+  (async () => {
+    try {
+      const refImageBase64 = batchState.referenceImage;
+      const WAVE_SIZE = 50; // WFC is so fast we can do 50 at a time
+      const VISION_EVERY = 50; // Vision-check every 50th map
+
+      for (let i = 0; i < totalGens && !batchState.aborted; i += WAVE_SIZE) {
+        const waveSize = Math.min(WAVE_SIZE, totalGens - i);
+        const waveResults = [];
+
+        for (let j = 0; j < waveSize; j++) {
+          const gen = i + j + 1;
+          const seed = Date.now() + gen * 7919; // unique seed per map
+          const result = generateWithWFC({
+            width: mapParams.width || 60,
+            height: mapParams.height || 40,
+            theme: mapParams.theme || 'village',
+            seed
+          });
+
+          if (!result.success) { batchState.errors++; continue; }
+
+          const audit = auditMap(result);
+          waveResults.push({ gen, result, audit, seed });
+        }
+
+        // Pick top result from wave by audit score
+        waveResults.sort((a, b) => b.audit.score - a.audit.score);
+        const best = waveResults[0];
+
+        if (best) {
+          // Render best to PNG
+          let mapPngBuffer;
+          try {
+            mapPngBuffer = await renderMapToPng(best.result, TILESET_PATH);
+          } catch (e) {
+            addLog(`  Render error: ${e.message.slice(0, 60)}`);
+            batchState.errors++;
+            batchState.completedGenerations = i + waveSize;
+            continue;
+          }
+
+          // Vision score periodically
+          let visionScore = 0;
+          let combinedScore = best.audit.score;
+          let critique = '';
+
+          if (scoreMapWithVision && refImageBase64 && (i === 0 || (i % (VISION_EVERY * WAVE_SIZE) === 0))) {
+            try {
+              const visionResult = await scoreMapWithVision({
+                apiKey,
+                generatedMapPng: mapPngBuffer,
+                referenceImagePng: Buffer.from(refImageBase64, 'base64'),
+                generationNumber: best.gen,
+                candidateId: `wfc_${best.gen}`,
+                variation: 'wfc-local',
+                rationale: 'WFC generated',
+                learnedRules: []
+              });
+              visionScore = visionResult.score;
+              combinedScore = Math.round(visionScore * 0.6 + best.audit.score * 0.4);
+              critique = visionResult.critique || '';
+              addLog(`  Vision check: ${visionScore} → combined ${combinedScore}`);
+            } catch (e) {
+              // Vision scoring optional for WFC mode
+            }
+          }
+
+          const pngFilename = `wfc_gen${best.gen}_audit${best.audit.score}_seed${best.seed}.png`;
+          fs.writeFileSync(path.join(BATCH_RESULTS_DIR, pngFilename), mapPngBuffer);
+
+          batchState.topResults.push({
+            generationId: best.gen,
+            candidateId: `wfc_${best.gen}`,
+            variation: 'wfc-local',
+            visionScore,
+            auditScore: best.audit.score,
+            combinedScore,
+            rationale: `WFC seed=${best.seed}`,
+            critique,
+            strengths: [],
+            weaknesses: [],
+            imagePath: `/batch-results/${pngFilename}`
+          });
+          batchState.topResults.sort((a, b) => b.combinedScore - a.combinedScore);
+          if (batchState.topResults.length > batchState.keepTopN) {
+            batchState.topResults = batchState.topResults.slice(0, batchState.keepTopN);
+          }
+
+          addLog(`  Wave ${Math.floor(i/WAVE_SIZE)+1}: ${waveSize} maps, best audit=${best.audit.score}, top overall=${batchState.topResults[0]?.combinedScore || best.audit.score}`);
+        }
+
+        batchState.completedGenerations = Math.min(i + waveSize, totalGens);
+        batchState.currentGeneration = batchState.completedGenerations;
+      }
+
+      batchState.running = false;
+      const elapsed = Math.round((Date.now() - batchState.startTime) / 1000);
+      addLog(`WFC batch complete: ${batchState.completedGenerations} maps in ${elapsed}s. Top: ${batchState.topResults[0]?.combinedScore || 'N/A'}`);
+    } catch (err) {
+      addLog(`WFC FATAL: ${err.message}`);
+      batchState.running = false;
+    }
+  })();
+});
+
+// ── API: Check local capabilities ───────────────────────────────────────
+app.get('/api/local/status', async (req, res) => {
+  const wfcAvailable = !!generateWithWFC;
+  let ollamaStatus = { running: false, models: [], recommended: null };
+  if (checkOllamaStatus) {
+    try { ollamaStatus = await checkOllamaStatus(); } catch (e) {}
+  }
+  res.json({ wfc: wfcAvailable, ollama: ollamaStatus });
+});
+
 // ── Auto-load default reference image ────────────────────────────────────
 const defaultRefPath = path.join(REFERENCE_DIR, 'kenney-tiny-town-sample.png');
 if (fs.existsSync(defaultRefPath) && !batchState.referenceImage) {
