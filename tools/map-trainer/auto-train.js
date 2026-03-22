@@ -57,6 +57,22 @@ const LOGS_DIR = path.join(TRAINER_DIR, 'logs');
 if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
 if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 
+const DASHBOARD_URL = 'http://localhost:3456';
+
+// Report progress to dashboard server (fire-and-forget)
+function reportToDashboard(data) {
+  try {
+    const payload = JSON.stringify(data);
+    const req = require('http').request({
+      hostname: 'localhost', port: 3456, path: '/api/batch/report',
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+    });
+    req.on('error', () => {}); // ignore errors
+    req.write(payload);
+    req.end();
+  } catch (e) { /* dashboard may not be running */ }
+}
+
 const { GeneticEvolver } = require('./genetic-evolver');
 const { auditMap } = require('./self-audit');
 const { renderMapToPng } = require('./tile-renderer');
@@ -104,6 +120,7 @@ async function main() {
   let bestVisionGen = 0;
   let bestDna = null;
   let bestMapPng = null;
+  const logEntries = []; // accumulate for dashboard
   const recentVisionScores = [];
   const PLATEAU_WINDOW = 30;
   const PLATEAU_THRESHOLD = 3;
@@ -201,6 +218,46 @@ async function main() {
     logger.logGeneration(gen, stats, scored, visionScore);
     if (visionResult) logger.logVisionResult(gen, visionResult);
 
+    // ── Report to dashboard ─────────────────────────────────────────
+    const logLine = `[${new Date().toISOString().slice(11,19)}] Gen ${gen}: vision=${visionScore} audit=${bestOrganism.audit.score} best=${bestVisionScore} div=${stats.diversity.toFixed(1)}`;
+    logEntries.push(logLine);
+    if (visionResult?.critique) logEntries.push(`  └─ ${visionResult.critique.slice(0, 120)}`);
+    if (visionResult?.tilePlacementRules?.length > 0) {
+      logEntries.push(`  └─ Rules: ${visionResult.tilePlacementRules.slice(0, 2).join(' | ')}`);
+    }
+
+    // Build top results for dashboard
+    const dashTopResults = [];
+    const resultFiles = fs.readdirSync(RESULTS_DIR).filter(f => f.startsWith('best_')).sort().reverse().slice(0, 20);
+    for (const f of resultFiles) {
+      const match = f.match(/best_gen(\d+)_vision(\d+)_audit(\d+)/);
+      if (match) {
+        dashTopResults.push({
+          generationId: parseInt(match[1]),
+          candidateId: `auto_gen${match[1]}`,
+          visionScore: parseInt(match[2]),
+          auditScore: parseInt(match[3]),
+          combinedScore: Math.round(parseInt(match[2]) * 0.7 + parseInt(match[3]) * 0.3),
+          imagePath: `/batch-results/${f}`,
+          critique: '',
+          variation: 'genetic'
+        });
+      }
+    }
+
+    reportToDashboard({
+      running: true,
+      totalGenerations: MAX_GENS,
+      completedGenerations: gen,
+      currentGeneration: gen,
+      startTime: startTime,
+      errors: 0,
+      bestVisionScore,
+      targetVisionScore: TARGET_SCORE,
+      log: logEntries.slice(-100),
+      topResults: dashTopResults
+    });
+
     // ── Check target ────────────────────────────────────────────────
     if (visionScore >= TARGET_SCORE) {
       console.log(`\n  ✓ TARGET REACHED! Vision score ${visionScore} >= ${TARGET_SCORE} at gen ${gen}\n`);
@@ -255,6 +312,9 @@ async function main() {
   ║  Best maps: batch-results/best_*.png                         ║
   ╚══════════════════════════════════════════════════════════════╝
   `);
+
+  // Report completion to dashboard
+  reportToDashboard({ running: false, completedGenerations: bestVisionGen, bestVisionScore, totalGenerations: MAX_GENS, log: logEntries.slice(-100) });
 
   // Print top learned composites
   if (kStats.topComposites && kStats.topComposites.length > 0) {

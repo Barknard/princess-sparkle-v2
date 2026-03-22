@@ -736,6 +736,29 @@ app.post('/api/batch/abort', (req, res) => {
   res.json({ success: true, message: 'Abort signal sent' });
 });
 
+// ── API: External progress reporting (used by auto-train.js) ────────────
+app.post('/api/batch/report', (req, res) => {
+  const d = req.body;
+  batchState.running = d.running !== undefined ? d.running : batchState.running;
+  batchState.totalGenerations = d.totalGenerations || batchState.totalGenerations;
+  batchState.completedGenerations = d.completedGenerations || batchState.completedGenerations;
+  batchState.currentGeneration = d.currentGeneration || batchState.currentGeneration;
+  batchState.startTime = d.startTime || batchState.startTime;
+  batchState.errors = d.errors || batchState.errors;
+  batchState.bestVisionScore = d.bestVisionScore || batchState.bestVisionScore;
+  batchState.targetVisionScore = d.targetVisionScore || batchState.targetVisionScore;
+  if (d.log) {
+    // Append new log entries
+    for (const entry of d.log) {
+      if (!batchState.log.includes(entry)) batchState.log.push(entry);
+    }
+    // Keep last 200
+    if (batchState.log.length > 200) batchState.log = batchState.log.slice(-200);
+  }
+  if (d.topResults) batchState.topResults = d.topResults;
+  res.json({ ok: true });
+});
+
 // ── Batch runner ────────────────────────────────────────────────────────
 async function runBatch(totalGens, mapParams, addLog) {
   const memory = loadMemory();
