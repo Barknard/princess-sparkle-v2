@@ -656,6 +656,8 @@ app.get('/api/batch/status', (req, res) => {
     errors: batchState.errors,
     topResultsCount: batchState.topResults.length,
     hasReferenceImage: !!batchState.referenceImage,
+    bestVisionScore: batchState.bestVisionScore || 0,
+    targetVisionScore: batchState.targetVisionScore || 60,
     log: batchState.log.slice(-50), // last 50 log entries
     aborted: batchState.aborted
   });
@@ -693,18 +695,21 @@ app.post('/api/batch/start', async (req, res) => {
     return res.status(500).json({ error: 'tile-renderer or vision-scorer modules not loaded' });
   }
 
-  const totalGens = Math.max(10, Math.min(5000, parseInt(req.body.generations) || 1000));
+  const maxGens = Math.max(10, Math.min(10000, parseInt(req.body.generations) || 1000));
+  const targetVisionScore = parseInt(req.body.targetVisionScore) || 60; // stop when vision score reaches this
   const mapParams = req.body.mapParams || { width: 60, height: 40, theme: 'village', buildingCount: 3, treeDensity: 'medium' };
 
   batchState.running = true;
   batchState.aborted = false;
-  batchState.totalGenerations = totalGens;
+  batchState.totalGenerations = maxGens;
   batchState.completedGenerations = 0;
   batchState.currentGeneration = 0;
   batchState.startTime = Date.now();
   batchState.topResults = [];
   batchState.errors = 0;
   batchState.log = [];
+  batchState.targetVisionScore = targetVisionScore;
+  batchState.bestVisionScore = 0;
 
   const addLog = (msg) => {
     const entry = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
@@ -712,8 +717,8 @@ app.post('/api/batch/start', async (req, res) => {
     console.log(`[Batch] ${msg}`);
   };
 
-  addLog(`Starting batch: ${totalGens} generations`);
-  res.json({ success: true, totalGenerations: totalGens });
+  addLog(`Starting batch: up to ${maxGens} gens, target vision score: ${targetVisionScore}`);
+  res.json({ success: true, totalGenerations: maxGens, targetVisionScore });
 
   // Run batch asynchronously
   runBatch(totalGens, mapParams, addLog).catch(err => {
@@ -739,7 +744,7 @@ async function runBatch(totalGens, mapParams, addLog) {
   const WAVE_SIZE = parseInt(process.env.WAVE_SIZE) || 5; // parallel generations per wave
 
   // ── Optimization settings ──────────────────────────────────────────
-  const VISION_EVERY_N = 5;      // Vision score every Nth generation (audit-only for the rest)
+  const VISION_EVERY_N = 2;      // Vision score every Nth wave (more frequent since vision is target metric)
   const PLATEAU_WINDOW = 20;     // Check last N scores for plateau
   const PLATEAU_THRESHOLD = 3;   // Score improvement less than this = plateau
   const recentBestScores = [];
@@ -917,6 +922,22 @@ async function runBatch(totalGens, mapParams, addLog) {
           bestOfWave.weaknesses = visionResult.weaknesses || [];
           bestOfWave.suggestions = visionResult.suggestions || [];
           addLog(`  Vision score for wave winner: ${visionResult.score} → combined ${bestOfWave.combinedScore}`);
+          // Track best vision score
+          if (visionResult.score > batchState.bestVisionScore) {
+            batchState.bestVisionScore = visionResult.score;
+            addLog(`  New best vision score: ${visionResult.score}!`);
+          }
+          // Check if target reached
+          if (visionResult.score >= (batchState.targetVisionScore || 60)) {
+            addLog(`TARGET REACHED! Vision score ${visionResult.score} >= ${batchState.targetVisionScore}. Stopping.`);
+            // Save memory before stopping
+            saveMemory(memory);
+            batchState.running = false;
+            const elapsed = Math.round((Date.now() - batchState.startTime) / 1000);
+            addLog(`Batch complete: ${gensCompleted + waveSize} gens in ${elapsed}s. Target achieved!`);
+            batchState.completedGenerations = gensCompleted + waveSize;
+            return; // exit the entire batch
+          }
         } catch (e) {
           addLog(`  Vision scoring error: ${e.message.slice(0, 60)}`);
         }
