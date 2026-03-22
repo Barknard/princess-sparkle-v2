@@ -97,20 +97,65 @@ function loadSemantics() {
 let currentCandidates = null; // { generationId, candidates: [{id, blueprint, tileData, audit, variation}] }
 let isGenerating = false;
 
-// ── Batch mode state ────────────────────────────────────────────────────
-let batchState = {
-  running: false,
-  totalGenerations: 0,
-  completedGenerations: 0,
-  currentGeneration: 0,
-  startTime: null,
-  topResults: [],      // top N results by vision score
-  keepTopN: 20,        // keep top 20 for final human vote
-  referenceImage: null, // base64 PNG of reference image
-  errors: 0,
-  log: [],             // running log of batch progress
-  aborted: false
-};
+// ── Batch mode state (persists to disk so dashboard survives restarts) ───
+const BATCH_STATE_PATH = path.join(TRAINER_DIR, 'batch-state.json');
+
+function loadBatchState() {
+  const defaults = {
+    running: false, totalGenerations: 0, completedGenerations: 0,
+    currentGeneration: 0, startTime: null, topResults: [], keepTopN: 20,
+    referenceImage: null, errors: 0, log: [], aborted: false,
+    bestVisionScore: 0, targetVisionScore: 90
+  };
+  try {
+    if (fs.existsSync(BATCH_STATE_PATH)) {
+      const saved = JSON.parse(fs.readFileSync(BATCH_STATE_PATH, 'utf8'));
+      // Restore saved state but mark as not running (process died)
+      return { ...defaults, ...saved, running: false };
+    }
+  } catch (e) { /* use defaults */ }
+  // Also try to reconstruct from batch-results directory
+  try {
+    const resultsDir = path.join(TRAINER_DIR, 'batch-results');
+    if (fs.existsSync(resultsDir)) {
+      const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.png')).sort();
+      if (files.length > 0) {
+        const topResults = files.filter(f => f.startsWith('best_')).map(f => {
+          const match = f.match(/best_gen(\d+)_(?:vision(\d+)_)?audit(\d+)/);
+          if (!match) return null;
+          return {
+            generationId: parseInt(match[1]),
+            candidateId: `auto_gen${match[1]}`,
+            visionScore: match[2] ? parseInt(match[2]) : 0,
+            auditScore: parseInt(match[3]),
+            combinedScore: parseInt(match[3]),
+            imagePath: `/batch-results/${f}`,
+            variation: 'genetic'
+          };
+        }).filter(Boolean).sort((a, b) => b.auditScore - a.auditScore);
+
+        if (topResults.length > 0) {
+          defaults.topResults = topResults;
+          defaults.bestVisionScore = topResults[0].auditScore;
+          defaults.completedGenerations = topResults[topResults.length - 1].generationId;
+        }
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return defaults;
+}
+
+function saveBatchState() {
+  try {
+    // Save without referenceImage (too large) and with trimmed log
+    const toSave = { ...batchState, referenceImage: undefined, log: (batchState.log || []).slice(-100) };
+    delete toSave.referenceImage;
+    fs.writeFileSync(BATCH_STATE_PATH, JSON.stringify(toSave, null, 2), 'utf8');
+  } catch (e) { /* ignore */ }
+}
+
+let batchState = loadBatchState();
+console.log(`  Batch state: ${batchState.completedGenerations} gens completed, ${batchState.topResults.length} results`);
 
 // ── Static file serving ─────────────────────────────────────────────────
 app.get('/', (req, res) => {
@@ -756,6 +801,7 @@ app.post('/api/batch/report', (req, res) => {
     if (batchState.log.length > 200) batchState.log = batchState.log.slice(-200);
   }
   if (d.topResults) batchState.topResults = d.topResults;
+  saveBatchState(); // persist to disk so dashboard survives server restarts
   res.json({ ok: true });
 });
 

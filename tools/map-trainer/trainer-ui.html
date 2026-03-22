@@ -752,9 +752,9 @@ function addLog(text, cls, sub) {
 function updateKPIs(status) {
   const vision = status.bestVisionScore ?? status.visionScore ?? 0;
   const audit = status.bestAuditScore ?? status.auditScore ?? 0;
-  const gen = status.generation ?? 0;
-  const maxGen = status.maxGenerations ?? state.maxGenerations;
-  const target = status.targetScore ?? state.targetScore;
+  const gen = status.completedGenerations ?? status.currentGeneration ?? status.generation ?? 0;
+  const maxGen = status.totalGenerations ?? status.maxGenerations ?? state.maxGenerations;
+  const target = status.targetVisionScore ?? status.targetScore ?? state.targetScore;
 
   state.generation = gen;
   state.maxGenerations = maxGen;
@@ -836,37 +836,37 @@ function updateRunStatus(isRunning) {
     dot.classList.add('idle');
     label.textContent = 'IDLE';
     label.style.color = 'var(--text-dim)';
-    if (state.generation === 0) {
+    // Only show waiting overlay if we have NO data at all
+    if (state.generation === 0 && (batchState.log || []).length === 0 && state.lastLogCount === 0) {
       $('waitingOverlay').classList.remove('hidden');
     }
   }
 }
 
 function updateLogs(status) {
-  const gen = status.generation ?? 0;
-  if (gen <= 0 || gen <= state.lastLoggedGen) return;
+  // Use the actual log entries from the server
+  const logEntries = status.log || [];
+  if (logEntries.length === 0) return;
 
-  const vision = status.bestVisionScore ?? status.visionScore ?? 0;
-  const audit = status.bestAuditScore ?? status.auditScore ?? 0;
-  const fitness = status.fitness ?? Math.round((vision + audit) / 2);
-  const diversity = status.diversity ?? 0;
+  // Only add new entries we haven't seen
+  const newEntries = logEntries.slice(state.lastLogCount || 0);
+  state.lastLogCount = logEntries.length;
 
-  // Determine color based on vision change
-  let cls = 'dim';
-  if (state.prevVision !== null) {
-    const vd = vision - state.prevVision;
-    if (vd > 2) cls = 'green';
-    else if (vd < -2) cls = 'yellow';
+  for (const entry of newEntries) {
+    let cls = 'dim';
+    if (entry.includes('best') && entry.includes('VISION=')) cls = 'green';
+    else if (entry.includes('Diminishing') || entry.includes('plateau')) cls = 'yellow';
+    else if (entry.includes('ERROR') || entry.includes('error')) cls = 'red';
+    else if (entry.includes('Rules:') || entry.includes('knowledge')) cls = 'blue';
+    else if (entry.includes('TARGET')) cls = 'green';
+
+    // Split main line from sub-lines (indented with └─ or │)
+    if (entry.trim().startsWith('└─') || entry.trim().startsWith('│')) {
+      addLog(entry, cls, '');
+    } else {
+      addLog(entry, cls, '');
+    }
   }
-  if (status.error) cls = 'red';
-
-  const text = 'Gen ' + gen + ': audit=' + Math.round(audit) +
-    ' vision=' + Math.round(vision) +
-    ' fitness=' + fitness +
-    ' diversity=' + diversity.toFixed(1);
-  const sub = status.feedback || status.note || '';
-
-  addLog(text, cls, sub);
   state.lastLoggedGen = gen;
 }
 
