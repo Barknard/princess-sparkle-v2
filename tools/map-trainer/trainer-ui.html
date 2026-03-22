@@ -516,7 +516,7 @@ const state = {
 // ===================================================================
 //  DOM HELPERS
 // ===================================================================
-const $ = id => document.getElementById(id);
+function $(id) { return document.getElementById(id); }
 
 // ===================================================================
 //  LIGHTBOX
@@ -839,7 +839,7 @@ function updateRunStatus(isRunning) {
     label.textContent = 'IDLE';
     label.style.color = 'var(--text-dim)';
     // Only show waiting overlay if we have NO data at all
-    if (state.generation === 0 && (batchState.log || []).length === 0 && state.lastLogCount === 0) {
+    if (state.generation === 0 && state.lastLogCount === 0) {
       $('waitingOverlay').classList.remove('hidden');
     }
   }
