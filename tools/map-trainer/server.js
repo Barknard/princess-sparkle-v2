@@ -1487,6 +1487,35 @@ app.post('/api/batch/evolve', async (req, res) => {
   })();
 });
 
+// ── API: Live feedback from dashboard ────────────────────────────────────
+app.post('/api/feedback', (req, res) => {
+  const { feedback } = req.body;
+  if (!feedback) return res.status(400).json({ error: 'No feedback text' });
+
+  // Add to evolution memory as a learned rule
+  const memory = loadMemory();
+  memory.learnedRules.push({
+    id: `human_${Date.now()}`,
+    rule: feedback.trim(),
+    source: 'human-live-feedback',
+    confidence: 0.95, // human feedback = high confidence
+    createdAt: new Date().toISOString()
+  });
+  if (memory.learnedRules.length > 50) {
+    memory.learnedRules.sort((a, b) => b.confidence - a.confidence);
+    memory.learnedRules = memory.learnedRules.slice(0, 50);
+  }
+  saveMemory(memory);
+
+  // Add to batch log
+  const logEntry = `[${new Date().toISOString().slice(11, 19)}] HUMAN FEEDBACK: ${feedback}`;
+  batchState.log.push(logEntry);
+  saveBatchState();
+
+  console.log(`[Feedback] ${feedback}`);
+  res.json({ success: true, rulesCount: memory.learnedRules.length });
+});
+
 // ── API: Tile Knowledge ─────────────────────────────────────────────────
 // ── API: Get evolution logs and summaries ────────────────────────────────
 app.get('/api/logs', (req, res) => {

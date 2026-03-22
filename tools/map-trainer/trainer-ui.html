@@ -457,6 +457,18 @@
     </div>
   </div>
 
+  <!-- LIVE FEEDBACK -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+    <div class="section-title" style="margin-bottom:8px;">Live Feedback</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="feedbackInput" placeholder="Type feedback about the current best map... (e.g. 'buildings too close together', 'need more trees')"
+             style="flex:1;background:var(--bg-dark);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;"
+             onkeydown="if(event.key==='Enter')submitFeedback()">
+      <button onclick="submitFeedback()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;">Send Feedback</button>
+    </div>
+    <div id="feedbackStatus" style="font-size:11px;color:var(--text-dim);margin-top:4px;"></div>
+  </div>
+
   <!-- LIVE LOG -->
   <div class="log-section">
     <div class="section-title">Live Log</div>
@@ -521,6 +533,26 @@ function $(id) { return document.getElementById(id); }
 // ===================================================================
 //  LIGHTBOX
 // ===================================================================
+function submitFeedback() {
+  var input = document.getElementById('feedbackInput');
+  var text = input.value.trim();
+  if (!text) return;
+  fetch('/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ feedback: text })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    document.getElementById('feedbackStatus').textContent = 'Feedback sent: "' + text + '" — will be applied to next generation';
+    document.getElementById('feedbackStatus').style.color = 'var(--green)';
+    input.value = '';
+    addLog('USER FEEDBACK: ' + text, 'green', '');
+    setTimeout(function() { document.getElementById('feedbackStatus').textContent = ''; }, 5000);
+  }).catch(function(e) {
+    document.getElementById('feedbackStatus').textContent = 'Error: ' + e.message;
+    document.getElementById('feedbackStatus').style.color = 'var(--red)';
+  });
+}
+
 function openLightbox(src) {
   if (!src) return;
   $('lightboxImg').src = src;
