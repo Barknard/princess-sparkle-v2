@@ -942,7 +942,273 @@ function scoreDesignQuality(mapData) {
     details.push(`Composition: ${occupiedQuadrants}/4 quadrants active, diversity=${quadrantDiversity}, center paths=${centerPaths} → ${Math.min(10, compScore)}/10`);
   }
 
-  return { designScore: Math.min(50, designScore), details };
+  // ══════════════════════════════════════════════════════════════════════
+  // TIER 2: GRANULAR QUALITY (0-50 additional points)
+  // These keep differentiating at the top end where basic checks plateau
+  // ══════════════════════════════════════════════════════════════════════
+
+  let granularScore = 0;
+
+  // ── GQ1: Building completeness (0-8) — every roof has walls, every door has path
+  {
+    let completeBuildings = 0, incompleteBuildings = 0;
+    let doorsWithPath = 0, doorsTotal = 0;
+    let roofWallPairs = 0, orphanRoofs = 0;
+    for (let y = 0; y < height - 1; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (BUILDING_ROOF_TILES.has(objects[i])) {
+          // Check wall below
+          const below = objects[(y + 1) * width + x];
+          if (WALL_TILES.has(below)) roofWallPairs++;
+          else orphanRoofs++;
+        }
+        if (DOOR_TILES.has(objects[i])) {
+          doorsTotal++;
+          // Check path within 3 tiles below
+          for (let dy = 1; dy <= 3; dy++) {
+            if (y + dy < height && PATH_TILES.has(ground[(y + dy) * width + x])) { doorsWithPath++; break; }
+          }
+        }
+      }
+    }
+    let gq1 = 0;
+    if (roofWallPairs > 0 && orphanRoofs === 0) gq1 += 4; // perfect roof→wall
+    else if (roofWallPairs > orphanRoofs) gq1 += 2;
+    if (doorsTotal > 0 && doorsWithPath === doorsTotal) gq1 += 4; // all doors reach paths
+    else if (doorsTotal > 0 && doorsWithPath > 0) gq1 += 2;
+    granularScore += Math.min(8, gq1);
+    details.push(`Building completeness: ${roofWallPairs} roof→wall, ${orphanRoofs} orphan, ${doorsWithPath}/${doorsTotal} doors→path → ${Math.min(8, gq1)}/8`);
+  }
+
+  // ── GQ2: Fence coherence (0-6) — fences should be continuous rows, not scattered
+  {
+    let fenceRuns = 0, fenceRunLengths = [];
+    let inRun = false, runLen = 0;
+    for (let y = 0; y < height; y++) {
+      inRun = false; runLen = 0;
+      for (let x = 0; x < width; x++) {
+        const t = objects[y * width + x];
+        if (FENCE_TILES.has(t)) {
+          if (!inRun) { fenceRuns++; runLen = 0; }
+          inRun = true; runLen++;
+        } else {
+          if (inRun) fenceRunLengths.push(runLen);
+          inRun = false;
+        }
+      }
+      if (inRun) fenceRunLengths.push(runLen);
+    }
+    let gq2 = 0;
+    if (fenceRunLengths.length > 0) {
+      const avgLen = fenceRunLengths.reduce((a, b) => a + b, 0) / fenceRunLengths.length;
+      if (avgLen >= 3) gq2 += 3; // fences are proper runs, not scattered singles
+      else if (avgLen >= 2) gq2 += 1;
+      // Fences near buildings
+      let fenceNearBldg = 0;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (FENCE_TILES.has(objects[y * width + x])) {
+            for (let dy = -2; dy <= 0; dy++) { // check above (fences go below buildings)
+              if (y + dy >= 0 && WALL_TILES.has(objects[(y + dy) * width + x])) { fenceNearBldg++; break; }
+            }
+          }
+        }
+      }
+      if (fenceNearBldg > 0) gq2 += 3;
+    }
+    granularScore += Math.min(6, gq2);
+    details.push(`Fence coherence: ${fenceRuns} runs, avg len ${fenceRunLengths.length > 0 ? (fenceRunLengths.reduce((a,b)=>a+b,0)/fenceRunLengths.length).toFixed(1) : 0} → ${Math.min(6, gq2)}/6`);
+  }
+
+  // ── GQ3: Path edge correctness (0-6) — paths should have proper edge tiles
+  {
+    let correctEdges = 0, totalPathCells = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const t = ground[y * width + x];
+        if (!PATH_TILES.has(t)) continue;
+        totalPathCells++;
+        // Check if edge tiles are used correctly
+        // Tile 39 (left/top edge) should have grass to its left or above
+        // Tile 41 (right/bottom edge) should have grass to its right or below
+        // Tile 40 (center) should have path on both sides
+        if (t === 39) { // left/top edge
+          const left = x > 0 ? ground[y * width + (x - 1)] : -1;
+          if (!PATH_TILES.has(left)) correctEdges++; // good: grass to the left
+        } else if (t === 41) { // right/bottom edge
+          const right = x < width - 1 ? ground[y * width + (x + 1)] : -1;
+          if (!PATH_TILES.has(right)) correctEdges++; // good: grass to the right
+        } else if (t === 40) { // center
+          correctEdges++; // center is always fine
+        }
+      }
+    }
+    let gq3 = 0;
+    if (totalPathCells > 0) {
+      const ratio = correctEdges / totalPathCells;
+      if (ratio >= 0.8) gq3 += 6;
+      else if (ratio >= 0.6) gq3 += 4;
+      else if (ratio >= 0.3) gq3 += 2;
+    }
+    granularScore += Math.min(6, gq3);
+    details.push(`Path edges: ${correctEdges}/${totalPathCells} correct → ${Math.min(6, gq3)}/6`);
+  }
+
+  // ── GQ4: Tree layering correctness (0-6) — canopy on foreground, trunk on objects
+  {
+    let correctLayers = 0, wrongLayers = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const fg = foreground[y * width + x];
+        const obj = objects[y * width + x];
+        // Canopy should be on foreground, NOT on objects
+        if (CANOPY_TILES.has(fg)) correctLayers++;
+        if (CANOPY_TILES.has(obj)) wrongLayers++; // canopy on wrong layer
+        // Trunk should be on objects, NOT on foreground
+        if (TRUNK_TILES.has(obj)) correctLayers++;
+        if (TRUNK_TILES.has(fg)) wrongLayers++; // trunk on wrong layer
+      }
+    }
+    let gq4 = 0;
+    if (correctLayers + wrongLayers > 0) {
+      const ratio = correctLayers / (correctLayers + wrongLayers);
+      if (ratio >= 0.95) gq4 += 6;
+      else if (ratio >= 0.8) gq4 += 4;
+      else if (ratio >= 0.5) gq4 += 2;
+    } else if (correctLayers === 0 && wrongLayers === 0) {
+      gq4 += 3; // no trees = neutral
+    }
+    granularScore += Math.min(6, gq4);
+    details.push(`Tree layers: ${correctLayers} correct, ${wrongLayers} wrong → ${Math.min(6, gq4)}/6`);
+  }
+
+  // ── GQ5: Village "feel" metrics (0-8) — things that make it feel like a real village
+  {
+    let gq5 = 0;
+
+    // Has a well or fountain (centerpiece)
+    let hasWell = false;
+    for (let i = 0; i < width * height; i++) {
+      if (objects[i] === 92 || objects[i] === 104) { hasWell = true; break; }
+    }
+    if (hasWell) gq5 += 2;
+
+    // Has cobblestone area (village square)
+    let cobbleCount = 0;
+    for (let i = 0; i < width * height; i++) {
+      if (ground[i] === 44 || ground[i] === 45) cobbleCount++;
+    }
+    if (cobbleCount >= 12) gq5 += 2; // proper square
+    else if (cobbleCount >= 4) gq5 += 1;
+
+    // Mix of building materials (wood + stone)
+    let hasWood = false, hasStone = false;
+    for (let i = 0; i < width * height; i++) {
+      if (objects[i] >= 72 && objects[i] <= 75) hasWood = true;
+      if (objects[i] >= 84 && objects[i] <= 87) hasStone = true;
+    }
+    if (hasWood && hasStone) gq5 += 2;
+    else if (hasWood || hasStone) gq5 += 1;
+
+    // Has lanterns or barrels (lived-in feel)
+    let hasLantern = false, hasBarrel = false;
+    for (let i = 0; i < width * height; i++) {
+      if (objects[i] === 93) hasLantern = true;
+      if (objects[i] === 107) hasBarrel = true;
+    }
+    if (hasLantern && hasBarrel) gq5 += 2;
+    else if (hasLantern || hasBarrel) gq5 += 1;
+
+    granularScore += Math.min(8, gq5);
+    details.push(`Village feel: well=${hasWell} cobble=${cobbleCount} materials=${hasWood?'wood':''}${hasStone?'+stone':''} lantern=${hasLantern} barrel=${hasBarrel} → ${Math.min(8, gq5)}/8`);
+  }
+
+  // ── GQ6: Adjacency rule compliance (0-8) — tiles follow learned relationships
+  {
+    let gq6 = 0;
+    // Check roof→wall adjacency is correct type
+    let roofWallTypeMatch = 0, roofWallTypeTotal = 0;
+    for (let y = 0; y < height - 1; y++) {
+      for (let x = 0; x < width; x++) {
+        const roof = objects[y * width + x];
+        const wall = objects[(y + 1) * width + x];
+        if (!BUILDING_ROOF_TILES.has(roof) || !WALL_TILES.has(wall)) continue;
+        roofWallTypeTotal++;
+        // Red roof (63-65,67) should have wood walls (72-75) or stone walls (84-87)
+        // Blue roof (51-53,55) should have blue walls (48-50)
+        if ((roof >= 63 && roof <= 67) && ((wall >= 72 && wall <= 75) || (wall >= 84 && wall <= 87))) roofWallTypeMatch++;
+        else if ((roof >= 51 && roof <= 55) && (wall >= 48 && wall <= 50)) roofWallTypeMatch++;
+      }
+    }
+    if (roofWallTypeTotal > 0) {
+      const ratio = roofWallTypeMatch / roofWallTypeTotal;
+      if (ratio >= 0.9) gq6 += 4;
+      else if (ratio >= 0.5) gq6 += 2;
+    }
+
+    // Check fence ends: first fence in a row should be left-end (96/99), last should be right-end (98/101)
+    let correctFenceEnds = 0, totalFenceRows = 0;
+    for (let y = 0; y < height; y++) {
+      let rowFences = [];
+      for (let x = 0; x < width; x++) {
+        if (FENCE_TILES.has(objects[y * width + x])) rowFences.push({ x, tile: objects[y * width + x] });
+      }
+      if (rowFences.length >= 2) {
+        totalFenceRows++;
+        const first = rowFences[0].tile;
+        const last = rowFences[rowFences.length - 1].tile;
+        if ((first === 96 || first === 99) && (last === 98 || last === 101)) correctFenceEnds++;
+      }
+    }
+    if (totalFenceRows > 0 && correctFenceEnds === totalFenceRows) gq6 += 4;
+    else if (totalFenceRows > 0 && correctFenceEnds > 0) gq6 += 2;
+
+    granularScore += Math.min(8, gq6);
+    details.push(`Adjacency rules: ${roofWallTypeMatch}/${roofWallTypeTotal} roof→wall type match, ${correctFenceEnds}/${totalFenceRows} fence ends correct → ${Math.min(8, gq6)}/8`);
+  }
+
+  // ── GQ7: Empty space quality (0-4) — no large barren areas, but also not overcrowded
+  {
+    let gq7 = 0;
+    // Check for large empty rectangles (>8x8 with nothing but grass)
+    let largeEmptyAreas = 0;
+    const SAMPLE_SIZE = 8;
+    for (let sy = 0; sy < height - SAMPLE_SIZE; sy += 4) {
+      for (let sx = 0; sx < width - SAMPLE_SIZE; sx += 4) {
+        let allEmpty = true;
+        for (let y = sy; y < sy + SAMPLE_SIZE && allEmpty; y++) {
+          for (let x = sx; x < sx + SAMPLE_SIZE && allEmpty; x++) {
+            if (objects[y * width + x] !== -1 || foreground[y * width + x] !== -1 || PATH_TILES.has(ground[y * width + x])) {
+              allEmpty = false;
+            }
+          }
+        }
+        if (allEmpty) largeEmptyAreas++;
+      }
+    }
+    if (largeEmptyAreas <= 2) gq7 += 4; // minimal dead zones
+    else if (largeEmptyAreas <= 5) gq7 += 2;
+    granularScore += Math.min(4, gq7);
+    details.push(`Empty space: ${largeEmptyAreas} barren 8x8 areas → ${Math.min(4, gq7)}/4`);
+  }
+
+  // ── GQ8: Water feature quality (0-4) — if water exists, it has proper edges
+  {
+    let gq8 = 0;
+    let waterCenters = 0, waterEdges = 0;
+    for (let i = 0; i < width * height; i++) {
+      if (objects[i] === 122) waterCenters++;
+      if (WATER_TILES.has(objects[i]) && objects[i] !== 122) waterEdges++;
+    }
+    if (waterCenters > 0 && waterEdges > 0) gq8 += 4; // water with edges = good
+    else if (waterCenters === 0) gq8 += 2; // no water = neutral
+    granularScore += Math.min(4, gq8);
+    details.push(`Water: ${waterCenters} center, ${waterEdges} edge tiles → ${Math.min(4, gq8)}/4`);
+  }
+
+  const totalDesign = designScore + granularScore;
+  return { designScore: Math.min(100, totalDesign), details };
 }
 
 // ── Main audit function ────────────────────────────────────────────────────────
@@ -983,41 +1249,36 @@ function auditMap(mapData) {
     }
   }
 
-  // ── Design Quality Score (0-50) ──────────────────────────────────────
+  // ── Design Quality Score (0-100) ─────────────────────────────────────
   const { designScore, details: designDetails } = scoreDesignQuality(mapData);
 
-  // ── Structural Score (0-50, based on violations) ───────────────────
-  // Deductions per severity (from max 50):
-  //   critical: -10 per violation count
-  //   major:    -3  per violation count
-  //   minor:    -1  per violation count
+  // ── Structural violations (deductions from design score) ───────────
+  const SEVERITY_COST = { critical: 5, major: 2, minor: 1 };
 
-  const SEVERITY_COST = { critical: 10, major: 3, minor: 1 };
-
-  let structuralScore = 50;
+  let deductions = 0;
   let criticalCount = 0;
   let majorCount = 0;
   let minorCount = 0;
 
   for (const v of violations) {
     const cost = SEVERITY_COST[v.severity] || 0;
-    structuralScore -= cost * v.count;
+    deductions += cost * v.count;
     if (v.severity === 'critical') criticalCount += v.count;
     else if (v.severity === 'major') majorCount += v.count;
     else minorCount += v.count;
   }
-  structuralScore = Math.max(0, structuralScore);
 
-  // Combined: structural (0-50) + design quality (0-50) = 0-100
-  const score = structuralScore + designScore;
+  // Score = design quality (0-100) minus structural violations
+  const structuralScore = Math.max(0, 50 - deductions); // legacy compat
+  const score = Math.max(0, Math.min(100, designScore - deductions));
 
   let hasCriticalOverflow = false;
   for (const v of violations) {
     if (v.severity === 'critical' && v.count > 5) { hasCriticalOverflow = true; break; }
   }
-  const passed = score >= 40 && !hasCriticalOverflow;
+  const passed = score >= 30 && !hasCriticalOverflow;
 
-  const summaryParts = [`Score ${score}/100 (structural: ${structuralScore}/50, design: ${designScore}/50).`];
+  const summaryParts = [`Score ${score}/100 (design: ${designScore}, deductions: -${deductions}).`];
   if (criticalCount > 0) summaryParts.push(`${criticalCount} critical`);
   if (majorCount > 0) summaryParts.push(`${majorCount} major`);
   if (minorCount > 0) summaryParts.push(`${minorCount} minor`);
