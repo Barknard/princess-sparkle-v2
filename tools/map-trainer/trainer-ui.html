@@ -979,12 +979,17 @@ async function pollStatus() {
 
     // Try to get best map image
     try {
-      const rResp = await fetch('/api/batch/results');
+      var rResp = await fetch('/api/batch/results');
       if (rResp.ok) {
-        const results = await rResp.json();
-        updateBestMap(results);
+        var resultsData = await rResp.json();
+        updateBestMap(resultsData);
       }
     } catch (_) { /* results endpoint is optional */ }
+
+    // Direct bestImage from status endpoint
+    if (status.bestImage) {
+      updateBestMap({ bestImage: status.bestImage });
+    }
 
   } catch (_) {
     updateRunStatus(false);

@@ -700,6 +700,7 @@ app.get('/api/batch/status', (req, res) => {
     elapsed: batchState.startTime ? Date.now() - batchState.startTime : 0,
     errors: batchState.errors,
     topResultsCount: batchState.topResults.length,
+    bestImage: batchState.topResults.length > 0 ? batchState.topResults.sort((a,b) => (b.auditScore||b.combinedScore||0) - (a.auditScore||a.combinedScore||0))[0].imagePath : null,
     hasReferenceImage: !!batchState.referenceImage,
     bestVisionScore: batchState.bestVisionScore || 0,
     targetVisionScore: batchState.targetVisionScore || 60,
