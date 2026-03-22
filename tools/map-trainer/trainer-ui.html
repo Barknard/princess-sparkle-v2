@@ -986,9 +986,16 @@ async function pollStatus() {
       }
     } catch (_) { /* results endpoint is optional */ }
 
-    // Direct bestImage from status endpoint
-    if (status.bestImage) {
-      updateBestMap({ bestImage: status.bestImage });
+    // Direct bestImage from status — set img src immediately
+    if (status.bestImage && status.bestImage !== state.lastBestImage) {
+      state.lastBestImage = status.bestImage;
+      var bestImg = $('bestMapImg');
+      if (bestImg) {
+        bestImg.src = status.bestImage + '?t=' + Date.now();
+        bestImg.style.display = 'block';
+        var ph = $('bestMapPlaceholder');
+        if (ph) ph.style.display = 'none';
+      }
     }
 
   } catch (_) {
