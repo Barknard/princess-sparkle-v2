@@ -82,7 +82,6 @@ class V2Engine {
     this.H = opts.height || 40;
     this.size = this.W * this.H;
     this.knowledge = null;
-
     if (opts.knowledgePath && fs.existsSync(opts.knowledgePath)) {
       this.knowledge = JSON.parse(fs.readFileSync(opts.knowledgePath, 'utf8'));
     }
@@ -91,12 +90,7 @@ class V2Engine {
   idx(x, y) { return y * this.W + x; }
   inBounds(x, y) { return x >= 0 && x < this.W && y >= 0 && y < this.H; }
 
-  /**
-   * Generate a map from DNA parameters.
-   * @param {Object} dna - Generation parameters
-   * @param {number} [seed] - Optional RNG seed for reproducibility
-   * @returns {{ width, height, ground: number[], objects: number[], foreground: number[], collision: number[] }}
-   */
+  /** Generate a map from DNA parameters. Returns { width, height, ground[], objects[], foreground[], collision[] } */
   generate(dna = {}, seed) {
     const d = Object.assign({
       buildingCount: 4, buildingSpacing: 10, pathStyle: 'cross',
@@ -112,10 +106,8 @@ class V2Engine {
     const foreground = new Array(this.size).fill(T.EMPTY);
     const collision = new Array(this.size).fill(0);
 
-    // Zone map tracks purpose of each cell
     const zones = new Array(this.size).fill('open');
 
-    // ── Step 1: Zone Planning ───────────────────────────────────────────
     this._planForestBorder(zones, d.treeBorderDepth);
     const pathCells = this._planPaths(zones, d.pathStyle, d.pathCenter);
     const squareRect = this._planSquare(zones, d.pathCenter, d.squareSize);
@@ -126,7 +118,6 @@ class V2Engine {
       waterRect = this._planWater(zones, d.waterPosition, d.waterSize);
     }
 
-    // ── Step 2: Fill Ground Layer ───────────────────────────────────────
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
         const i = this.idx(x, y);
@@ -148,21 +139,18 @@ class V2Engine {
       }
     }
 
-    // ── Step 3: Place Buildings ─────────────────────────────────────────
     const placedBuildings = [];
     for (const pos of buildingPositions) {
       const bType = BUILDING_KEYS[Math.floor(rng() * BUILDING_KEYS.length)];
       const b = BUILDINGS[bType];
       const bx = pos.x, by = pos.y;
 
-      // Roof row (objects layer)
       for (let dx = 0; dx < b.w; dx++) {
         if (this.inBounds(bx + dx, by)) {
           objects[this.idx(bx + dx, by)] = b.roof[dx];
           collision[this.idx(bx + dx, by)] = 1;
         }
       }
-      // Wall row (objects layer)
       for (let dx = 0; dx < b.w; dx++) {
         if (this.inBounds(bx + dx, by + 1)) {
           objects[this.idx(bx + dx, by + 1)] = b.wall[dx];
@@ -171,13 +159,11 @@ class V2Engine {
         }
       }
 
-      // Find door x position
       let doorX = bx;
       for (let dx = 0; dx < b.w; dx++) {
         if (b.wall[dx] === T.WOOD_DOOR || b.wall[dx] === T.STONE_DOOR) { doorX = bx + dx; break; }
       }
 
-      // Fence below building (row by+2)
       const fenceY = by + 2;
       if (this.inBounds(bx - 1, fenceY) && this.inBounds(bx + b.w, fenceY)) {
         const fenceLeft = bx - 1;
@@ -192,25 +178,15 @@ class V2Engine {
         }
       }
 
-      // Connect door to nearest path with 2-wide branch
       this._connectToPath(ground, zones, doorX, by + 2, pathCells);
-
       placedBuildings.push({ x: bx, y: by, w: b.w, h: 2, doorX, type: bType });
     }
 
-    // ── Step 4: Place Trees ─────────────────────────────────────────────
     this._placeTrees(zones, objects, foreground, collision, d, rng);
 
-    // ── Step 5: Place Decorations ───────────────────────────────────────
     this._placeDecorations(objects, zones, placedBuildings, squareRect, d, rng);
+    if (waterRect) this._placeWater(objects, collision, waterRect);
 
-    // Water pond with 9-tile edges
-    if (waterRect) {
-      this._placeWater(objects, collision, waterRect);
-    }
-
-    // ── Step 6: Finalize Collision ──────────────────────────────────────
-    // Water and tree trunks already marked. Ensure ground-only cells are walkable.
     for (let i = 0; i < this.size; i++) {
       if (collision[i] !== 1 && objects[i] === T.EMPTY && foreground[i] === T.EMPTY) {
         collision[i] = 0;
@@ -220,12 +196,7 @@ class V2Engine {
     return { width: this.W, height: this.H, ground, objects, foreground, collision };
   }
 
-  /**
-   * Generate multiple map variations from the same DNA.
-   * @param {Object} dna
-   * @param {number} count
-   * @returns {Array}
-   */
+  /** Generate multiple map variations from the same DNA. */
   generateBatch(dna, count = 5) {
     const results = [];
     for (let i = 0; i < count; i++) {
@@ -233,8 +204,6 @@ class V2Engine {
     }
     return results;
   }
-
-  // ── Zone Planning ───────────────────────────────────────────────────────
 
   _planForestBorder(zones, depth) {
     for (let y = 0; y < this.H; y++) {
@@ -265,9 +234,7 @@ class V2Engine {
 
     const margin = 5;
     if (style === 'cross' || style === 'organic') {
-      // Horizontal path through center
       for (let x = margin; x < this.W - margin; x++) { markPath2(x, cy, true); }
-      // Vertical path through center
       for (let y = margin; y < this.H - margin; y++) { markPath2(cx, y, false); }
     }
     if (style === 'L-shape') {
@@ -308,7 +275,6 @@ class V2Engine {
     let attempts = 0;
     while (positions.length < count && attempts < 500) {
       attempts++;
-      // Pick a random path cell and offset from it
       if (pathList.length === 0) break;
       const base = pathList[Math.floor(rng() * pathList.length)];
       const offsetX = Math.floor(rng() * 10) - 5;
@@ -316,17 +282,14 @@ class V2Engine {
       const bx = base.x + offsetX;
       const by = base.y + offsetY;
 
-      // Check bounds (need 5xN clearance)
       if (bx < 5 || bx + 5 >= this.W - 5 || by < 5 || by + 3 >= this.H - 5) continue;
 
-      // Check spacing from other buildings
       let tooClose = false;
       for (const p of positions) {
         if (dist(bx, by, p.x, p.y) < spacing) { tooClose = true; break; }
       }
       if (tooClose) continue;
 
-      // Check zone isn't already occupied
       let blocked = false;
       for (let dy = 0; dy < 3; dy++) {
         for (let dx = 0; dx < 5; dx++) {
@@ -337,7 +300,6 @@ class V2Engine {
       }
       if (blocked) continue;
 
-      // Mark zone
       for (let dy = 0; dy < 3; dy++) {
         for (let dx = 0; dx < 5; dx++) {
           if (this.inBounds(bx + dx, by + dy)) zones[this.idx(bx + dx, by + dy)] = 'building';
@@ -377,10 +339,7 @@ class V2Engine {
     return rect;
   }
 
-  // ── Tile Placement Helpers ────────────────────────────────────────────
-
   _pathTile(x, y, zones) {
-    // Determine if this is a left edge, center, or right edge of a horizontal path
     const leftIsPath = this.inBounds(x - 1, y) && zones[this.idx(x - 1, y)] === 'path';
     const rightIsPath = this.inBounds(x + 1, y) && zones[this.idx(x + 1, y)] === 'path';
     if (!leftIsPath && rightIsPath) return T.PATH_EDGE;
@@ -389,7 +348,6 @@ class V2Engine {
   }
 
   _connectToPath(ground, zones, doorX, startY, pathCells) {
-    // Walk down from door until we hit a path cell, placing 2-wide path tiles
     for (let y = startY + 1; y < this.H - 2; y++) {
       const key = `${doorX},${y}`;
       if (pathCells.has(key) || pathCells.has(`${doorX + 1},${y}`)) break;
@@ -418,7 +376,6 @@ class V2Engine {
       }
     }
 
-    // Interior tree clusters
     for (let c = 0; c < dna.treeInteriorClusters; c++) {
       const cx = 8 + Math.floor(rng() * (this.W - 16));
       const cy = 8 + Math.floor(rng() * (this.H - 16));
@@ -438,7 +395,6 @@ class V2Engine {
   _stampTree(x, y, objects, foreground, collision, rng) {
     const type = TREE_TYPES[Math.floor(rng() * TREE_TYPES.length)];
     if (type.single) {
-      // Pine: 1-wide
       if (this.inBounds(x, y)) { foreground[this.idx(x, y)] = type.canopy[0]; }
       if (this.inBounds(x, y + 1)) { objects[this.idx(x, y + 1)] = type.trunk[0]; collision[this.idx(x, y + 1)] = 1; }
     } else {
@@ -453,7 +409,6 @@ class V2Engine {
   _placeDecorations(objects, zones, buildings, squareRect, dna, rng) {
     const DECOS = [T.TULIP, T.FERN, T.FLOWER_BUSH, T.BUSH, T.BERRY, T.BARREL, T.LANTERN];
 
-    // Decorations near buildings (in yard zones)
     for (const b of buildings) {
       let placed = 0;
       let attempts = 0;
@@ -471,7 +426,6 @@ class V2Engine {
       }
     }
 
-    // Well at village center
     if (dna.wellEnabled && squareRect) {
       const wx = squareRect.x + Math.floor(squareRect.w / 2);
       const wy = squareRect.y + Math.floor(squareRect.h / 2);

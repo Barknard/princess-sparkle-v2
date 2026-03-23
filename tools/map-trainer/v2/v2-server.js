@@ -433,9 +433,15 @@ app.get('/tilemap', (req, res) => {
   res.sendFile(TILESET_PATH);
 });
 
-// Reference image — render the TARGET LEVEL as pixel-perfect PNG (not the scaled Kenney promo)
+// Reference image — the Kenney sample village
+app.get('/reference', (req, res) => {
+  if (fs.existsSync(REFERENCE_PATH)) return res.sendFile(REFERENCE_PATH);
+  res.status(404).send('Reference image not found');
+});
+
+// Rendered target level (pixel-perfect from tile data)
 let targetPngCache = null;
-app.get('/reference', async (req, res) => {
+app.get('/target-render', async (req, res) => {
   try {
     if (!targetPngCache && targetMap) {
       targetPngCache = await renderMapToPng({
@@ -443,17 +449,9 @@ app.get('/reference', async (req, res) => {
         ground: targetMap.ground, objects: targetMap.objects, foreground: targetMap.foreground
       });
     }
-    if (targetPngCache) {
-      res.type('png').send(targetPngCache);
-    } else if (fs.existsSync(REFERENCE_PATH)) {
-      res.sendFile(REFERENCE_PATH); // fallback to Kenney image
-    } else {
-      res.status(404).send('No reference available');
-    }
-  } catch (e) {
-    if (fs.existsSync(REFERENCE_PATH)) res.sendFile(REFERENCE_PATH);
-    else res.status(500).send(e.message);
-  }
+    if (targetPngCache) res.type('png').send(targetPngCache);
+    else res.status(404).send('No target render');
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 // Stop evolution
@@ -469,6 +467,26 @@ app.post('/api/start', (req, res) => {
   }
   startEvolution();
   res.json({ ok: true, message: 'Started' });
+});
+
+// ── Annotator ───────────────────────────────────────────────────────────
+const ANNOTATIONS_PATH = path.join(V2_DIR, 'annotations.json');
+
+app.get('/annotate', (req, res) => {
+  res.sendFile(path.join(V2_DIR, 'v2-annotator.html'));
+});
+
+app.get('/api/annotations', (req, res) => {
+  if (fs.existsSync(ANNOTATIONS_PATH)) {
+    res.sendFile(ANNOTATIONS_PATH);
+  } else {
+    res.json({ version: '2.0', width: 60, height: 40, cells: {}, stats: { totalTagged: 0, tagCounts: {} } });
+  }
+});
+
+app.post('/api/annotations', (req, res) => {
+  fs.writeFileSync(ANNOTATIONS_PATH, JSON.stringify(req.body, null, 2));
+  res.json({ ok: true, saved: true });
 });
 
 // ── Launch ──────────────────────────────────────────────────────────────────

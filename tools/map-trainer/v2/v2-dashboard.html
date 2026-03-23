@@ -20,11 +20,12 @@
     display: grid;
     height: 100vh;
     grid-template-rows: 42px 1fr 1fr;
-    grid-template-columns: 100px 1fr 1fr 320px;
+    grid-template-columns: 100px 1fr 320px;
     grid-template-areas:
-      "header header header header"
-      "kpis   chart  radar  right-top"
-      "kpis   chart  radar  right-bot";
+      "header  header   header"
+      "kpis    charts   right-top"
+      "kpis    charts   right-bot";
+    resize: both;
     gap: 6px;
     padding: 6px;
   }
@@ -260,6 +261,7 @@
     <span class="stat">Rules: <b id="h-rules">0</b></span>
     <button id="btn-stop" onclick="doStop()">Stop</button>
     <button id="btn-start" onclick="doStart()">Start</button>
+    <a href="/annotate" style="color:#a855f7; text-decoration:none; font-size:11px; margin-left:8px;">Annotator →</a>
   </div>
 
   <!-- KPI CARDS -->
@@ -282,16 +284,16 @@
     </div>
   </div>
 
-  <!-- SCORE CHART (top-center) -->
-  <div class="panel chart-panel" style="grid-area: chart;">
-    <div class="panel-title">Score History</div>
-    <canvas id="chart"></canvas>
-  </div>
-
-  <!-- RADAR CHART (top-right of center) -->
-  <div class="panel radar-panel" style="grid-area: radar;">
-    <div class="panel-title">Quality Breakdown</div>
-    <canvas id="radar"></canvas>
+  <!-- CENTER: Radar on top, Chart below (stacked) -->
+  <div style="grid-area: charts; display:flex; flex-direction:column; gap:6px; overflow:hidden;">
+    <div class="panel radar-panel" style="flex:1; min-height:0;">
+      <div class="panel-title">Quality Breakdown</div>
+      <canvas id="radar"></canvas>
+    </div>
+    <div class="panel chart-panel" style="flex:1; min-height:0;">
+      <div class="panel-title">Score History</div>
+      <canvas id="chart"></canvas>
+    </div>
   </div>
 
   <!-- RIGHT TOP: Best Map + Reference stacked -->
@@ -315,9 +317,9 @@
       <div class="panel-title">Live Log</div>
       <div class="log-content" id="log" style="flex:1; overflow-y:auto;"></div>
     </div>
-    <div style="flex:0 0 auto;">
+    <div style="flex:0 0 80px; overflow:hidden;">
       <div class="panel-title">Tile Match Heatmap</div>
-      <canvas id="heatmap" style="width:100%; height:70px;"></canvas>
+      <canvas id="heatmap" width="240" height="64" style="width:100%; height:64px; image-rendering:pixelated;"></canvas>
     </div>
   </div>
 

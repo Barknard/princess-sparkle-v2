@@ -11,11 +11,7 @@
  *   Decorations:     0-10    Village Feel:   0-5
  *   Tile Match:      0-30 (only when target provided)
  */
-
-const fs = require('fs');
-const path = require('path');
-
-// ── Tile ID Sets ────────────────────────────────────────────────────────────
+// Tile ID Sets
 const PATH_TILES = new Set([39, 40, 41]);
 const COBBLE_TILES = new Set([44, 45]);
 const GRASS_TILES = new Set([1, 2, 43]);
@@ -34,18 +30,11 @@ const WELL_TILES = new Set([92, 104]);
 const LANTERN_BARREL = new Set([93, 107]);
 
 class V2Scorer {
-  /**
-   * @param {Object} [targetMap] - Optional target for tile-match scoring
-   */
   constructor(targetMap) {
     this.target = targetMap || null;
   }
 
-  /**
-   * Score a generated map.
-   * @param {Object} mapData - { width, height, ground[], objects[], foreground[] }
-   * @returns {{ total, tileMatch, design, breakdown, violations, details }}
-   */
+  /** Score a generated map. Returns { total, tileMatch, design, breakdown, violations, details } */
   score(mapData) {
     const W = mapData.width;
     const H = mapData.height;
@@ -53,54 +42,32 @@ class V2Scorer {
     const ground = mapData.ground || [];
     const objects = mapData.objects || [];
     const foreground = mapData.foreground || [];
-
     const breakdown = {};
     const violations = [];
     const details = [];
-
-    // ── Path Network (0-10) ─────────────────────────────────────────────
     breakdown.pathNetwork = this._scorePaths(ground, W, H, details, violations);
-
-    // ── Buildings (0-10) ────────────────────────────────────────────────
     breakdown.buildings = this._scoreBuildings(ground, objects, W, H, details, violations);
-
-    // ── Tree Quality (0-10) ─────────────────────────────────────────────
     breakdown.treeQuality = this._scoreTrees(objects, foreground, W, H, details, violations);
-
-    // ── Decorations (0-10) ──────────────────────────────────────────────
     breakdown.decorations = this._scoreDecorations(objects, W, H, details);
-
-    // ── Ground Texture (0-10) ───────────────────────────────────────────
     breakdown.groundTexture = this._scoreGround(ground, W, H, details);
-
-    // ── Composition (0-10) ──────────────────────────────────────────────
     breakdown.composition = this._scoreComposition(ground, objects, W, H, details);
-
-    // ── Water Feature (0-5) ─────────────────────────────────────────────
     breakdown.waterFeature = this._scoreWater(objects, W, H, details);
-
-    // ── Village Feel (0-5) ──────────────────────────────────────────────
     breakdown.villageFeel = this._scoreVillageFeel(ground, objects, W, H, details);
-
-    // ── Tile Match (0-30) ───────────────────────────────────────────────
     let tileMatch = 0;
     if (this.target) {
       tileMatch = this._scoreTileMatch(mapData, this.target);
       details.push(`Tile match: ${tileMatch.toFixed(1)}% → ${(tileMatch * 0.3).toFixed(1)}/30 pts`);
     }
 
-    // ── Totals ──────────────────────────────────────────────────────────
     const designScore = breakdown.pathNetwork + breakdown.buildings +
       breakdown.treeQuality + breakdown.decorations + breakdown.groundTexture +
       breakdown.composition + breakdown.waterFeature + breakdown.villageFeel;
-
     const tileMatchPts = this.target ? tileMatch * 0.3 : 0;
     const maxDesign = this.target ? 70 : 100;
     const scaledDesign = this.target ? designScore : (designScore / 70 * 100);
     const total = this.target
       ? Math.min(100, Math.round(designScore + tileMatchPts))
       : Math.min(100, Math.round(scaledDesign));
-
     return {
       total,
       tileMatch: this.target ? +tileMatch.toFixed(1) : null,
@@ -111,21 +78,17 @@ class V2Scorer {
     };
   }
 
-  // ── Scoring Dimensions ────────────────────────────────────────────────
-
   _scorePaths(ground, W, H, details, violations) {
     let pathCount = 0;
     let edgeCorrect = 0;
     let edgeTotal = 0;
     let twoWide = 0;
     let twoWideChecks = 0;
-
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const t = ground[y * W + x];
         if (!PATH_TILES.has(t)) continue;
         pathCount++;
-
         // Check 2-wide: if this is path, is the tile below also path?
         if (y + 1 < H) {
           twoWideChecks++;
@@ -145,21 +108,14 @@ class V2Scorer {
 
     const coverage = pathCount / (W * H);
     let score = 0;
-
-    // Coverage 5-15% is ideal
     if (coverage >= 0.05 && coverage <= 0.15) score += 3;
     else if (coverage >= 0.02 && coverage <= 0.25) score += 1;
     details.push(`Path coverage: ${(coverage * 100).toFixed(1)}%`);
-
     // 2-wide paths
     const twoWideRatio = twoWideChecks > 0 ? twoWide / twoWideChecks : 0;
     score += Math.min(3, Math.round(twoWideRatio * 4));
-
-    // Edge correctness
     const edgeRatio = edgeTotal > 0 ? edgeCorrect / edgeTotal : 1;
     score += Math.min(2, Math.round(edgeRatio * 2));
-
-    // Connectivity (simple flood fill from first path tile)
     if (pathCount > 0) {
       const connected = this._floodCount(ground, W, H, PATH_TILES);
       const connectRatio = connected / pathCount;
@@ -172,23 +128,18 @@ class V2Scorer {
   }
 
   _scoreBuildings(ground, objects, W, H, details, violations) {
-    // Find buildings by detecting roof tiles
     const buildings = [];
     const visited = new Set();
-
     for (let y = 0; y < H - 1; y++) {
       for (let x = 0; x < W; x++) {
         if (visited.has(`${x},${y}`)) continue;
         if (!ROOF_TILES.has(objects[y * W + x])) continue;
-
         // Scan roof width
         let endX = x;
         while (endX + 1 < W && ROOF_TILES.has(objects[y * W + endX + 1])) endX++;
         const bw = endX - x + 1;
-
         // Mark visited
         for (let dx = 0; dx < bw; dx++) visited.add(`${x + dx},${y}`);
-
         // Check wall below
         let hasWall = true;
         let hasDoor = false;
@@ -206,23 +157,16 @@ class V2Scorer {
     if (buildings.length === 0) { violations.push('No buildings found'); return 0; }
 
     let score = 0;
-
-    // Count: 2-6 is good
     if (buildings.length >= 2 && buildings.length <= 6) score += 2;
     else if (buildings.length >= 1) score += 1;
-
-    // Roof→Wall structural integrity
     const structurallySound = buildings.filter(b => b.hasWall).length;
     score += Math.min(3, Math.round((structurallySound / buildings.length) * 3));
     if (structurallySound < buildings.length) {
       violations.push(`${buildings.length - structurallySound} buildings missing walls below roof`);
     }
 
-    // Doors present
     const withDoors = buildings.filter(b => b.hasDoor).length;
     score += Math.min(2, Math.round((withDoors / buildings.length) * 2));
-
-    // Door→Path connectivity: check if any path tile within 5 tiles of door
     let doorsNearPath = 0;
     for (const b of buildings) {
       if (!b.hasDoor) continue;
@@ -239,11 +183,8 @@ class V2Scorer {
       if (nearPath) doorsNearPath++;
     }
     score += doorsNearPath >= withDoors * 0.7 ? 2 : (doorsNearPath > 0 ? 1 : 0);
-
-    // Variety: different widths
     const widths = new Set(buildings.map(b => b.w));
     score += widths.size >= 2 ? 1 : 0;
-
     return Math.min(10, score);
   }
 
@@ -251,8 +192,6 @@ class V2Scorer {
     let canopyCount = 0, trunkCount = 0, smallTreeCount = 0;
     let canopyAboveTrunk = 0;
     const treeTypes = new Set();
-
-    // Count canopies on foreground
     for (let i = 0; i < foreground.length; i++) {
       if (CANOPY_TILES.has(foreground[i])) {
         canopyCount++;
@@ -262,13 +201,11 @@ class V2Scorer {
         if (tid === 10 || tid === 11) treeTypes.add('pine');
       }
     }
-    // Count trunks on objects
     for (let i = 0; i < objects.length; i++) {
       if (TRUNK_TILES.has(objects[i])) trunkCount++;
       if (SMALL_TREES.has(objects[i])) smallTreeCount++;
     }
 
-    // Check canopy-above-trunk pairs
     for (let y = 0; y < H - 1; y++) {
       for (let x = 0; x < W; x++) {
         if (CANOPY_TILES.has(foreground[y * W + x]) && TRUNK_TILES.has(objects[(y + 1) * W + x])) {
@@ -279,22 +216,13 @@ class V2Scorer {
 
     const totalTrees = trunkCount + smallTreeCount;
     details.push(`Trees: ${totalTrees} (${trunkCount} trunks, ${canopyCount} canopies, ${smallTreeCount} small)`);
-
     let score = 0;
-
-    // Quantity: 20+ trees is good
     if (totalTrees >= 20) score += 3;
     else if (totalTrees >= 8) score += 2;
     else if (totalTrees >= 3) score += 1;
-
-    // Type variety
     score += Math.min(2, treeTypes.size);
-
-    // Layer correctness: canopy on foreground, trunk on objects
     const pairRatio = trunkCount > 0 ? canopyAboveTrunk / trunkCount : 0;
     score += pairRatio > 0.6 ? 2 : (pairRatio > 0.3 ? 1 : 0);
-
-    // Border coverage: trees near edges
     let borderTrees = 0;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -305,8 +233,6 @@ class V2Scorer {
       }
     }
     score += borderTrees >= 20 ? 2 : (borderTrees >= 8 ? 1 : 0);
-
-    // Interior clusters (trees not near border)
     let interiorTrees = 0;
     for (let y = 5; y < H - 5; y++) {
       for (let x = 5; x < W - 5; x++) {
@@ -314,7 +240,6 @@ class V2Scorer {
       }
     }
     score += interiorTrees >= 4 ? 1 : 0;
-
     if (totalTrees === 0) violations.push('No trees found');
     return Math.min(10, score);
   }
@@ -324,7 +249,6 @@ class V2Scorer {
     let fenceRuns = 0;
     let inFence = false;
     const decoTypes = new Set();
-
     for (let i = 0; i < objects.length; i++) {
       if (DECO_TILES.has(objects[i])) { decoCount++; decoTypes.add(objects[i]); }
       if (FENCE_TILES.has(objects[i])) {
@@ -335,16 +259,13 @@ class V2Scorer {
     }
 
     details.push(`Decorations: ${decoCount} items, ${decoTypes.size} types, ${fenceRuns} fence runs`);
-
     let score = 0;
     if (decoCount >= 10) score += 3;
     else if (decoCount >= 4) score += 2;
     else if (decoCount >= 1) score += 1;
-
     score += Math.min(3, decoTypes.size); // variety
     score += Math.min(2, fenceRuns); // fence runs
     score += decoCount > 0 && fenceRuns > 0 ? 2 : 0; // both present
-
     return Math.min(10, score);
   }
 
@@ -359,19 +280,12 @@ class V2Scorer {
     const ratios = {};
     for (const [t, c] of Object.entries(counts)) ratios[t] = c / totalGrass;
     details.push(`Grass mix: plain=${(ratios[1] || 0).toFixed(2)} flowers=${(ratios[2] || 0).toFixed(2)} white=${(ratios[43] || 0).toFixed(2)}`);
-
     let score = 0;
-
-    // Mix has multiple types
     const grassTypes = Object.keys(counts).length;
     score += Math.min(3, grassTypes * 1.5);
-
-    // Dominant type not >80%
     const maxRatio = Math.max(...Object.values(ratios));
     if (maxRatio < 0.8) score += 2;
     else if (maxRatio < 0.9) score += 1;
-
-    // Check for monotony: long horizontal runs of same tile
     let maxRun = 0;
     for (let y = 0; y < H; y++) {
       let run = 1;
@@ -388,16 +302,12 @@ class V2Scorer {
     else if (maxRun < 20) score += 2;
     else if (maxRun < 30) score += 1;
     details.push(`Max grass run: ${maxRun}`);
-
-    // Coverage: grass should be 50-80% of map
     const coverage = totalGrass / (W * H);
     score += (coverage >= 0.4 && coverage <= 0.85) ? 2 : 1;
-
     return Math.min(10, score);
   }
 
   _scoreComposition(ground, objects, W, H, details) {
-    // Split map into quadrants, check each has content
     const qw = Math.floor(W / 2), qh = Math.floor(H / 2);
     const quadrants = [
       { x: 0, y: 0, w: qw, h: qh },
@@ -405,7 +315,6 @@ class V2Scorer {
       { x: 0, y: qh, w: qw, h: H - qh },
       { x: qw, y: qh, w: W - qw, h: H - qh },
     ];
-
     let activeQuadrants = 0;
     for (const q of quadrants) {
       let hasContent = false;
@@ -423,8 +332,6 @@ class V2Scorer {
     details.push(`Active quadrants: ${activeQuadrants}/4`);
     let score = 0;
     score += activeQuadrants * 2; // 0-8 pts for quadrant activity
-
-    // Center activity: paths or cobblestone near center
     const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
     let centerActivity = 0;
     for (let dy = -3; dy <= 3; dy++) {
@@ -438,7 +345,6 @@ class V2Scorer {
       }
     }
     score += centerActivity > 10 ? 2 : (centerActivity > 3 ? 1 : 0);
-
     return Math.min(10, score);
   }
 
@@ -446,7 +352,6 @@ class V2Scorer {
     let waterCount = 0;
     let edgeCount = 0;
     let centerCount = 0;
-
     for (const t of objects) {
       if (WATER_TILES.has(t)) {
         waterCount++;
@@ -457,19 +362,16 @@ class V2Scorer {
 
     if (waterCount === 0) { details.push('No water feature'); return 0; }
     details.push(`Water: ${waterCount} tiles (${edgeCount} edge, ${centerCount} center)`);
-
     let score = 0;
     score += waterCount >= 6 ? 2 : 1; // Size
     score += edgeCount > 0 && centerCount > 0 ? 2 : (edgeCount > 0 ? 1 : 0); // Proper edges
     score += waterCount >= 9 ? 1 : 0; // Full 3x3 minimum
-
     return Math.min(5, score);
   }
 
   _scoreVillageFeel(ground, objects, W, H, details) {
     let hasWell = false, hasCobble = false, hasLantern = false, hasBarrel = false;
     let materialTypes = new Set(); // wood vs stone buildings
-
     for (let i = 0; i < objects.length; i++) {
       if (WELL_TILES.has(objects[i])) hasWell = true;
       if (LANTERN_BARREL.has(objects[i])) {
@@ -486,14 +388,12 @@ class V2Scorer {
     const features = [hasWell, hasCobble, hasLantern || hasBarrel, materialTypes.size >= 2];
     const featureCount = features.filter(Boolean).length;
     details.push(`Village features: well=${hasWell} cobble=${hasCobble} lantern=${hasLantern} barrel=${hasBarrel} materials=${materialTypes.size}`);
-
     let score = 0;
     score += hasWell ? 1 : 0;
     score += hasCobble ? 1 : 0;
     score += (hasLantern || hasBarrel) ? 1 : 0;
     score += materialTypes.size >= 2 ? 1 : 0;
     score += featureCount >= 3 ? 1 : 0; // bonus for having most features
-
     return Math.min(5, score);
   }
 
@@ -501,7 +401,6 @@ class V2Scorer {
     let matches = 0;
     let total = 0;
     const layers = ['ground', 'objects', 'foreground'];
-
     for (const layer of layers) {
       const gen = generated[layer] || [];
       const tgt = target[layer] || [];
@@ -515,23 +414,15 @@ class V2Scorer {
     return total > 0 ? (matches / total) * 100 : 0;
   }
 
-  // ── Utility ───────────────────────────────────────────────────────────
-
-  /**
-   * Flood fill to count connected tiles of given types.
-   * Returns count of largest connected component.
-   */
+  /** Flood fill — returns size of largest connected component of matching tiles. */
   _floodCount(layer, W, H, tileSet) {
     const visited = new Set();
     let maxComponent = 0;
-
-    // Find first matching tile
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         if (!tileSet.has(layer[y * W + x])) continue;
         const key = `${x},${y}`;
         if (visited.has(key)) continue;
-
         // BFS from this tile
         const queue = [[x, y]];
         let size = 0;
