@@ -299,11 +299,11 @@
   <!-- RIGHT TOP: Best Map + Reference stacked -->
   <div class="panel" style="grid-area: right-top; display:flex; flex-direction:column; gap:3px; overflow:hidden;">
     <div style="flex:1; min-height:0;">
-      <div class="panel-title">Best Map</div>
+      <div class="panel-title">Generated (24×14)</div>
       <img id="best-map" src="/api/best-map" alt="Best map" onclick="openLightbox(this.src)" style="width:100%; height:calc(100% - 16px); object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
     </div>
     <div style="flex:1; min-height:0; position:relative;">
-      <div class="panel-title">Reference <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;">24×14 = 336 tiles</span></div>
+      <div class="panel-title">Target (24×14) <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;">336 tiles × 3 layers</span></div>
       <div style="position:relative; width:100%; height:calc(100% - 16px);">
         <img id="ref-map" src="/reference" alt="Reference" onclick="openLightbox(this.src)" style="width:100%; height:100%; object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
         <canvas id="grid-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; image-rendering:pixelated;"></canvas>
@@ -369,7 +369,7 @@ function drawGridOverlay() {
     ctx.stroke();
   }
 
-  document.getElementById('grid-count').textContent = '60×40 = 2,400 tiles';
+  document.getElementById('grid-count').textContent = '24×14 = 336 tiles (3 layers)';
 }
 
 // Draw grid once ref image loads, and on resize
