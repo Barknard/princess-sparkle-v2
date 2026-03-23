@@ -18,6 +18,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { SpatialGrammar } = require('./spatial-grammar');
 
 // ---------------------------------------------------------------------------
 // Tile ID constants (matching genetic-evolver.js / blueprint-expander.js)
@@ -817,7 +818,13 @@ class KnowledgeGenerator {
     this._pathTiles  = new Set();
 
     // =======================================================================
-    // PASS 1: Ground layer (value noise grass mix)
+    // SPATIAL GRAMMAR: Plan zones BEFORE placing tiles
+    // =======================================================================
+    this._grammar = new SpatialGrammar(W, H);
+    this._grammar.planZones(dna);
+
+    // =======================================================================
+    // PASS 1: Ground layer (value noise grass mix, zone-aware)
     // =======================================================================
     const grassNoiseSeed = Math.random() * 1000;
     for (let y = 0; y < H; y++) {
@@ -917,7 +924,7 @@ class KnowledgeGenerator {
     }
 
     // =======================================================================
-    // PASS 4: Buildings (learned blocks first, then composite templates)
+    // PASS 4: Buildings (grammar-planned positions → learned blocks → templates)
     // =======================================================================
     const buildings = [];
     const numBuildings = dna.buildingCount || 3;
@@ -925,28 +932,25 @@ class KnowledgeGenerator {
     const yMax = Math.round((dna.buildingYBand ? dna.buildingYBand[1] : 0.70) * H);
     const minSpacing = dna.buildingMinSpacing || 10;
 
-    // TRY LEARNED BLOCKS FIRST — stamp whole building+fence+deco units
+    // USE GRAMMAR-PLANNED POSITIONS (buildings already validated near paths)
+    const plannedPositions = this._grammar.getPlannedBuildings();
+
+    // TRY LEARNED BLOCKS at grammar-planned positions FIRST
     if (this.learnedBlocks.length > 0) {
       const shuffledBlocks = [...this.learnedBlocks].sort(() => Math.random() - 0.5);
 
-      for (let attempt = 0; attempt < numBuildings * 30 && buildings.length < numBuildings; attempt++) {
-        const block = shuffledBlocks[attempt % shuffledBlocks.length];
+      for (let pi = 0; pi < plannedPositions.length && buildings.length < numBuildings; pi++) {
+        const pos = plannedPositions[pi];
+        const block = shuffledBlocks[pi % shuffledBlocks.length];
         const bw = block.width;
         const bh = block.height;
 
-        // Pick position
-        const bx = Math.floor(Math.random() * (W - bw - 4)) + 2;
-        const by = yMin + Math.floor(Math.random() * Math.max(1, yMax - yMin - bh));
+        // USE GRAMMAR-PLANNED POSITION (already validated near paths)
+        const bx = pos.x;
+        const by = pos.y;
 
         // Check bounds
         if (by < 1 || by + bh >= H || bx + bw >= W) continue;
-
-        // Check spacing
-        let tooClose = false;
-        for (const b of buildings) {
-          if (Math.abs(bx - b.x) < minSpacing && Math.abs(by - b.y) < minSpacing) { tooClose = true; break; }
-        }
-        if (tooClose) continue;
 
         // Check clear area (no paths or occupied)
         let blocked = false;
@@ -1096,6 +1100,8 @@ class KnowledgeGenerator {
         if (distFromEdge >= borderDepth) continue;
         if (this._occupied[this._idx(x, y)]) continue;
         if (this._pathTiles.has(this._idx(x, y))) continue;
+        // SPATIAL GRAMMAR: only place trees in forest/open/yard zones
+        if (!this._grammar.canPlaceTree(x, y)) continue;
 
         // Stagger: place every 2-3 tiles, offset by row for organic look
         const stagger = (x + y * 2) % 3;
@@ -1134,6 +1140,7 @@ class KnowledgeGenerator {
         const ty = cy + Math.floor(Math.random() * 5) - 2;
         if (ty < 1 || !this._inBounds(tx, ty)) continue;
         if (this._occupied[this._idx(tx, ty)]) continue;
+        if (!this._grammar.canPlaceTree(tx, ty)) continue;
         if (this._pathTiles.has(this._idx(tx, ty))) continue;
 
         // Mix at least 2 types per cluster
@@ -1177,6 +1184,8 @@ class KnowledgeGenerator {
 
         if (!this._inBounds(dx, dy) || this._occupied[this._idx(dx, dy)]) continue;
         if (this._pathTiles.has(this._idx(dx, dy))) continue;
+        // SPATIAL GRAMMAR: decorations only in yards, open space, or square
+        if (!this._grammar.canPlaceDecoration(dx, dy)) continue;
 
         // Pick decoration type from DNA
         const decoIdx = decoTypes[Math.floor(Math.random() * decoTypes.length)];

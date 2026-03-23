@@ -562,7 +562,22 @@ class TileRelationshipLearner {
       adjacency: JSON.parse(JSON.stringify(this.adjacency)),
       composites: JSON.parse(JSON.stringify(this.composites)),
       tileOccurrences: JSON.parse(JSON.stringify(this._tileOccurrences)),
-      rawPatterns: JSON.parse(JSON.stringify(this._rawPatterns))
+      // Only save building-containing multi-layer patterns (not all 5000+ raw patterns)
+      rawPatterns: (() => {
+        const filtered = {};
+        let count = 0;
+        for (const [id, data] of Object.entries(this._rawPatterns)) {
+          if (count >= 200) break; // cap at 200 patterns max
+          if (data.multiLayer) {
+            const oFlat = data.multiLayer.objects.flat();
+            const hasStructure = oFlat.some(t => [63,64,65,67,51,52,53,55].includes(t)) && oFlat.some(t => t >= 72 && t <= 87);
+            if (hasStructure) { filtered[id] = data; count++; }
+          } else if (data.count >= 3) {
+            filtered[id] = data; count++;
+          }
+        }
+        return filtered;
+      })()
     };
   }
 
