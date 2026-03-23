@@ -296,7 +296,7 @@
     <div style="border-top:1px solid #2a2a3e; padding-top:8px; margin-top:8px;">
       <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:6px;">Tile Overlay (align grid)</div>
       <div style="font-size:9px; color:#777; margin-bottom:6px;">Click a tile below, then drag it on the map to match a known tile. Adjust grid sliders until cells align.</div>
-      <canvas id="tilesetPreview" width="192" height="56" style="width:100%; image-rendering:pixelated; cursor:pointer; border:1px solid #2a2a3e; border-radius:4px; margin-bottom:6px;"></canvas>
+      <canvas id="tilesetPreview" width="192" height="176" style="width:100%; image-rendering:pixelated; cursor:pointer; border:1px solid #2a2a3e; border-radius:4px; margin-bottom:6px;"></canvas>
       <div id="tileOverlayInfo" style="font-size:9px; color:#a855f7;">Click a tile to select it</div>
       <button onclick="setGridFromOverlay()" style="margin-top:4px; background:#22c55e; color:#000; border:none; border-radius:4px; padding:4px 10px; font-size:10px; font-weight:700; cursor:pointer; width:100%;">Set Grid From Tile ✓</button>
     </div>
@@ -759,22 +759,24 @@ function setupActions() {
     var prev = document.getElementById('tilesetPreview');
     var pctx = prev.getContext('2d');
     pctx.imageSmoothingEnabled = false;
-    pctx.drawImage(tilesetImg, 0, 0, 192, 48, 0, 0, 192, 48);
+    // Draw ALL 132 tiles (12 cols × 11 rows, full tileset)
+    pctx.drawImage(tilesetImg, 0, 0, 192, 176, 0, 0, 192, 176);
 
     prev.addEventListener('click', function(e) {
       var rect = prev.getBoundingClientRect();
       var scaleX = 192 / rect.width;
+      var scaleY = 176 / rect.height;
       var px = (e.clientX - rect.left) * scaleX;
-      var py = (e.clientY - rect.top) * scaleX;
+      var py = (e.clientY - rect.top) * scaleY;
       var col = Math.floor(px / 16);
       var row = Math.floor(py / 16);
       selectedOverlayTile = row * 12 + col;
       if (selectedOverlayTile >= 0 && selectedOverlayTile < 132) {
         overlay.visible = true;
         document.getElementById('tileOverlayInfo').innerHTML =
-          'Tile ' + selectedOverlayTile + ' — <b>drag</b> to move, <b>drag corner</b> to resize, then <b style="color:#22c55e">Set Grid</b>';
-        pctx.clearRect(0, 0, 192, 56);
-        pctx.drawImage(tilesetImg, 0, 0, 192, 48, 0, 0, 192, 48);
+          'Tile ' + selectedOverlayTile + ' — <b>Shift+drag</b> to move, <b>Shift+drag corner</b> to resize, then <b style="color:#22c55e">Set Grid</b>';
+        pctx.clearRect(0, 0, 192, 176);
+        pctx.drawImage(tilesetImg, 0, 0, 192, 176, 0, 0, 192, 176);
         pctx.strokeStyle = '#a855f7';
         pctx.lineWidth = 2;
         pctx.strokeRect(col * 16, row * 16, 16, 16);
