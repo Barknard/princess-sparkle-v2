@@ -489,6 +489,21 @@ app.post('/api/annotations', (req, res) => {
   res.json({ ok: true, saved: true });
 });
 
+// ── Painter ─────────────────────────────────────────────────────────────────
+app.get('/paint', (req, res) => {
+  res.sendFile(path.join(V2_DIR, 'v2-painter.html'));
+});
+
+const PAINTED_MAP_PATH = path.join(V2_DIR, 'painted-map.json');
+app.post('/api/painted-map', (req, res) => {
+  fs.writeFileSync(PAINTED_MAP_PATH, JSON.stringify(req.body, null, 2));
+  res.json({ ok: true, saved: true });
+});
+app.get('/api/painted-map', (req, res) => {
+  if (fs.existsSync(PAINTED_MAP_PATH)) res.sendFile(PAINTED_MAP_PATH);
+  else res.json({ width: 60, height: 40, ground: [], objects: [], foreground: [] });
+});
+
 // ── Launch ──────────────────────────────────────────────────────────────────
 async function main() {
   console.log('=== V2 Map Trainer ===');
