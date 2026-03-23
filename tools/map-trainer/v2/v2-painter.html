@@ -124,8 +124,8 @@
     <img id="refImg" src="/reference" style="height:100%; object-fit:contain; image-rendering:pixelated; padding:4px;">
     <canvas id="refCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair;"></canvas>
   </div>
-  <div id="customTiles" style="display:flex; flex-direction:column; gap:2px; padding:4px; overflow-y:auto; min-width:60px;">
-    <div style="font-size:8px; color:#666; text-align:center;">Custom</div>
+  <div id="customTiles" style="display:flex; flex-wrap:wrap; gap:2px; padding:4px; overflow-y:auto; min-width:52px; align-content:flex-start;">
+    <div style="font-size:8px; color:#666; width:100%; text-align:center;">Custom Tiles</div>
   </div>
 </div>
 
@@ -843,33 +843,39 @@ document.addEventListener('keydown', (e) => {
 
     // Add as a custom tile
     var id = customTileId++;
+
+    // Store the tile image data for painting on ANY layer
+    tileCanvases[id] = tileCanvas;
+
+    // Create display cell matching standard tile-cell style
+    var cell = document.createElement('div');
+    cell.style.cssText = 'width:44px; height:44px; cursor:pointer; border:2px solid transparent; border-radius:3px; position:relative; display:inline-block; background:#0a0a1a;';
     var displayCanvas = document.createElement('canvas');
     displayCanvas.width = 16;
     displayCanvas.height = 16;
     displayCanvas.getContext('2d').drawImage(tileCanvas, 0, 0);
-    displayCanvas.style.width = '48px';
-    displayCanvas.style.height = '48px';
-    displayCanvas.style.imageRendering = 'pixelated';
-    displayCanvas.style.cursor = 'pointer';
-    displayCanvas.style.border = '2px solid transparent';
-    displayCanvas.style.borderRadius = '3px';
-    displayCanvas.title = 'Custom tile ' + id + ' (from reference)';
+    displayCanvas.style.cssText = 'width:100%; height:100%; image-rendering:pixelated;';
+    cell.appendChild(displayCanvas);
+    var label = document.createElement('div');
+    label.style.cssText = 'position:absolute; bottom:0; right:1px; font-size:7px; color:#a855f7;';
+    label.textContent = id;
+    cell.appendChild(label);
+    cell.title = 'Custom #' + id + ' — works on any layer';
 
-    // Store the tile image data for painting
-    tileCanvases[id] = tileCanvas;
-
-    displayCanvas.addEventListener('click', function() {
+    cell.addEventListener('click', function() {
       selectedTile = id;
       setMode('paint');
+      // Clear all highlights
       document.querySelectorAll('.tile-cell').forEach(function(c) { c.classList.remove('selected'); });
-      displayCanvas.style.borderColor = '#a855f7';
+      document.querySelectorAll('#customTiles > div').forEach(function(c) { c.style.borderColor = 'transparent'; });
+      cell.style.borderColor = '#a855f7';
+      cell.style.boxShadow = '0 0 6px #a855f7';
       document.getElementById('selectedLabel').textContent = 'Custom #' + id;
-      // Update preview
       var prev = document.getElementById('selectedPreview');
       prev.getContext('2d').drawImage(tileCanvas, 0, 0);
     });
 
-    document.getElementById('customTiles').appendChild(displayCanvas);
+    document.getElementById('customTiles').appendChild(cell);
 
     // Clear selection
     dragStart = null;
