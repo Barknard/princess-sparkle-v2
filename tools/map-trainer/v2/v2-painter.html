@@ -84,6 +84,17 @@
     <div class="mode-btn active" id="modePaint" onclick="setMode('paint')">Paint</div>
     <div class="mode-btn" id="modeErase" onclick="setMode('erase')">Erase</div>
     <div class="mode-btn" id="modeFill" onclick="setMode('fill')">Fill</div>
+    <div class="mode-btn" id="modeSelect" onclick="setMode('select')">Select</div>
+  </div>
+  <div id="selectInfo" style="padding:4px 10px; font-size:9px; color:#666; border-top:1px solid #2a2a3e; display:none;">
+    <div>Selected: <b id="selectCount">0</b> tiles</div>
+    <div style="display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;">
+      <button class="mode-btn" onclick="moveSelection()" style="flex:none; padding:2px 6px;">Move (drag)</button>
+      <button class="mode-btn" onclick="saveGroup()" style="flex:none; padding:2px 6px;">Save Group</button>
+      <button class="mode-btn" onclick="clearSelection()" style="flex:none; padding:2px 6px;">Deselect</button>
+      <button class="mode-btn" onclick="deleteSelection()" style="flex:none; padding:2px 6px; color:#ef4444;">Delete</button>
+    </div>
+    <div id="savedGroups" style="margin-top:4px;"></div>
   </div>
   <div style="padding:6px 10px; border-top:1px solid #2a2a3e;">
     <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Brush</div>
@@ -132,6 +143,13 @@ let selectedTile = -1;
 let mode = 'paint'; // paint, erase, fill
 let isPainting = false;
 let brushW = 1, brushH = 1;
+
+// ── Selection state ──
+let selection = new Set(); // set of "x,y" strings
+let selDragStart = null;   // {x,y} where drag started
+let selDragging = false;
+let savedGroups = [];      // [{name, tiles:[{dx,dy,tileId}]}]
+const GROUPS_KEY = 'tile-painter-groups';
 
 // ── Undo stack ──
 const undoStack = [];
@@ -303,6 +321,9 @@ function setMode(m) {
   document.getElementById('modePaint').classList.toggle('active', m === 'paint');
   document.getElementById('modeErase').classList.toggle('active', m === 'erase');
   document.getElementById('modeFill').classList.toggle('active', m === 'fill');
+  document.getElementById('modeSelect').classList.toggle('active', m === 'select');
+  document.getElementById('selectInfo').style.display = m === 'select' ? 'block' : 'none';
+  if (m !== 'select') { selection.clear(); renderMap(); }
 }
 
 // ── Map Canvas ──────────────────────────────────────
@@ -379,6 +400,18 @@ function renderMap() {
     if (mapForeground[i] >= 0) fCount++;
   }
   document.getElementById('tileCount').textContent = 'G:' + gCount + ' O:' + oCount + ' F:' + fCount;
+
+  // Draw selection highlights
+  if (selection.size > 0) {
+    mapCtx.strokeStyle = '#00ffff';
+    mapCtx.lineWidth = 2;
+    mapCtx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+    for (const key of selection) {
+      const [sx, sy] = key.split(',').map(Number);
+      mapCtx.fillRect(sx * TILE_SIZE * scale, sy * TILE_SIZE * scale, TILE_SIZE * scale, TILE_SIZE * scale);
+      mapCtx.strokeRect(sx * TILE_SIZE * scale, sy * TILE_SIZE * scale, TILE_SIZE * scale, TILE_SIZE * scale);
+    }
+  }
 }
 
 function getCellFromEvent(e) {
@@ -391,6 +424,21 @@ function getCellFromEvent(e) {
 }
 
 function paintCell(x, y) {
+  // Check for pending group placement
+  if (window._pendingGroup) {
+    pushUndo();
+    const g = window._pendingGroup;
+    const targetLayer = layers[g.layer || activeLayer];
+    for (const t of g.tiles) {
+      const px = x + t.dx, py = y + t.dy;
+      if (px >= 0 && px < MAP_W && py >= 0 && py < MAP_H) {
+        targetLayer[py * MAP_W + px] = t.tile;
+      }
+    }
+    window._pendingGroup = null;
+    renderMap(); autoSave();
+    return;
+  }
   const layer = layers[activeLayer];
 
   if (mode === 'fill') {
@@ -432,20 +480,74 @@ function paintCell(x, y) {
 }
 
 mapCanvas.addEventListener('mousedown', (e) => {
-  pushUndo();
-  isPainting = 'started';
   const cell = getCellFromEvent(e);
-  if (cell) paintCell(cell.x, cell.y);
+  if (!cell) return;
+
+  if (mode === 'select') {
+    const key = cell.x + ',' + cell.y;
+    if (e.shiftKey) {
+      // Shift+click: toggle cell in selection
+      if (selection.has(key)) selection.delete(key);
+      else selection.add(key);
+    } else if (selection.has(key)) {
+      // Click on selected cell: start dragging
+      selDragStart = { x: cell.x, y: cell.y };
+      selDragging = true;
+      pushUndo();
+    } else {
+      // Click on unselected: start new selection
+      selection.clear();
+      selection.add(key);
+    }
+    updateSelectionUI();
+    renderMap();
+    return;
+  }
+
+  pushUndo();
+  isPainting = true;
+  paintCell(cell.x, cell.y);
 });
 
 mapCanvas.addEventListener('mousemove', (e) => {
-  if (!isPainting) return;
   const cell = getCellFromEvent(e);
-  if (cell) paintCell(cell.x, cell.y);
+  if (!cell) return;
+
+  if (mode === 'select' && selDragging && selDragStart) {
+    // Preview drag destination (just update cursor)
+    return;
+  }
+  if (mode === 'select' && isPainting) {
+    // Shift+drag to add to selection
+    if (e.shiftKey) {
+      selection.add(cell.x + ',' + cell.y);
+      updateSelectionUI();
+      renderMap();
+    }
+    return;
+  }
+  if (!isPainting) return;
+  paintCell(cell.x, cell.y);
 });
 
-mapCanvas.addEventListener('mouseup', () => { isPainting = false; autoSave(); });
-mapCanvas.addEventListener('mouseleave', () => { isPainting = false; });
+mapCanvas.addEventListener('mouseup', (e) => {
+  if (mode === 'select' && selDragging && selDragStart) {
+    const cell = getCellFromEvent(e);
+    if (cell) {
+      const dx = cell.x - selDragStart.x;
+      const dy = cell.y - selDragStart.y;
+      if (dx !== 0 || dy !== 0) moveSelectionBy(dx, dy);
+    }
+    selDragging = false;
+    selDragStart = null;
+    autoSave();
+    renderMap();
+    return;
+  }
+  isPainting = false;
+  autoSave();
+});
+mapCanvas.addEventListener('mouseleave', () => { isPainting = false; selDragging = false; });
 
 // Right-click to erase
 mapCanvas.addEventListener('contextmenu', (e) => {
@@ -528,11 +630,115 @@ function showToast(msg) {
 }
 
 // Keyboard: E for erase, P for paint, Delete/Backspace for clear cell
+// ── Selection functions ──
+function updateSelectionUI() {
+  document.getElementById('selectCount').textContent = selection.size;
+}
+
+function clearSelection() {
+  selection.clear();
+  updateSelectionUI();
+  renderMap();
+}
+
+function deleteSelection() {
+  if (selection.size === 0) return;
+  pushUndo();
+  const layer = layers[activeLayer];
+  for (const key of selection) {
+    const [x, y] = key.split(',').map(Number);
+    layer[y * MAP_W + x] = -1;
+  }
+  selection.clear();
+  updateSelectionUI();
+  renderMap();
+  autoSave();
+}
+
+function moveSelectionBy(dx, dy) {
+  const layer = layers[activeLayer];
+  // Collect tiles to move
+  const tiles = [];
+  for (const key of selection) {
+    const [x, y] = key.split(',').map(Number);
+    tiles.push({ x, y, tile: layer[y * MAP_W + x] });
+  }
+  // Clear old positions
+  for (const t of tiles) {
+    layer[t.y * MAP_W + t.x] = -1;
+  }
+  // Place at new positions
+  const newSelection = new Set();
+  for (const t of tiles) {
+    const nx = t.x + dx, ny = t.y + dy;
+    if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) {
+      layer[ny * MAP_W + nx] = t.tile;
+      newSelection.add(nx + ',' + ny);
+    }
+  }
+  selection = newSelection;
+  updateSelectionUI();
+  autoSave();
+}
+
+function moveSelection() {
+  // Toggle into drag mode — next click+drag on selection moves it
+  if (selection.size === 0) return;
+  showToast('Click and drag selected tiles to move them');
+}
+
+function saveGroup() {
+  if (selection.size === 0) return;
+  const layer = layers[activeLayer];
+  // Find bounding box
+  let minX = MAP_W, minY = MAP_H, maxX = 0, maxY = 0;
+  for (const key of selection) {
+    const [x, y] = key.split(',').map(Number);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  const tiles = [];
+  for (const key of selection) {
+    const [x, y] = key.split(',').map(Number);
+    const t = layer[y * MAP_W + x];
+    if (t >= 0) tiles.push({ dx: x - minX, dy: y - minY, tile: t });
+  }
+  if (tiles.length === 0) return;
+  const name = prompt('Group name:', 'group-' + (savedGroups.length + 1));
+  if (!name) return;
+  savedGroups.push({ name, w: maxX - minX + 1, h: maxY - minY + 1, layer: activeLayer, tiles });
+  try { localStorage.setItem(GROUPS_KEY, JSON.stringify(savedGroups)); } catch(e) {}
+  updateGroupsUI();
+  showToast('Group "' + name + '" saved (' + tiles.length + ' tiles)');
+}
+
+function placeGroup(idx) {
+  const group = savedGroups[idx];
+  if (!group) return;
+  setMode('paint');
+  // Set a special mode that stamps the group on click
+  window._pendingGroup = group;
+  showToast('Click on map to place "' + group.name + '"');
+}
+
+function updateGroupsUI() {
+  const el = document.getElementById('savedGroups');
+  if (savedGroups.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-size:8px;color:#555;margin-bottom:2px;">Saved Groups:</div>' +
+    savedGroups.map((g, i) => '<button class="mode-btn" onclick="placeGroup(' + i + ')" style="font-size:8px;padding:1px 4px;margin:1px;">' + g.name + ' (' + g.tiles.length + ')</button>').join('');
+}
+
+// Load saved groups
+try { savedGroups = JSON.parse(localStorage.getItem(GROUPS_KEY)) || []; } catch(e) { savedGroups = []; }
+updateGroupsUI();
+
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (e.key === 'e' || e.key === 'E') setMode('erase');
   if (e.key === 'p' || e.key === 'P') setMode('paint');
   if (e.key === 'f' || e.key === 'F') setMode('fill');
+  if (e.key === 's' && !e.ctrlKey) setMode('select');
+  if (e.key === 'Delete' && mode === 'select') deleteSelection();
   if (e.key === '1') setLayer('ground');
   if (e.key === '2') setLayer('objects');
   if (e.key === '3') setLayer('foreground');
