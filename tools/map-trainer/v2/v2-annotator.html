@@ -291,6 +291,21 @@
     <div class="sidebar-header">Tags</div>
     <div class="tag-list" id="tagList"></div>
     <div class="cell-info" id="cellInfo">Hover a cell to see info</div>
+
+    <!-- Grid Calibration -->
+    <div style="border-top:1px solid #2a2a3e; padding-top:8px; margin-top:8px;">
+      <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:6px;">Grid Calibration</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10px; color:#888;">
+        <label>Cols: <input type="number" id="calCols" value="19" min="5" max="60" style="width:40px; background:#0a0a1a; border:1px solid #2a2a3e; color:#ccc; padding:2px 4px; border-radius:3px;"></label>
+        <label>Rows: <input type="number" id="calRows" value="11" min="5" max="40" style="width:40px; background:#0a0a1a; border:1px solid #2a2a3e; color:#ccc; padding:2px 4px; border-radius:3px;"></label>
+        <label>Offset X: <input type="range" id="calOffX" min="-20" max="20" value="0" style="width:60px;"></label>
+        <label>Offset Y: <input type="range" id="calOffY" min="-20" max="20" value="0" style="width:60px;"></label>
+        <label>Cell W: <input type="range" id="calCellW" min="30" max="60" value="48" step="0.1" style="width:60px;"></label>
+        <label>Cell H: <input type="range" id="calCellH" min="30" max="60" value="47" step="0.1" style="width:60px;"></label>
+      </div>
+      <div id="calInfo" style="font-size:9px; color:#555; margin-top:4px;">19×11 | offset: 0,0 | cell: 48.3×46.8</div>
+    </div>
+
     <div class="sidebar-actions">
       <div class="action-row">
         <button class="btn" id="btnClearTags">Clear Tags</button>
@@ -342,14 +357,48 @@ const TAGS = [
 const TAG_MAP = {};
 TAGS.forEach(t => TAG_MAP[t.id] = t);
 
-// Kenney sample image is 918x515 at ~48px per tile = 19x11 tiles
-const GRID_W = 19;
-const GRID_H = 11;
-const TOTAL_CELLS = GRID_W * GRID_H;
+// ── Grid calibration (adjustable to align with reference image) ──
+let gridCols = 19;
+let gridRows = 11;
+let gridOffsetX = 0;   // pixels offset from left edge of image
+let gridOffsetY = 0;   // pixels offset from top edge of image
+let gridCellW = 48.3;  // pixel width of one cell (918/19 ≈ 48.3)
+let gridCellH = 46.8;  // pixel height of one cell (515/11 ≈ 46.8)
 const STORAGE_KEY = 'tile-annotations-v2';
+const CALIB_KEY = 'tile-grid-calibration';
+
+// Load saved calibration
+try {
+  const saved = JSON.parse(localStorage.getItem(CALIB_KEY));
+  if (saved) {
+    gridCols = saved.cols || gridCols;
+    gridRows = saved.rows || gridRows;
+    gridOffsetX = saved.offsetX || 0;
+    gridOffsetY = saved.offsetY || 0;
+    gridCellW = saved.cellW || gridCellW;
+    gridCellH = saved.cellH || gridCellH;
+  }
+} catch(e) {}
+
+function saveCalibration() {
+  localStorage.setItem(CALIB_KEY, JSON.stringify({
+    cols: gridCols, rows: gridRows,
+    offsetX: gridOffsetX, offsetY: gridOffsetY,
+    cellW: gridCellW, cellH: gridCellH
+  }));
+}
+
+function get_GRID_W() { return gridCols; }
+function get_GRID_H() { return gridRows; }
+function get_TOTAL_CELLS() { return gridCols * gridRows; }
+
+// Aliases for compat
+Object.defineProperty(window, 'GRID_W', { get: () => gridCols });
+Object.defineProperty(window, 'GRID_H', { get: () => gridRows });
+Object.defineProperty(window, 'TOTAL_CELLS', { get: () => gridCols * gridRows });
 
 // ── State ────────────────────────────────────────────
-let annotations = { version: '2.0', width: GRID_W, height: GRID_H, cells: {}, stats: { totalTagged: 0, tagCounts: {} } };
+let annotations = { version: '2.0', width: gridCols, height: gridRows, cells: {}, stats: { totalTagged: 0, tagCounts: {} } };
 let selectedTags = new Set();
 let isPainting = false;
 let hoverCell = null;
@@ -493,9 +542,18 @@ function setupCanvasEvents() {
 
 function getCellFromEvent(e) {
   const rect = canvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX - rect.left) / rect.width * GRID_W);
-  const y = Math.floor((e.clientY - rect.top) / rect.height * GRID_H);
-  if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return null;
+  const imgW = 918, imgH = 515;
+  const scaleX = rect.width / imgW;
+  const scaleY = rect.height / imgH;
+  const offX = gridOffsetX * scaleX;
+  const offY = gridOffsetY * scaleY;
+  const cellW = gridCellW * scaleX;
+  const cellH = gridCellH * scaleY;
+  const px = e.clientX - rect.left - offX;
+  const py = e.clientY - rect.top - offY;
+  const x = Math.floor(px / cellW);
+  const y = Math.floor(py / cellH);
+  if (x < 0 || x >= gridCols || y < 0 || y >= gridRows) return null;
   return { x, y };
 }
 
@@ -555,42 +613,47 @@ function render() {
   const h = rect.height;
   ctx.clearRect(0, 0, w, h);
 
-  const cellW = w / GRID_W;
-  const cellH = h / GRID_H;
+  // Use calibrated grid: scale offset/cell size from image pixels to display pixels
+  const imgW = 918, imgH = 515; // Kenney sample actual pixel size
+  const scaleX = w / imgW;
+  const scaleY = h / imgH;
+  const offX = gridOffsetX * scaleX;
+  const offY = gridOffsetY * scaleY;
+  const cellW = gridCellW * scaleX;
+  const cellH = gridCellH * scaleY;
 
   // Draw tagged cell overlays
   for (const [idx, tags] of Object.entries(annotations.cells)) {
     if (!tags || tags.length === 0) continue;
     const i = parseInt(idx);
-    const cx = i % GRID_W;
-    const cy = Math.floor(i / GRID_W);
+    const cx = i % gridCols;
+    const cy = Math.floor(i / gridCols);
     const tag = TAG_MAP[tags[0]];
     if (tag) {
       ctx.fillStyle = tag.color + '80';
-      ctx.fillRect(cx * cellW, cy * cellH, cellW, cellH);
+      ctx.fillRect(offX + cx * cellW, offY + cy * cellH, cellW, cellH);
     }
-    // Multi-tag dot
     if (tags.length > 1) {
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(cx * cellW + cellW - 3, cy * cellH + 3, 2, 0, Math.PI * 2);
+      ctx.arc(offX + cx * cellW + cellW - 3, offY + cy * cellH + 3, 2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   // Draw grid lines
-  ctx.strokeStyle = 'rgba(168, 85, 247, 0.15)';
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
   ctx.lineWidth = 0.5;
-  for (let x = 0; x <= GRID_W; x++) {
+  for (let x = 0; x <= gridCols; x++) {
     ctx.beginPath();
-    ctx.moveTo(x * cellW, 0);
-    ctx.lineTo(x * cellW, h);
+    ctx.moveTo(offX + x * cellW, offY);
+    ctx.lineTo(offX + x * cellW, offY + gridRows * cellH);
     ctx.stroke();
   }
-  for (let y = 0; y <= GRID_H; y++) {
+  for (let y = 0; y <= gridRows; y++) {
     ctx.beginPath();
-    ctx.moveTo(0, y * cellH);
-    ctx.lineTo(w, y * cellH);
+    ctx.moveTo(offX, offY + y * cellH);
+    ctx.lineTo(offX + gridCols * cellW, offY + y * cellH);
     ctx.stroke();
   }
 
@@ -602,23 +665,22 @@ function render() {
     // Highlight cell border
     ctx.strokeStyle = '#a855f7';
     ctx.lineWidth = 2;
-    ctx.strokeRect(hx * cellW, hy * cellH, cellW, cellH);
+    ctx.strokeRect(offX + hx * cellW, offY + hy * cellH, cellW, cellH);
 
     // Subtle fill
     ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
-    ctx.fillRect(hx * cellW, hy * cellH, cellW, cellH);
+    ctx.fillRect(offX + hx * cellW, offY + hy * cellH, cellW, cellH);
 
     // Tooltip near cell
-    const tags = annotations.cells[hy * GRID_W + hx] || [];
+    const tags = annotations.cells[hy * gridCols + hx] || [];
     const label = tags.length > 0 ? tags.join(', ') : 'untagged';
     const text = `(${hx},${hy}) ${label}`;
     ctx.font = '10px monospace';
     const tm = ctx.measureText(text);
 
-    // Position tooltip above the cell, or below if near top
-    let tx = hx * cellW + 2;
-    let ty = hy * cellH - 4;
-    if (ty < 14) ty = hy * cellH + cellH + 12;
+    let tx = offX + hx * cellW + 2;
+    let ty = offY + hy * cellH - 4;
+    if (ty < 14) ty = offY + hy * cellH + cellH + 12;
     if (tx + tm.width + 4 > w) tx = w - tm.width - 6;
 
     ctx.fillStyle = 'rgba(10, 10, 26, 0.85)';
@@ -646,6 +708,32 @@ function setupActions() {
 
   document.getElementById('btnSave').addEventListener('click', saveAnnotations);
   document.getElementById('btnLoad').addEventListener('click', loadAnnotations);
+
+  // Wire calibration controls
+  function updateCalibration() {
+    gridCols = parseInt(document.getElementById('calCols').value) || 19;
+    gridRows = parseInt(document.getElementById('calRows').value) || 11;
+    gridOffsetX = parseFloat(document.getElementById('calOffX').value) || 0;
+    gridOffsetY = parseFloat(document.getElementById('calOffY').value) || 0;
+    gridCellW = parseFloat(document.getElementById('calCellW').value) || 48;
+    gridCellH = parseFloat(document.getElementById('calCellH').value) || 47;
+    document.getElementById('calInfo').textContent =
+      gridCols + '×' + gridRows + ' | offset: ' + gridOffsetX.toFixed(1) + ',' + gridOffsetY.toFixed(1) +
+      ' | cell: ' + gridCellW.toFixed(1) + '×' + gridCellH.toFixed(1);
+    saveCalibration();
+    render();
+  }
+  ['calCols', 'calRows'].forEach(id => document.getElementById(id).addEventListener('change', updateCalibration));
+  ['calOffX', 'calOffY', 'calCellW', 'calCellH'].forEach(id => document.getElementById(id).addEventListener('input', updateCalibration));
+
+  // Set initial values from saved calibration
+  document.getElementById('calCols').value = gridCols;
+  document.getElementById('calRows').value = gridRows;
+  document.getElementById('calOffX').value = gridOffsetX;
+  document.getElementById('calOffY').value = gridOffsetY;
+  document.getElementById('calCellW').value = gridCellW;
+  document.getElementById('calCellH').value = gridCellH;
+  updateCalibration();
 }
 
 // ── Save / Load ──────────────────────────────────────
