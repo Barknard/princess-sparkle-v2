@@ -792,14 +792,16 @@ document.addEventListener('keydown', (e) => {
   }
 
   function resizeRefCanvas() {
-    var rect = refImg.getBoundingClientRect();
-    refCanvas.width = rect.width;
-    refCanvas.height = rect.height;
+    var rect = refCanvas.getBoundingClientRect();
+    refCanvas.width = Math.round(rect.width);
+    refCanvas.height = Math.round(rect.height);
+    drawLastSelection(); // redraw after resize
   }
 
-  refImg.onload = resizeRefCanvas;
+  refImg.onload = function() { setTimeout(resizeRefCanvas, 100); };
   window.addEventListener('resize', resizeRefCanvas);
-  setTimeout(resizeRefCanvas, 1000);
+  setTimeout(resizeRefCanvas, 500);
+  setTimeout(resizeRefCanvas, 1500);
 
   refCanvas.addEventListener('mousedown', function(e) {
     if (e.shiftKey) return; // shift = resize panel
