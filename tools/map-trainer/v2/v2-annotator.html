@@ -313,15 +313,17 @@ const TAGS = [
   { id: 'grass-flower',    label: 'Grass (Flowers)',   color: '#86efac' },
   { id: 'path',            label: 'Path',             color: '#d97706' },
   { id: 'path-edge',       label: 'Path Edge',        color: '#f59e0b' },
+  { id: 'stone',           label: 'Stone',            color: '#78716c' },
   { id: 'cobblestone',     label: 'Cobblestone',      color: '#9ca3af' },
   { id: 'building-roof',   label: 'Building Roof',    color: '#ef4444' },
   { id: 'building-wall',   label: 'Building Wall',    color: '#b91c1c' },
   { id: 'building-door',   label: 'Building Door',    color: '#f97316' },
   { id: 'building-window', label: 'Building Window',  color: '#ea580c' },
+  { id: 'castle',          label: 'Castle',           color: '#64748b' },
+  { id: 'castle-gate',     label: 'Castle Gate',      color: '#94a3b8' },
   { id: 'fence',           label: 'Fence',            color: '#a16207' },
-  { id: 'tree-canopy',     label: 'Tree Canopy',      color: '#15803d' },
-  { id: 'tree-trunk',      label: 'Tree Trunk',       color: '#713f12' },
-  { id: 'small-tree',      label: 'Small Tree',       color: '#166534' },
+  { id: 'tree-group',      label: 'Tree Group',       color: '#15803d' },
+  { id: 'single-tree',     label: 'Single Tree',      color: '#166534' },
   { id: 'bush',            label: 'Bush/Flower',      color: '#65a30d' },
   { id: 'decoration',      label: 'Decoration',       color: '#7c3aed' },
   { id: 'well',            label: 'Well',             color: '#6d28d9' },
@@ -329,13 +331,20 @@ const TAGS = [
   { id: 'water-edge',      label: 'Water Edge',       color: '#60a5fa' },
   { id: 'village-square',  label: 'Village Square',   color: '#6b7280' },
   { id: 'empty',           label: 'Empty (Air)',      color: '#374151' },
+  // Position modifiers (can stack with other tags)
+  { id: 'pos-left',        label: '← Left Edge',      color: '#06b6d4' },
+  { id: 'pos-right',       label: '→ Right Edge',     color: '#06b6d4' },
+  { id: 'pos-top',         label: '↑ Top Edge',       color: '#06b6d4' },
+  { id: 'pos-bottom',      label: '↓ Bottom Edge',    color: '#06b6d4' },
+  { id: 'pos-center',      label: '● Center',         color: '#0891b2' },
 ];
 
 const TAG_MAP = {};
 TAGS.forEach(t => TAG_MAP[t.id] = t);
 
-const GRID_W = 60;
-const GRID_H = 40;
+// Kenney sample image is 918x515 at ~48px per tile = 19x11 tiles
+const GRID_W = 19;
+const GRID_H = 11;
 const TOTAL_CELLS = GRID_W * GRID_H;
 const STORAGE_KEY = 'tile-annotations-v2';
 
@@ -381,7 +390,7 @@ function init() {
 function fitMap() {
   const areaW = mapArea.clientWidth - 24;
   const areaH = mapArea.clientHeight - 24;
-  const imgRatio = 60 / 40; // 3:2
+  const imgRatio = 918 / 515; // Kenney sample aspect ratio
   let w, h;
   if (areaW / areaH > imgRatio) {
     h = areaH;
