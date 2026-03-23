@@ -177,14 +177,33 @@ function addLog(msg) {
   console.log(msg);
 }
 
-// ── Load target map ─────────────────────────────────────────────────────────
+// ── Load target maps ────────────────────────────────────────────────────────
+// Primary target: user's hand-painted map (24x14)
+// Secondary: the level file (60x40) for additional learning
+const PAINTED_MAP_PATH = path.join(V2_DIR, 'painted-map.json');
 let targetMap = null;
-try {
-  targetMap = loadTargetMap(TARGET_LEVEL_PATH);
-  console.log(`Target map loaded: ${targetMap.width}x${targetMap.height} (${targetMap.ground.length} tiles/layer)`);
-} catch (e) {
-  console.error(`ERROR: Could not load target map: ${e.message}`);
-  process.exit(1);
+let paintedMap = null;
+
+// Load painted map as PRIMARY target
+if (fs.existsSync(PAINTED_MAP_PATH)) {
+  try {
+    paintedMap = JSON.parse(fs.readFileSync(PAINTED_MAP_PATH, 'utf8'));
+    targetMap = paintedMap; // painted map IS the target
+    console.log(`Painted map loaded as target: ${targetMap.width}x${targetMap.height}`);
+  } catch (e) {
+    console.log(`Warning: could not load painted map: ${e.message}`);
+  }
+}
+
+// Fallback to level file if no painted map
+if (!targetMap) {
+  try {
+    targetMap = loadTargetMap(TARGET_LEVEL_PATH);
+    console.log(`Level file loaded as target: ${targetMap.width}x${targetMap.height}`);
+  } catch (e) {
+    console.error(`ERROR: No target map available: ${e.message}`);
+    process.exit(1);
+  }
 }
 
 // ── Load learned knowledge ──────────────────────────────────────────────────
@@ -200,11 +219,18 @@ if (fs.existsSync(KNOWLEDGE_PATH)) {
   }
 }
 
-// Learn from target map heavily (10x weight)
-for (let i = 0; i < 10; i++) {
-  learner.learnFromMap(targetMap, 100);
+// Learn from painted map with highest weight (human ground truth)
+if (paintedMap) {
+  learner.learnFromMap(paintedMap, 100);
+  addLog(`Learned from painted map ${paintedMap.width}x${paintedMap.height} (100x weight)`);
 }
-addLog('Learned from target map (10x weight)');
+
+// Also learn from level file (secondary, lower weight)
+try {
+  const levelMap = loadTargetMap(TARGET_LEVEL_PATH);
+  learner.learnFromMap(levelMap, 10);
+  addLog('Also learned from level file (10x weight)');
+} catch (e) {}
 
 // ── Evolver setup ───────────────────────────────────────────────────────────
 const evolver = new GeneticEvolver({
@@ -487,7 +513,7 @@ app.get('/api/annotations', (req, res) => {
   if (fs.existsSync(ANNOTATIONS_PATH)) {
     res.sendFile(ANNOTATIONS_PATH);
   } else {
-    res.json({ version: '2.0', width: 60, height: 40, cells: {}, stats: { totalTagged: 0, tagCounts: {} } });
+    res.json({ version: '2.0', width: targetMap?.width || 24, height: targetMap?.height || 14, cells: {}, stats: { totalTagged: 0, tagCounts: {} } });
   }
 });
 
@@ -508,7 +534,7 @@ app.post('/api/painted-map', (req, res) => {
 });
 app.get('/api/painted-map', (req, res) => {
   if (fs.existsSync(PAINTED_MAP_PATH)) res.sendFile(PAINTED_MAP_PATH);
-  else res.json({ width: 60, height: 40, ground: [], objects: [], foreground: [] });
+  else res.json({ width: targetMap?.width || 24, height: targetMap?.height || 14, ground: [], objects: [], foreground: [] });
 });
 
 // ── Launch ──────────────────────────────────────────────────────────────────
