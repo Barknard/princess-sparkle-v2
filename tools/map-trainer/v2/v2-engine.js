@@ -218,6 +218,24 @@ class V2Engine {
     this._placeDecorations(objects, zones, placedBuildings, squareRect, d, rng);
     if (waterRect) this._placeWater(objects, collision, waterRect);
 
+    // FOREGROUND VEGETATION — the missing 19% of the target!
+    // User's painted map has: 19(15x), 28(8x), 4(7x), 16(7x), 7(5x), 3(4x), 15(3x), 17(3x), 20(3x), etc.
+    const FG_TILES = [19,19,19,19, 28,28,28, 4,4, 16,16, 7,7, 3,3, 15, 17, 20, 27, 32, 6, 18, 29, 31, 34];
+    const fgTarget = Math.round(this.size * 0.19); // 19% foreground fill
+    let fgPlaced = 0;
+    for (let attempt = 0; attempt < fgTarget * 3 && fgPlaced < fgTarget; attempt++) {
+      const x = Math.floor(rng() * this.W);
+      const y = Math.floor(rng() * this.H);
+      const i = this.idx(x, y);
+      if (foreground[i] !== T.EMPTY) continue;
+      if (objects[i] !== T.EMPTY) continue; // don't place over buildings
+      const zone = zones[i];
+      if (zone === 'path' || zone === 'water' || zone === 'square') continue;
+      foreground[i] = FG_TILES[Math.floor(rng() * FG_TILES.length)];
+      fgPlaced++;
+    }
+
+    // Collision finalization
     for (let i = 0; i < this.size; i++) {
       if (collision[i] !== 1 && objects[i] === T.EMPTY && foreground[i] === T.EMPTY) {
         collision[i] = 0;
@@ -408,8 +426,9 @@ class V2Engine {
     }
 
     for (let c = 0; c < dna.treeInteriorClusters; c++) {
-      const cx = 8 + Math.floor(rng() * (this.W - 16));
-      const cy = 8 + Math.floor(rng() * (this.H - 16));
+      const margin = Math.min(3, Math.floor(this.W / 6));
+      const cx = margin + Math.floor(rng() * Math.max(1, this.W - margin * 2));
+      const cy = margin + Math.floor(rng() * Math.max(1, this.H - margin * 2));
       const clusterSize = 2 + Math.floor(rng() * 3);
       for (let i = 0; i < clusterSize; i++) {
         const tx = cx + Math.floor(rng() * 6) - 3;
