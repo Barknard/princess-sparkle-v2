@@ -259,33 +259,41 @@ async function runGeneration() {
   status.generation++;
   status.elapsed = Date.now() - startTime;
 
-  // Generate and score all individuals
-  const scored = [];
+  // Generate and score — REUSE single map buffer to prevent OOM
+  // Only keep DNA + fitness number per organism, not full map data
+  const scored = new Array(population.length);
+  let bestMap = null, bestAudit = null, bestFitness = -1, bestIdx = 0;
+  const W = targetMap.width, H = targetMap.height, size = W * H;
+  // Reuse typed arrays
+  if (!runGeneration._ground) {
+    runGeneration._ground = new Array(size);
+    runGeneration._objects = new Array(size);
+    runGeneration._foreground = new Array(size);
+    runGeneration._collision = new Array(size);
+  }
+
   for (let i = 0; i < population.length; i++) {
     const dna = population[i];
     const map = evolver.generateFromDNA(dna);
     const audit = auditMap(map);
     const result = combinedScore(map, targetMap, audit);
-    scored.push({
-      dna,
-      fitness: result.combined,
-      tileMatch: result.tileMatch,
-      designScore: result.designQuality,
-      map,
-      audit
-    });
+    const fitness = result.combined;
+
+    scored[i] = { dna, fitness, tileMatch: result.tileMatch, designScore: result.designQuality };
+
+    if (fitness > bestFitness) {
+      bestFitness = fitness;
+      bestIdx = i;
+      // Copy best map data (only keep ONE copy)
+      bestMap = { width: W, height: H, ground: map.ground.slice(), objects: map.objects.slice(), foreground: map.foreground.slice(), collision: map.collision ? map.collision.slice() : null };
+      bestAudit = audit;
+    }
+    // map and audit go out of scope here — GC can collect them
   }
 
-  // Sort by fitness descending
+  const best = { ...scored[bestIdx], map: bestMap, audit: bestAudit };
   scored.sort((a, b) => b.fitness - a.fitness);
-  const best = scored[0];
   const stats = evolver.getStats(scored);
-
-  // Free map data from non-best entries to prevent OOM
-  for (let i = 1; i < scored.length; i++) {
-    scored[i].map = null;
-    scored[i].audit = null;
-  }
 
   // Update status
   status.currentBest = best.fitness;
@@ -346,23 +354,9 @@ async function runGeneration() {
   const logMsg = `Gen ${status.generation}: best=${best.fitness.toFixed(1)}% tile=${best.tileMatch.toFixed(1)}% audit=${best.designScore.toFixed(0)} div=${stats.diversity.toFixed(1)} [${genSpeed.toFixed(1)} gen/s]`;
   addLog(logMsg);
 
-  // Learn from best map every 50th gen (not every gen — causes OOM)
-  if (status.generation % 50 === 0) {
-    learner.learnFromMap(best.map, best.fitness);
-  }
-
-  // Force garbage collection every 200 gens to prevent OOM
-  if (status.generation % 200 === 0 && global.gc) {
+  // Force GC every 500 gens
+  if (status.generation % 500 === 0 && global.gc) {
     global.gc();
-  }
-
-  // Save knowledge every 100 gens
-  if (status.generation % 100 === 0) {
-    try {
-      learner.saveToFile(KNOWLEDGE_PATH);
-      const kStats = learner.getStats();
-      status.knowledgeRules = kStats.totalAdjacencies || kStats.adjacencyRules || 0;
-    } catch (e) { /* ignore save errors */ }
   }
 
   // Render best map to PNG every 20 gens
