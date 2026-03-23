@@ -170,7 +170,7 @@ async function main() {
     let visionScore = 0;
     let visionResult = null;
     const isNewBest = bestOrganism.fitness > bestVisionScore;
-    const shouldRender = gen === 1 || gen % 10 === 0 || isNewBest;
+    const shouldRender = gen === 1 || gen % 50 === 0 || isNewBest;
 
     if (isNewBest) {
       bestVisionScore = bestOrganism.fitness;
@@ -226,14 +226,17 @@ async function main() {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
     const genTime = ((Date.now() - genStart) / 1000).toFixed(1);
 
-    const fitPct = bestOrganism.fitness;
-    const barLen = Math.min(20, Math.floor(fitPct / 5));
-    const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
-    const matchLabel = targetMap ? `match:${bestOrganism.tileMatchPct.toFixed(2)}%` : '';
-    const auditLabel = `audit:${bestOrganism.audit.score}`;
-    let line = `  Gen ${String(gen).padStart(4)} | ${bar} ${fitPct.toFixed(2)}% | ${matchLabel} ${auditLabel} | best ${bestVisionScore.toFixed(2)} (gen ${bestVisionGen}) | ${genTime}s | ${elapsed}s`;
-    if (visionScore > 0) line += ` | VISION=${visionScore}`;
-    console.log(line);
+    // Only print every 5th gen or on new best (reduce I/O)
+    if (gen % 5 === 0 || gen === 1 || isNewBest) {
+      const fitPct = bestOrganism.fitness;
+      const barLen = Math.min(20, Math.floor(fitPct / 5));
+      const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
+      const matchLabel = targetMap ? `match:${bestOrganism.tileMatchPct.toFixed(2)}%` : '';
+      const auditLabel = `audit:${bestOrganism.audit.score}`;
+      let line = `  Gen ${String(gen).padStart(4)} | ${bar} ${fitPct.toFixed(2)}% | ${matchLabel} ${auditLabel} | best ${bestVisionScore.toFixed(2)} (gen ${bestVisionGen}) | ${genTime}s | ${elapsed}s`;
+      if (visionScore > 0) line += ` | VISION=${visionScore}`;
+      console.log(line);
+    }
 
     // Show design details every 10th gen
     if (gen % 10 === 0 && bestOrganism.audit.designDetails) {
@@ -276,18 +279,21 @@ async function main() {
       }
     }
 
-    reportToDashboard({
-      running: true,
-      totalGenerations: MAX_GENS,
-      completedGenerations: gen,
-      currentGeneration: gen,
-      startTime: startTime,
-      errors: 0,
-      bestVisionScore,
-      targetVisionScore: TARGET_SCORE,
-      log: logEntries.slice(-100),
-      topResults: dashTopResults
-    });
+    // Report to dashboard every 5th gen (avoid HTTP overhead on every gen)
+    if (gen % 5 === 0 || gen === 1 || isNewBest) {
+      reportToDashboard({
+        running: true,
+        totalGenerations: MAX_GENS,
+        completedGenerations: gen,
+        currentGeneration: gen,
+        startTime: startTime,
+        errors: 0,
+        bestVisionScore,
+        targetVisionScore: TARGET_SCORE,
+        log: logEntries.slice(-100),
+        topResults: dashTopResults
+      });
+    }
 
     // ── Check target ─────────────────────────────────────────────────
     if (bestOrganism.fitness >= TARGET_SCORE) {
