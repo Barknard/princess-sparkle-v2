@@ -119,8 +119,14 @@
 </div><!-- end main-area -->
 
 <div class="ref-area" id="refArea" style="height:200px;">
-  <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; writing-mode:vertical-lr; transform:rotate(180deg); padding:4px;">Reference</div>
-  <img src="/reference" style="height:100%; object-fit:contain; image-rendering:pixelated; padding:4px;">
+  <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; writing-mode:vertical-lr; transform:rotate(180deg); padding:4px;">Reference<br><span style="font-size:7px;color:#a855f7;">Drag to grab tile</span></div>
+  <div style="position:relative; height:100%; flex:1;">
+    <img id="refImg" src="/reference" style="height:100%; object-fit:contain; image-rendering:pixelated; padding:4px;">
+    <canvas id="refCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair;"></canvas>
+  </div>
+  <div id="customTiles" style="display:flex; flex-direction:column; gap:2px; padding:4px; overflow-y:auto; min-width:60px;">
+    <div style="font-size:8px; color:#666; text-align:center;">Custom</div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -747,6 +753,133 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '[') setBrush(Math.max(1, brushW - 1), Math.max(1, brushH - 1));
   if (e.key === ']') setBrush(Math.min(MAP_W, brushW + 1), Math.min(MAP_H, brushH + 1));
 });
+
+// ── Custom tile from reference image ──
+(function() {
+  var refImg = document.getElementById('refImg');
+  var refCanvas = document.getElementById('refCanvas');
+  var refCtx = refCanvas.getContext('2d');
+  var dragStart = null;
+  var dragEnd = null;
+  var customTileId = 200; // custom tiles start at ID 200
+
+  function resizeRefCanvas() {
+    var rect = refImg.getBoundingClientRect();
+    refCanvas.width = rect.width;
+    refCanvas.height = rect.height;
+  }
+
+  refImg.onload = resizeRefCanvas;
+  window.addEventListener('resize', resizeRefCanvas);
+  setTimeout(resizeRefCanvas, 1000);
+
+  refCanvas.addEventListener('mousedown', function(e) {
+    if (e.shiftKey) return; // shift = resize panel
+    var rect = refCanvas.getBoundingClientRect();
+    dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    dragEnd = null;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  refCanvas.addEventListener('mousemove', function(e) {
+    if (!dragStart) return;
+    var rect = refCanvas.getBoundingClientRect();
+    dragEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    // Draw selection rectangle
+    refCtx.clearRect(0, 0, refCanvas.width, refCanvas.height);
+    refCtx.strokeStyle = '#ff00ff';
+    refCtx.lineWidth = 2;
+    refCtx.setLineDash([4, 4]);
+    var x = Math.min(dragStart.x, dragEnd.x);
+    var y = Math.min(dragStart.y, dragEnd.y);
+    var w = Math.abs(dragEnd.x - dragStart.x);
+    var h = Math.abs(dragEnd.y - dragStart.y);
+    refCtx.strokeRect(x, y, w, h);
+    refCtx.setLineDash([]);
+    refCtx.fillStyle = 'rgba(255, 0, 255, 0.1)';
+    refCtx.fillRect(x, y, w, h);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  refCanvas.addEventListener('mouseup', function(e) {
+    if (!dragStart || !dragEnd) { dragStart = null; return; }
+
+    // Calculate selection in image pixel coordinates
+    var imgRect = refImg.getBoundingClientRect();
+    var canvasRect = refCanvas.getBoundingClientRect();
+    // The image might be padded inside the container
+    var imgDisplay = { x: imgRect.left - canvasRect.left, y: imgRect.top - canvasRect.top, w: imgRect.width, h: imgRect.height };
+    var imgNatW = refImg.naturalWidth || 918;
+    var imgNatH = refImg.naturalHeight || 515;
+    var scaleX = imgNatW / imgDisplay.w;
+    var scaleY = imgNatH / imgDisplay.h;
+
+    var x1 = Math.round((Math.min(dragStart.x, dragEnd.x) - imgDisplay.x) * scaleX);
+    var y1 = Math.round((Math.min(dragStart.y, dragEnd.y) - imgDisplay.y) * scaleY);
+    var x2 = Math.round((Math.max(dragStart.x, dragEnd.x) - imgDisplay.x) * scaleX);
+    var y2 = Math.round((Math.max(dragStart.y, dragEnd.y) - imgDisplay.y) * scaleY);
+
+    x1 = Math.max(0, x1); y1 = Math.max(0, y1);
+    x2 = Math.min(imgNatW, x2); y2 = Math.min(imgNatH, y2);
+    var w = x2 - x1, h = y2 - y1;
+    if (w < 4 || h < 4) { dragStart = null; refCtx.clearRect(0, 0, refCanvas.width, refCanvas.height); return; }
+
+    // Extract pixels from the reference image onto a temp canvas
+    var tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = imgNatW;
+    tmpCanvas.height = imgNatH;
+    var tmpCtx = tmpCanvas.getContext('2d');
+    tmpCtx.drawImage(refImg, 0, 0);
+
+    // Create a 16x16 tile from the selected region (resize to 16x16)
+    var tileCanvas = document.createElement('canvas');
+    tileCanvas.width = 16;
+    tileCanvas.height = 16;
+    var tileCtx = tileCanvas.getContext('2d');
+    tileCtx.imageSmoothingEnabled = false;
+    tileCtx.drawImage(tmpCanvas, x1, y1, w, h, 0, 0, 16, 16);
+
+    // Add as a custom tile
+    var id = customTileId++;
+    var displayCanvas = document.createElement('canvas');
+    displayCanvas.width = 16;
+    displayCanvas.height = 16;
+    displayCanvas.getContext('2d').drawImage(tileCanvas, 0, 0);
+    displayCanvas.style.width = '48px';
+    displayCanvas.style.height = '48px';
+    displayCanvas.style.imageRendering = 'pixelated';
+    displayCanvas.style.cursor = 'pointer';
+    displayCanvas.style.border = '2px solid transparent';
+    displayCanvas.style.borderRadius = '3px';
+    displayCanvas.title = 'Custom tile ' + id + ' (from reference)';
+
+    // Store the tile image data for painting
+    tileCanvases[id] = tileCanvas;
+
+    displayCanvas.addEventListener('click', function() {
+      selectedTile = id;
+      setMode('paint');
+      document.querySelectorAll('.tile-cell').forEach(function(c) { c.classList.remove('selected'); });
+      displayCanvas.style.borderColor = '#a855f7';
+      document.getElementById('selectedLabel').textContent = 'Custom #' + id;
+      // Update preview
+      var prev = document.getElementById('selectedPreview');
+      prev.getContext('2d').drawImage(tileCanvas, 0, 0);
+    });
+
+    document.getElementById('customTiles').appendChild(displayCanvas);
+
+    // Clear selection
+    dragStart = null;
+    dragEnd = null;
+    refCtx.clearRect(0, 0, refCanvas.width, refCanvas.height);
+    showToast('Custom tile #' + id + ' created from reference');
+    e.preventDefault();
+    e.stopPropagation();
+  });
+})();
 
 // Resize handler
 window.addEventListener('resize', () => { initMapCanvas(); renderMap(); });
