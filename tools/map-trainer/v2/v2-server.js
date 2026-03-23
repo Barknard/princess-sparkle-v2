@@ -385,13 +385,50 @@ async function runGeneration() {
     return;
   }
 
-  // Check for plateau (best score hasn't improved in 200 gens)
-  if (status.generation - status.bestGeneration > 200) {
-    addLog(`PLATEAU detected: no improvement in 200 gens. Increasing mutation.`);
-    evolver.mutationRate = Math.min(0.5, evolver.mutationRate + 0.05);
-    evolver.mutationStrength = Math.min(0.6, evolver.mutationStrength + 0.05);
-    // Reset plateau counter
+  // Check for plateau — escalating response
+  const staleGens = status.generation - status.bestGeneration;
+
+  if (staleGens > 500) {
+    // CATACLYSM: nuke 90% of population, replace with completely random organisms
+    addLog(`🌋 CATACLYSM at gen ${status.generation}! Stale for ${staleGens} gens. Nuking 90% of population.`);
+    const eliteCount = Math.max(2, Math.floor(population.length * 0.1));
+    const newPop = population.slice(0, eliteCount); // keep top 10%
+    while (newPop.length < population.length) {
+      // Create random organism by heavily mutating default DNA
+      const rnd = JSON.parse(JSON.stringify(population[0]));
+      for (const k of Object.keys(rnd)) {
+        if (typeof rnd[k] === 'number') rnd[k] = rnd[k] + (Math.random() - 0.5) * rnd[k] * 2;
+        if (typeof rnd[k] === 'boolean') rnd[k] = Math.random() > 0.5;
+      }
+      newPop.push(rnd);
+    }
+    population = newPop;
+    evolver.mutationRate = 0.3;
+    evolver.mutationStrength = 0.5;
     status.bestGeneration = status.generation;
+  } else if (staleGens > 200) {
+    // SHAKE: randomize 50% of population, boost mutation heavily
+    addLog(`⚡ SHAKE at gen ${status.generation}! Stale for ${staleGens} gens. Randomizing 50%.`);
+    const keep = Math.floor(population.length * 0.5);
+    const newPop = population.slice(0, keep);
+    while (newPop.length < population.length) {
+      // Heavily mutate the best organism instead of pure random
+      const mutated = evolver.mutate(JSON.parse(JSON.stringify(population[0])));
+      newPop.push(mutated);
+    }
+    population = newPop;
+    evolver.mutationRate = Math.min(0.4, evolver.mutationRate + 0.1);
+    evolver.mutationStrength = Math.min(0.5, evolver.mutationStrength + 0.1);
+    status.bestGeneration = status.generation;
+  } else if (staleGens > 100) {
+    // NUDGE: increase mutation
+    if (staleGens === 101) addLog(`📈 Nudge: increasing mutation after ${staleGens} stale gens`);
+    evolver.mutationRate = Math.min(0.3, 0.15 + (staleGens - 100) * 0.001);
+    evolver.mutationStrength = Math.min(0.4, 0.2 + (staleGens - 100) * 0.001);
+  } else {
+    // Normal: reset mutation to defaults
+    evolver.mutationRate = 0.15;
+    evolver.mutationStrength = 0.2;
   }
 
   // Evolve next generation
