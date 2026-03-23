@@ -230,6 +230,78 @@ class TileRelationshipLearner {
     }
   }
 
+  /**
+   * Scan for LARGE multi-layer composites (up to maxSize x maxSize).
+   * Finds recurring rectangular patterns across ground+objects+foreground simultaneously.
+   * A "village block" composite might be 10x6: building+fence+path+decorations.
+   */
+  _scanLargeComposites(mapData, score, maxSize) {
+    maxSize = maxSize || 20;
+    const { width, height, ground, objects, foreground } = mapData;
+
+    // Scan windows from largest to smallest, but only non-trivial ones
+    // (at least 20% non-empty tiles across all layers)
+    const sizes = [];
+    for (let h = maxSize; h >= 4; h--) {
+      for (let w = maxSize; w >= 4; w--) {
+        if (w * h > 200) continue; // skip very large windows to avoid memory issues
+        sizes.push({ w, h });
+      }
+    }
+
+    for (const { w: pw, h: ph } of sizes) {
+      // Step by half the window size to find overlapping patterns
+      const stepX = Math.max(1, Math.floor(pw / 2));
+      const stepY = Math.max(1, Math.floor(ph / 2));
+
+      for (let y = 0; y <= height - ph; y += stepY) {
+        for (let x = 0; x <= width - pw; x += stepX) {
+          // Extract multi-layer pattern
+          const pattern = { ground: [], objects: [], foreground: [], w: pw, h: ph };
+          let nonEmpty = 0;
+          let hasStructure = false; // has building/fence/tree tiles
+
+          for (let dy = 0; dy < ph; dy++) {
+            const gRow = [], oRow = [], fRow = [];
+            for (let dx = 0; dx < pw; dx++) {
+              const i = (y + dy) * width + (x + dx);
+              const g = ground[i] ?? -1;
+              const o = objects[i] ?? -1;
+              const f = foreground[i] ?? -1;
+              gRow.push(g); oRow.push(o); fRow.push(f);
+              if (o !== -1) nonEmpty++;
+              if (f !== -1) nonEmpty++;
+              if (ROOF_TILES.has(o) || WALL_TILES.has(o) || FENCE_TILES.has(o) || CANOPY_TILES.has(f)) hasStructure = true;
+            }
+            pattern.ground.push(gRow);
+            pattern.objects.push(oRow);
+            pattern.foreground.push(fRow);
+          }
+
+          // Only record if pattern has meaningful structure (not just grass)
+          if (!hasStructure || nonEmpty < pw * ph * 0.15) continue;
+
+          // Create a multi-layer pattern ID
+          const id = `ml_${pw}x${ph}_` + pattern.objects.map(r => r.join(',')).join('|') +
+            '_fg_' + pattern.foreground.map(r => r.join(',')).join('|');
+
+          if (!this._rawPatterns[id]) {
+            this._rawPatterns[id] = {
+              tiles: pattern.objects, // primary layer
+              multiLayer: pattern,   // all layers
+              count: 0,
+              totalScore: 0,
+              width: pw,
+              height: ph
+            };
+          }
+          this._rawPatterns[id].count += 1;
+          this._rawPatterns[id].totalScore += score;
+        }
+      }
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
@@ -250,6 +322,9 @@ class TileRelationshipLearner {
 
     // Scan for composite patterns in the objects layer (most structures live here)
     if (objects) this._scanCompositePatterns(objects, width, height, score);
+
+    // Scan for LARGE multi-layer composites (buildings+fences+paths as one unit)
+    this._scanLargeComposites(mapData, score, 12);
 
     this.totalMapsLearned++;
   }
@@ -272,6 +347,9 @@ class TileRelationshipLearner {
 
     // Composites from reference get a high pseudo-score
     if (objects) this._scanCompositePatterns(objects, width, height, weight * 100);
+
+    // Large multi-layer composites from reference (ground truth)
+    this._scanLargeComposites(mapData, weight * 100, 20);
 
     this.totalMapsLearned++;
   }
@@ -382,8 +460,19 @@ class TileRelationshipLearner {
         if (waterCount >= 5) type = 'water';
       }
 
+      // Classify large multi-layer patterns
+      if (data.multiLayer && data.width >= 4 && data.height >= 3) {
+        const oFlat = data.multiLayer.objects.flat();
+        const hasRoof = oFlat.some(t => ROOF_TILES.has(t));
+        const hasFence = oFlat.some(t => FENCE_TILES.has(t));
+        const hasWall = oFlat.some(t => WALL_TILES.has(t));
+        if (hasRoof && hasWall && hasFence) type = 'building-block';
+        else if (hasRoof && hasWall) type = 'building-large';
+      }
+
       // Build a descriptive ID
-      const compositeId = `${type}_${flatTiles.filter(t => t !== -1).join('_')}`;
+      const sizeTag = (data.width && data.height) ? `${data.width}x${data.height}_` : '';
+      const compositeId = `${type}_${sizeTag}${flatTiles.filter(t => t !== -1).join('_').slice(0, 60)}`;
 
       // Merge with existing if same ID (shouldn't happen since pattern IDs are unique,
       // but pattern IDs could differ from composite IDs)
