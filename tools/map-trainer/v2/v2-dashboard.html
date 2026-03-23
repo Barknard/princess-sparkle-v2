@@ -20,7 +20,7 @@
     display: grid;
     height: 100vh;
     grid-template-rows: 42px 1fr 1fr;
-    grid-template-columns: 140px 1fr 200px 200px;
+    grid-template-columns: 140px 1fr 240px;
     gap: 6px;
     padding: 6px;
   }
@@ -284,16 +284,19 @@
     <canvas id="chart"></canvas>
   </div>
 
-  <!-- BEST MAP -->
-  <div class="panel map-preview">
-    <div class="panel-title">Best Map</div>
-    <img id="best-map" src="/api/best-map" alt="Best map" onclick="openLightbox(this.src)">
-  </div>
-
-  <!-- REFERENCE -->
-  <div class="panel map-preview">
-    <div class="panel-title">Reference</div>
-    <img id="ref-map" src="/reference" alt="Reference" onclick="openLightbox(this.src)">
+  <!-- MAPS: stacked vertically (best on top, reference below with grid overlay) -->
+  <div class="panel maps-stacked" style="grid-row: 2 / 4; display:flex; flex-direction:column; gap:4px; overflow:hidden;">
+    <div style="flex:1; min-height:0; position:relative;">
+      <div class="panel-title">Best Map</div>
+      <img id="best-map" src="/api/best-map" alt="Best map" onclick="openLightbox(this.src)" style="width:100%; height:calc(100% - 18px); object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
+    </div>
+    <div style="flex:1; min-height:0; position:relative;">
+      <div class="panel-title">Reference <span id="grid-count" style="color:#a855f7; margin-left:8px; font-size:10px;"></span></div>
+      <div style="position:relative; width:100%; height:calc(100% - 18px);">
+        <img id="ref-map" src="/reference" alt="Reference" onclick="openLightbox(this.src)" style="width:100%; height:100%; object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
+        <canvas id="grid-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; image-rendering:pixelated;"></canvas>
+      </div>
+    </div>
   </div>
 
   <!-- RADAR CHART -->
@@ -302,16 +305,16 @@
     <canvas id="radar"></canvas>
   </div>
 
-  <!-- LIVE LOG -->
-  <div class="panel log-panel">
-    <div class="panel-title">Live Log</div>
-    <div class="log-content" id="log"></div>
-  </div>
-
-  <!-- HEATMAP -->
-  <div class="panel heatmap-panel">
-    <div class="panel-title">Tile Match Heatmap</div>
-    <canvas id="heatmap"></canvas>
+  <!-- LOG + HEATMAP: stacked vertically -->
+  <div class="panel" style="display:flex; flex-direction:column; gap:4px; overflow:hidden;">
+    <div class="log-panel" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="panel-title">Live Log</div>
+      <div class="log-content" id="log" style="flex:1; overflow-y:auto;"></div>
+    </div>
+    <div class="heatmap-panel" style="flex:0 0 auto;">
+      <div class="panel-title">Tile Match Heatmap</div>
+      <canvas id="heatmap" style="width:100%; height:80px;"></canvas>
+    </div>
   </div>
 
 </div>
@@ -323,6 +326,51 @@
 
 <script>
 // ── Lightbox ──────────────────────────────────────────
+// Draw grid overlay on reference image
+function drawGridOverlay() {
+  var refImg = document.getElementById('ref-map');
+  var canvas = document.getElementById('grid-overlay');
+  if (!refImg || !canvas || !refImg.naturalWidth) return;
+
+  // Match canvas to displayed image size
+  var rect = refImg.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // The reference is 60x40 tiles at 16px each = 960x640
+  // Scale to fit the displayed image
+  var tileW = canvas.width / 60;
+  var tileH = canvas.height / 40;
+
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
+  ctx.lineWidth = 0.5;
+
+  // Vertical lines
+  for (var x = 0; x <= 60; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * tileW, 0);
+    ctx.lineTo(x * tileW, canvas.height);
+    ctx.stroke();
+  }
+  // Horizontal lines
+  for (var y = 0; y <= 40; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * tileH);
+    ctx.lineTo(canvas.width, y * tileH);
+    ctx.stroke();
+  }
+
+  document.getElementById('grid-count').textContent = '60×40 = 2,400 tiles';
+}
+
+// Draw grid once ref image loads, and on resize
+document.getElementById('ref-map').onload = drawGridOverlay;
+window.addEventListener('resize', drawGridOverlay);
+setTimeout(drawGridOverlay, 2000);
+
 function openLightbox(src) {
   document.getElementById('lightbox-img').src = src;
   document.getElementById('lightbox').classList.add('active');
