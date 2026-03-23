@@ -298,6 +298,7 @@
       <div style="font-size:9px; color:#777; margin-bottom:6px;">Click a tile below, then drag it on the map to match a known tile. Adjust grid sliders until cells align.</div>
       <canvas id="tilesetPreview" width="192" height="56" style="width:100%; image-rendering:pixelated; cursor:pointer; border:1px solid #2a2a3e; border-radius:4px; margin-bottom:6px;"></canvas>
       <div id="tileOverlayInfo" style="font-size:9px; color:#a855f7;">Click a tile to select it</div>
+      <button onclick="setGridFromOverlay()" style="margin-top:4px; background:#22c55e; color:#000; border:none; border-radius:4px; padding:4px 10px; font-size:10px; font-weight:700; cursor:pointer; width:100%;">Set Grid From Tile ✓</button>
     </div>
 
     <!-- Grid Calibration -->
@@ -743,85 +744,175 @@ function setupActions() {
   document.getElementById('calCellH').value = gridCellH;
   updateCalibration();
 
-  // ── Tile Overlay: load tileset, pick tile, drag on map ──
+  // ══════════════════════════════════════════════════════
+  // TILE OVERLAY: drag + resize, then set grid from it
+  // ══════════════════════════════════════════════════════
   var tilesetImg = new Image();
   tilesetImg.crossOrigin = 'anonymous';
   tilesetImg.src = '/tilemap';
   var selectedOverlayTile = -1;
-  var overlayPos = null; // { x, y } in display pixels on the canvas
-  var overlayDragging = false;
+  // Overlay rect in IMAGE pixels (not display pixels)
+  var overlay = { x: 200, y: 200, w: 48, h: 48, visible: false };
+  var overlayDrag = null; // { mode: 'move'|'resize', startX, startY, origX, origY, origW, origH }
 
   tilesetImg.onload = function() {
-    // Draw first 3 rows of tileset as preview (most useful tiles)
     var prev = document.getElementById('tilesetPreview');
     var pctx = prev.getContext('2d');
     pctx.imageSmoothingEnabled = false;
     pctx.drawImage(tilesetImg, 0, 0, 192, 48, 0, 0, 192, 48);
 
-    // Click on tileset preview to select a tile
     prev.addEventListener('click', function(e) {
       var rect = prev.getBoundingClientRect();
       var scaleX = 192 / rect.width;
       var px = (e.clientX - rect.left) * scaleX;
-      var py = (e.clientY - rect.top) * scaleX; // same scale since tileset is square-ish
+      var py = (e.clientY - rect.top) * scaleX;
       var col = Math.floor(px / 16);
       var row = Math.floor(py / 16);
       selectedOverlayTile = row * 12 + col;
       if (selectedOverlayTile >= 0 && selectedOverlayTile < 132) {
-        document.getElementById('tileOverlayInfo').textContent = 'Tile ' + selectedOverlayTile + ' selected — click on map to place overlay';
-        // Highlight selected tile
+        overlay.visible = true;
+        document.getElementById('tileOverlayInfo').innerHTML =
+          'Tile ' + selectedOverlayTile + ' — <b>drag</b> to move, <b>drag corner</b> to resize, then <b style="color:#22c55e">Set Grid</b>';
         pctx.clearRect(0, 0, 192, 56);
         pctx.drawImage(tilesetImg, 0, 0, 192, 48, 0, 0, 192, 48);
         pctx.strokeStyle = '#a855f7';
         pctx.lineWidth = 2;
         pctx.strokeRect(col * 16, row * 16, 16, 16);
+        render();
       }
     });
   };
 
-  // When a tile is selected, clicking on the main canvas places it as an overlay
-  // that you can drag to align with the reference
-  var origCanvasClick = canvas.onclick;
-  canvas.addEventListener('dblclick', function(e) {
-    if (selectedOverlayTile < 0) return;
+  // Convert display coords to image coords
+  function displayToImg(dx, dy) {
     var rect = canvas.getBoundingClientRect();
-    overlayPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    render();
-  });
-
-  // Extend render to draw the tile overlay
-  var _origRender = render;
-  var _renderWrapped = false;
-  if (!_renderWrapped) {
-    var baseRender = render;
-    render = function() {
-      baseRender();
-      // Draw tile overlay if active
-      if (selectedOverlayTile >= 0 && overlayPos && tilesetImg.complete) {
-        var rect = canvas.getBoundingClientRect();
-        var imgW = 918, imgH = 515;
-        var scaleX = rect.width / imgW;
-        var scaleY = rect.height / imgH;
-        var tileDisplayW = gridCellW * scaleX;
-        var tileDisplayH = gridCellH * scaleY;
-
-        var col = selectedOverlayTile % 12;
-        var row = Math.floor(selectedOverlayTile / 12);
-        ctx.globalAlpha = 0.75;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(tilesetImg, col * 16, row * 16, 16, 16,
-          overlayPos.x - tileDisplayW / 2, overlayPos.y - tileDisplayH / 2,
-          tileDisplayW, tileDisplayH);
-        ctx.globalAlpha = 1.0;
-
-        // Border around overlay
-        ctx.strokeStyle = '#f0f';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(overlayPos.x - tileDisplayW / 2, overlayPos.y - tileDisplayH / 2, tileDisplayW, tileDisplayH);
-      }
-    };
-    _renderWrapped = true;
+    return { x: dx / rect.width * 918, y: dy / rect.height * 515 };
   }
+  function imgToDisplay(ix, iy) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: ix / 918 * rect.width, y: iy / 515 * rect.height };
+  }
+
+  // Check if display point is near the overlay resize corner (bottom-right)
+  function isNearResizeCorner(dx, dy) {
+    if (!overlay.visible) return false;
+    var corner = imgToDisplay(overlay.x + overlay.w, overlay.y + overlay.h);
+    return Math.abs(dx - corner.x) < 10 && Math.abs(dy - corner.y) < 10;
+  }
+  function isInsideOverlay(dx, dy) {
+    if (!overlay.visible) return false;
+    var tl = imgToDisplay(overlay.x, overlay.y);
+    var br = imgToDisplay(overlay.x + overlay.w, overlay.y + overlay.h);
+    return dx >= tl.x && dx <= br.x && dy >= tl.y && dy <= br.y;
+  }
+
+  // Override mousedown on canvas for overlay drag/resize (hold Shift)
+  canvas.addEventListener('mousedown', function(e) {
+    if (!overlay.visible || !e.shiftKey) return; // Shift+click for overlay interaction
+    var rect = canvas.getBoundingClientRect();
+    var dx = e.clientX - rect.left;
+    var dy = e.clientY - rect.top;
+
+    if (isNearResizeCorner(dx, dy)) {
+      overlayDrag = { mode: 'resize', startX: dx, startY: dy, origW: overlay.w, origH: overlay.h };
+      e.preventDefault(); e.stopPropagation();
+    } else if (isInsideOverlay(dx, dy)) {
+      overlayDrag = { mode: 'move', startX: dx, startY: dy, origX: overlay.x, origY: overlay.y };
+      e.preventDefault(); e.stopPropagation();
+    }
+  }, true); // capture phase so it fires before annotation painting
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (!overlayDrag) return;
+    var rect = canvas.getBoundingClientRect();
+    var dx = e.clientX - rect.left;
+    var dy = e.clientY - rect.top;
+    var ddx = (dx - overlayDrag.startX) / rect.width * 918;
+    var ddy = (dy - overlayDrag.startY) / rect.height * 515;
+
+    if (overlayDrag.mode === 'move') {
+      overlay.x = overlayDrag.origX + ddx;
+      overlay.y = overlayDrag.origY + ddy;
+    } else if (overlayDrag.mode === 'resize') {
+      overlay.w = Math.max(10, overlayDrag.origW + ddx);
+      overlay.h = Math.max(10, overlayDrag.origH + ddy);
+    }
+    render();
+    e.preventDefault(); e.stopPropagation();
+  }, true);
+
+  canvas.addEventListener('mouseup', function() {
+    if (overlayDrag) {
+      overlayDrag = null;
+      // Update the tile overlay info with current size
+      document.getElementById('tileOverlayInfo').innerHTML =
+        'Tile ' + selectedOverlayTile + ' | Size: ' + overlay.w.toFixed(1) + '×' + overlay.h.toFixed(1) + 'px' +
+        ' — <b style="color:#22c55e">Set Grid</b> to apply';
+    }
+  }, true);
+
+  // "Set Grid From Tile" — auto-calculate grid params from overlay size/position
+  window.setGridFromOverlay = function() {
+    if (!overlay.visible) return;
+    // The overlay rectangle represents ONE tile in image pixels
+    gridCellW = overlay.w;
+    gridCellH = overlay.h;
+    // Calculate offset: snap the overlay position to the nearest grid origin
+    gridOffsetX = overlay.x % overlay.w;
+    gridOffsetY = overlay.y % overlay.h;
+    // Calculate cols/rows from image dimensions
+    gridCols = Math.round((918 - gridOffsetX) / gridCellW);
+    gridRows = Math.round((515 - gridOffsetY) / gridCellH);
+    // Update UI
+    document.getElementById('calCols').value = gridCols;
+    document.getElementById('calRows').value = gridRows;
+    document.getElementById('calOffX').value = gridOffsetX;
+    document.getElementById('calOffY').value = gridOffsetY;
+    document.getElementById('calCellW').value = gridCellW;
+    document.getElementById('calCellH').value = gridCellH;
+    saveCalibration();
+    render();
+    document.getElementById('calInfo').textContent =
+      gridCols + '×' + gridRows + ' | offset: ' + gridOffsetX.toFixed(1) + ',' + gridOffsetY.toFixed(1) +
+      ' | cell: ' + gridCellW.toFixed(1) + '×' + gridCellH.toFixed(1);
+    document.getElementById('tileOverlayInfo').innerHTML =
+      '<span style="color:#22c55e">✓ Grid set!</span> ' + gridCols + '×' + gridRows + ' cells, ' + gridCellW.toFixed(1) + '×' + gridCellH.toFixed(1) + 'px each';
+  };
+
+  // Wrap render to draw overlay
+  var baseRender = render;
+  render = function() {
+    baseRender();
+    if (!overlay.visible || selectedOverlayTile < 0 || !tilesetImg.complete) return;
+
+    var tl = imgToDisplay(overlay.x, overlay.y);
+    var sz = imgToDisplay(overlay.x + overlay.w, overlay.y + overlay.h);
+    var dw = sz.x - tl.x;
+    var dh = sz.y - tl.y;
+
+    var col = selectedOverlayTile % 12;
+    var row = Math.floor(selectedOverlayTile / 12);
+
+    // Draw tile image
+    ctx.globalAlpha = 0.8;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tilesetImg, col * 16, row * 16, 16, 16, tl.x, tl.y, dw, dh);
+    ctx.globalAlpha = 1.0;
+
+    // Magenta border
+    ctx.strokeStyle = '#ff00ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tl.x, tl.y, dw, dh);
+
+    // Resize handle (bottom-right corner)
+    ctx.fillStyle = '#ff00ff';
+    ctx.fillRect(tl.x + dw - 6, tl.y + dh - 6, 8, 8);
+
+    // Label
+    ctx.fillStyle = '#ff00ff';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText('Shift+drag to move/resize', tl.x + 2, tl.y - 4);
+  };
 }
 
 // ── Save / Load ──────────────────────────────────────
