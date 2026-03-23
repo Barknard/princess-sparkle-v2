@@ -378,6 +378,11 @@ function renderMap() {
           mapCtx.drawImage(tilesetImg,
             col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE,
             x * TILE_SIZE * scale, y * TILE_SIZE * scale, TILE_SIZE * scale, TILE_SIZE * scale);
+        } else if (t >= 200 && tileCanvases[t]) {
+          // Custom tile — draw from cached canvas
+          mapCtx.drawImage(tileCanvases[t],
+            0, 0, 16, 16,
+            x * TILE_SIZE * scale, y * TILE_SIZE * scale, TILE_SIZE * scale, TILE_SIZE * scale);
         }
       }
     }
@@ -611,15 +616,21 @@ function downloadPng() {
   tmpCanvas.height = MAP_H * TILE_SIZE;
   const tmpCtx = tmpCanvas.getContext('2d');
   tmpCtx.imageSmoothingEnabled = false;
-  for (let y = 0; y < MAP_H; y++) {
-    for (let x = 0; x < MAP_W; x++) {
-      const t = mapGround[y * MAP_W + x];
-      if (t >= 0 && t < TOTAL_TILES) {
-        const col = t % COLS;
-        const row = Math.floor(t / COLS);
-        tmpCtx.drawImage(tilesetImg,
-          col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE,
-          x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  // Render all 3 layers
+  for (const layerName of ['ground', 'objects', 'foreground']) {
+    const layerData = layers[layerName];
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        const t = layerData[y * MAP_W + x];
+        if (t >= 0 && t < TOTAL_TILES) {
+          const col = t % COLS;
+          const row = Math.floor(t / COLS);
+          tmpCtx.drawImage(tilesetImg,
+            col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE,
+            x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        } else if (t >= 200 && tileCanvases[t]) {
+          tmpCtx.drawImage(tileCanvases[t], 0, 0, 16, 16, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
       }
     }
   }
