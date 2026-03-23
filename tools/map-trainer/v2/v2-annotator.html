@@ -292,16 +292,24 @@
     <div class="tag-list" id="tagList"></div>
     <div class="cell-info" id="cellInfo">Hover a cell to see info</div>
 
+    <!-- Tile Overlay — pick a tile to align the grid -->
+    <div style="border-top:1px solid #2a2a3e; padding-top:8px; margin-top:8px;">
+      <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:6px;">Tile Overlay (align grid)</div>
+      <div style="font-size:9px; color:#777; margin-bottom:6px;">Click a tile below, then drag it on the map to match a known tile. Adjust grid sliders until cells align.</div>
+      <canvas id="tilesetPreview" width="192" height="56" style="width:100%; image-rendering:pixelated; cursor:pointer; border:1px solid #2a2a3e; border-radius:4px; margin-bottom:6px;"></canvas>
+      <div id="tileOverlayInfo" style="font-size:9px; color:#a855f7;">Click a tile to select it</div>
+    </div>
+
     <!-- Grid Calibration -->
     <div style="border-top:1px solid #2a2a3e; padding-top:8px; margin-top:8px;">
       <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:6px;">Grid Calibration</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10px; color:#888;">
         <label>Cols: <input type="number" id="calCols" value="19" min="5" max="60" style="width:40px; background:#0a0a1a; border:1px solid #2a2a3e; color:#ccc; padding:2px 4px; border-radius:3px;"></label>
         <label>Rows: <input type="number" id="calRows" value="11" min="5" max="40" style="width:40px; background:#0a0a1a; border:1px solid #2a2a3e; color:#ccc; padding:2px 4px; border-radius:3px;"></label>
-        <label>Offset X: <input type="range" id="calOffX" min="-20" max="20" value="0" style="width:60px;"></label>
-        <label>Offset Y: <input type="range" id="calOffY" min="-20" max="20" value="0" style="width:60px;"></label>
-        <label>Cell W: <input type="range" id="calCellW" min="30" max="60" value="48" step="0.1" style="width:60px;"></label>
-        <label>Cell H: <input type="range" id="calCellH" min="30" max="60" value="47" step="0.1" style="width:60px;"></label>
+        <label>Offset X: <input type="range" id="calOffX" min="-30" max="30" value="0" step="0.5" style="width:60px;"></label>
+        <label>Offset Y: <input type="range" id="calOffY" min="-30" max="30" value="0" step="0.5" style="width:60px;"></label>
+        <label>Cell W: <input type="range" id="calCellW" min="20" max="70" value="48" step="0.1" style="width:60px;"></label>
+        <label>Cell H: <input type="range" id="calCellH" min="20" max="70" value="47" step="0.1" style="width:60px;"></label>
       </div>
       <div id="calInfo" style="font-size:9px; color:#555; margin-top:4px;">19×11 | offset: 0,0 | cell: 48.3×46.8</div>
     </div>
@@ -734,6 +742,86 @@ function setupActions() {
   document.getElementById('calCellW').value = gridCellW;
   document.getElementById('calCellH').value = gridCellH;
   updateCalibration();
+
+  // ── Tile Overlay: load tileset, pick tile, drag on map ──
+  var tilesetImg = new Image();
+  tilesetImg.crossOrigin = 'anonymous';
+  tilesetImg.src = '/tilemap';
+  var selectedOverlayTile = -1;
+  var overlayPos = null; // { x, y } in display pixels on the canvas
+  var overlayDragging = false;
+
+  tilesetImg.onload = function() {
+    // Draw first 3 rows of tileset as preview (most useful tiles)
+    var prev = document.getElementById('tilesetPreview');
+    var pctx = prev.getContext('2d');
+    pctx.imageSmoothingEnabled = false;
+    pctx.drawImage(tilesetImg, 0, 0, 192, 48, 0, 0, 192, 48);
+
+    // Click on tileset preview to select a tile
+    prev.addEventListener('click', function(e) {
+      var rect = prev.getBoundingClientRect();
+      var scaleX = 192 / rect.width;
+      var px = (e.clientX - rect.left) * scaleX;
+      var py = (e.clientY - rect.top) * scaleX; // same scale since tileset is square-ish
+      var col = Math.floor(px / 16);
+      var row = Math.floor(py / 16);
+      selectedOverlayTile = row * 12 + col;
+      if (selectedOverlayTile >= 0 && selectedOverlayTile < 132) {
+        document.getElementById('tileOverlayInfo').textContent = 'Tile ' + selectedOverlayTile + ' selected — click on map to place overlay';
+        // Highlight selected tile
+        pctx.clearRect(0, 0, 192, 56);
+        pctx.drawImage(tilesetImg, 0, 0, 192, 48, 0, 0, 192, 48);
+        pctx.strokeStyle = '#a855f7';
+        pctx.lineWidth = 2;
+        pctx.strokeRect(col * 16, row * 16, 16, 16);
+      }
+    });
+  };
+
+  // When a tile is selected, clicking on the main canvas places it as an overlay
+  // that you can drag to align with the reference
+  var origCanvasClick = canvas.onclick;
+  canvas.addEventListener('dblclick', function(e) {
+    if (selectedOverlayTile < 0) return;
+    var rect = canvas.getBoundingClientRect();
+    overlayPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    render();
+  });
+
+  // Extend render to draw the tile overlay
+  var _origRender = render;
+  var _renderWrapped = false;
+  if (!_renderWrapped) {
+    var baseRender = render;
+    render = function() {
+      baseRender();
+      // Draw tile overlay if active
+      if (selectedOverlayTile >= 0 && overlayPos && tilesetImg.complete) {
+        var rect = canvas.getBoundingClientRect();
+        var imgW = 918, imgH = 515;
+        var scaleX = rect.width / imgW;
+        var scaleY = rect.height / imgH;
+        var tileDisplayW = gridCellW * scaleX;
+        var tileDisplayH = gridCellH * scaleY;
+
+        var col = selectedOverlayTile % 12;
+        var row = Math.floor(selectedOverlayTile / 12);
+        ctx.globalAlpha = 0.75;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tilesetImg, col * 16, row * 16, 16, 16,
+          overlayPos.x - tileDisplayW / 2, overlayPos.y - tileDisplayH / 2,
+          tileDisplayW, tileDisplayH);
+        ctx.globalAlpha = 1.0;
+
+        // Border around overlay
+        ctx.strokeStyle = '#f0f';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(overlayPos.x - tileDisplayW / 2, overlayPos.y - tileDisplayH / 2, tileDisplayW, tileDisplayH);
+      }
+    };
+    _renderWrapped = true;
+  }
 }
 
 // ── Save / Load ──────────────────────────────────────
