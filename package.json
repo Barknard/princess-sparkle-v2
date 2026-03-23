@@ -10,7 +10,8 @@
     "map:import": "node tools/tmj-to-level.js",
     "train": "node tools/map-trainer/server.js",
     "train:auto": "node tools/map-trainer/auto-train.js",
-    "train:build-semantics": "node tools/map-trainer/build-semantics.js"
+    "train:build-semantics": "node tools/map-trainer/build-semantics.js",
+    "train:v2": "node tools/map-trainer/v2/v2-server.js"
   },
   "repository": {
     "type": "git",

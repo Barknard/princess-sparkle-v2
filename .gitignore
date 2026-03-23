@@ -20,3 +20,5 @@ tools/map-trainer/evolution-memory.json
 tools/map-trainer/learned-tile-knowledge.json
 tools/map-trainer/logs/
 tools/map-trainer/batch-state.json
+tools/map-trainer/v2/results/
+tools/map-trainer/v2/learned-knowledge-v2.json
