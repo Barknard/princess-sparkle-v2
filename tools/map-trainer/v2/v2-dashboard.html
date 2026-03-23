@@ -303,7 +303,7 @@
       <img id="best-map" src="/api/best-map" alt="Best map" onclick="openLightbox(this.src)" style="width:100%; height:calc(100% - 16px); object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
     </div>
     <div style="flex:1; min-height:0; position:relative;">
-      <div class="panel-title">Reference <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;">60×40 = 2,400 tiles</span></div>
+      <div class="panel-title">Reference <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;">24×14 = 336 tiles</span></div>
       <div style="position:relative; width:100%; height:calc(100% - 16px);">
         <img id="ref-map" src="/reference" alt="Reference" onclick="openLightbox(this.src)" style="width:100%; height:100%; object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
         <canvas id="grid-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; image-rendering:pixelated;"></canvas>
@@ -348,21 +348,21 @@ function drawGridOverlay() {
 
   // The reference is 60x40 tiles at 16px each = 960x640
   // Scale to fit the displayed image
-  var tileW = canvas.width / 60;
-  var tileH = canvas.height / 40;
+  var tileW = canvas.width / 24;
+  var tileH = canvas.height / 14;
 
   ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
   ctx.lineWidth = 0.5;
 
   // Vertical lines
-  for (var x = 0; x <= 60; x++) {
+  for (var x = 0; x <= 24; x++) {
     ctx.beginPath();
     ctx.moveTo(x * tileW, 0);
     ctx.lineTo(x * tileW, canvas.height);
     ctx.stroke();
   }
   // Horizontal lines
-  for (var y = 0; y <= 40; y++) {
+  for (var y = 0; y <= 14; y++) {
     ctx.beginPath();
     ctx.moveTo(0, y * tileH);
     ctx.lineTo(canvas.width, y * tileH);
@@ -595,8 +595,10 @@ function drawHeatmap(canvas, matchGrid, mapW, mapH) {
     for (var x = 0; x < w; x++) {
       var val = matchGrid[y * w + x] || 0; // 0-3 layers matching
       var ratio = val / 3;
-      // Green = match, Red = mismatch, brightness = layers matched
-      var r = Math.round((1 - ratio) * 239);
+      // Perfect match (3/3) = transparent/dark, mismatch = bright red
+      // This makes ONLY differences visible — matched areas fade away
+      if (val === 3) { continue; } // skip perfect matches entirely
+      var r = Math.round((1 - ratio) * 255);
       var g = Math.round(ratio * 197);
       var b = Math.round((1 - ratio) * 68 + ratio * 94);
       var alpha = 0.4 + ratio * 0.6;
@@ -709,7 +711,7 @@ async function poll() {
     updateKPIs(s);
     drawChart(chartCanvas, s.history, s.target);
     drawRadar(radarCanvas, s.breakdown);
-    drawHeatmap(heatmapCanvas, s.matchGrid, 60, 40);
+    drawHeatmap(heatmapCanvas, s.matchGrid, 24, 14);
     updateLog(s.log);
     updateBestMap(s);
   } catch (e) {
