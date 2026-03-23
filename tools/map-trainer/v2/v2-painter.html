@@ -52,7 +52,7 @@
   <a href="/">← Dashboard</a>
   <a href="/annotate">Annotator</a>
   <div class="spacer"></div>
-  <span class="info" id="gridInfo">60 × 40 tiles</span>
+  <span class="info" id="gridInfo">24 × 14 tiles</span>
   <span class="info" id="tileCount">Placed: 0</span>
   <button onclick="exportMap()">Export JSON</button>
   <button onclick="downloadPng()">Download PNG</button>
@@ -85,8 +85,8 @@ const TILE_SIZE = 16;
 const COLS = 12;
 const ROWS = 11;
 const TOTAL_TILES = 132;
-const MAP_W = 60;
-const MAP_H = 40;
+const MAP_W = 24;
+const MAP_H = 14;
 
 // Map data: 3 flat arrays
 const mapGround = new Array(MAP_W * MAP_H).fill(-1);
