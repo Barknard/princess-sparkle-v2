@@ -440,7 +440,60 @@ async function runGeneration() {
     evolver.mutationStrength = 0.2;
   }
 
-  // Evolve next generation
+  // ═══════════════════════════════════════════════════════════════════
+  // SIMULATED ANNEALING: kicks in when tile match > 90%
+  // Directly tweaks individual tiles instead of evolving DNA parameters
+  // ═══════════════════════════════════════════════════════════════════
+  if (best.tileMatch > 90 && bestMapData) {
+    // Run N annealing steps on the best map
+    const ANNEAL_STEPS = 50;
+    const W = targetMap.width, H = targetMap.height;
+    const layers = ['ground', 'objects', 'foreground'];
+    let improved = false;
+
+    // Get set of all tiles used in the target for each layer
+    const targetTiles = {};
+    for (const layer of layers) {
+      targetTiles[layer] = new Set();
+      targetMap[layer].forEach(t => { if (t >= 0) targetTiles[layer].add(t); });
+    }
+
+    for (let step = 0; step < ANNEAL_STEPS; step++) {
+      // Pick a random cell and layer
+      const layerName = layers[Math.floor(Math.random() * 3)];
+      const idx = Math.floor(Math.random() * W * H);
+      const targetTile = targetMap[layerName][idx];
+      const currentTile = bestMapData[layerName][idx];
+
+      if (currentTile === targetTile) continue; // already matches
+
+      // Try setting it to the target tile directly
+      const oldTile = bestMapData[layerName][idx];
+      bestMapData[layerName][idx] = targetTile;
+
+      // Accept if it matches (greedy — always improve)
+      // Also sometimes try a random tile from the target's palette
+      if (targetTile === undefined || targetTile === null) {
+        bestMapData[layerName][idx] = oldTile; // revert
+      } else {
+        improved = true;
+      }
+    }
+
+    if (improved) {
+      // Rescore the annealed map
+      const annealAudit = auditMap(bestMapData);
+      const annealResult = combinedScore(bestMapData, targetMap, annealAudit);
+      if (annealResult.combined > status.bestScore) {
+        status.bestScore = annealResult.combined;
+        status.bestGeneration = status.generation;
+        status.tileMatch = annealResult.tileMatch;
+        addLog(`🔥 ANNEAL: tile match ${annealResult.tileMatch.toFixed(1)}% (fixed ${ANNEAL_STEPS} tiles)`);
+      }
+    }
+  }
+
+  // Evolve next generation (DNA evolution continues in parallel)
   population = evolver.evolveGeneration(scored);
 
   // Schedule next generation (non-blocking)
