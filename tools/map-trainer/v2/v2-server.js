@@ -433,10 +433,17 @@ app.get('/tilemap', (req, res) => {
   res.sendFile(TILESET_PATH);
 });
 
-// Reference image — the Kenney sample village
+// Reference image — user's hand-painted map (primary), Kenney sample (fallback)
+const PAINTED_REF_PATH = path.join(V2_DIR, 'painted-reference.png');
 app.get('/reference', (req, res) => {
+  if (fs.existsSync(PAINTED_REF_PATH)) return res.sendFile(PAINTED_REF_PATH);
   if (fs.existsSync(REFERENCE_PATH)) return res.sendFile(REFERENCE_PATH);
   res.status(404).send('Reference image not found');
+});
+// Original Kenney image still available at /kenney-reference
+app.get('/kenney-reference', (req, res) => {
+  if (fs.existsSync(REFERENCE_PATH)) return res.sendFile(REFERENCE_PATH);
+  res.status(404).send('Not found');
 });
 
 // Rendered target level (pixel-perfect from tile data)
