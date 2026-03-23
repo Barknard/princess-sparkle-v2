@@ -777,6 +777,84 @@ document.addEventListener('keydown', (e) => {
   var dragEnd = null;
   var lastSelection = null; // persists after mouseup: {x,y,w,h} in display coords
   var customTileId = 200;
+  var CUSTOM_TILES_KEY = 'painter-custom-tiles';
+
+  // Save all custom tiles as base64
+  function saveCustomTiles() {
+    var data = {};
+    for (var id = 200; id < customTileId; id++) {
+      if (tileCanvases[id]) {
+        data[id] = tileCanvases[id].toDataURL('image/png');
+      }
+    }
+    try { localStorage.setItem(CUSTOM_TILES_KEY, JSON.stringify(data)); } catch(e) {}
+  }
+
+  // Restore custom tiles from localStorage
+  function loadCustomTiles() {
+    try {
+      var data = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY));
+      if (!data) return;
+      var ids = Object.keys(data).map(Number).sort((a,b) => a - b);
+      for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        var img = new Image();
+        img.src = data[id];
+        (function(tileId, imgEl) {
+          imgEl.onload = function() {
+            var c = document.createElement('canvas');
+            c.width = 16; c.height = 16;
+            c.getContext('2d').drawImage(imgEl, 0, 0, 16, 16);
+            tileCanvases[tileId] = c;
+            addCustomTileUI(tileId, c);
+            if (tileId >= customTileId) customTileId = tileId + 1;
+            renderMap(); // re-render to show restored tiles
+          };
+        })(id, img);
+      }
+    } catch(e) {}
+  }
+
+  function addCustomTileUI(id, tileCanvas) {
+    var cell = document.createElement('div');
+    cell.style.cssText = 'width:44px; height:44px; cursor:pointer; border:2px solid transparent; border-radius:3px; position:relative; display:inline-block; background:#0a0a1a;';
+    cell.dataset.customId = id;
+    cell.title = 'Custom #' + id;
+    var dc = document.createElement('canvas');
+    dc.width = 16; dc.height = 16;
+    dc.getContext('2d').drawImage(tileCanvas, 0, 0);
+    dc.style.cssText = 'width:100%; height:100%; image-rendering:pixelated;';
+    cell.appendChild(dc);
+    var lbl = document.createElement('div');
+    lbl.style.cssText = 'position:absolute; bottom:0; right:1px; font-size:7px; color:#a855f7;';
+    lbl.textContent = id;
+    cell.appendChild(lbl);
+    var del = document.createElement('div');
+    del.style.cssText = 'position:absolute; top:-2px; left:-2px; width:12px; height:12px; background:#ef4444; color:#fff; font-size:8px; line-height:12px; text-align:center; border-radius:50%; cursor:pointer; display:none; z-index:1;';
+    del.textContent = '\u00d7';
+    del.addEventListener('click', function(evt) {
+      evt.stopPropagation();
+      for (var i = 0; i < MAP_W * MAP_H; i++) { if (mapGround[i]===id) mapGround[i]=-1; if (mapObjects[i]===id) mapObjects[i]=-1; if (mapForeground[i]===id) mapForeground[i]=-1; }
+      delete tileCanvases[id]; cell.remove();
+      if (selectedTile===id) { selectedTile=-1; document.getElementById('selectedLabel').textContent='None'; }
+      saveCustomTiles(); renderMap(); autoSave();
+    });
+    cell.appendChild(del);
+    cell.addEventListener('mouseenter', function() { del.style.display='block'; });
+    cell.addEventListener('mouseleave', function() { del.style.display='none'; });
+    cell.addEventListener('click', function() {
+      selectedTile = id; setMode('paint');
+      document.querySelectorAll('.tile-cell').forEach(function(c) { c.classList.remove('selected'); });
+      document.querySelectorAll('#customTiles > div').forEach(function(c) { c.style.borderColor='transparent'; c.style.boxShadow=''; });
+      cell.style.borderColor='#a855f7'; cell.style.boxShadow='0 0 6px #a855f7';
+      document.getElementById('selectedLabel').textContent = 'Custom #' + id;
+      document.getElementById('selectedPreview').getContext('2d').drawImage(tileCanvas, 0, 0);
+    });
+    document.getElementById('customTiles').appendChild(cell);
+  }
+
+  // Restore custom tiles on page load
+  setTimeout(loadCustomTiles, 600);
 
   // Redraw the persistent selection
   function drawLastSelection() {
@@ -881,65 +959,12 @@ document.addEventListener('keydown', (e) => {
     tileCtx.imageSmoothingEnabled = false;
     tileCtx.drawImage(tmpCanvas, x1, y1, w, h, 0, 0, 16, 16);
 
-    // Add as a custom tile
     var id = customTileId++;
-
-    // Store the tile image data for painting on ANY layer
     tileCanvases[id] = tileCanvas;
+    addCustomTileUI(id, tileCanvas);
+    saveCustomTiles();
 
-    // Create display cell matching standard tile-cell style
-    var cell = document.createElement('div');
-    cell.style.cssText = 'width:44px; height:44px; cursor:pointer; border:2px solid transparent; border-radius:3px; position:relative; display:inline-block; background:#0a0a1a;';
-    var displayCanvas = document.createElement('canvas');
-    displayCanvas.width = 16;
-    displayCanvas.height = 16;
-    displayCanvas.getContext('2d').drawImage(tileCanvas, 0, 0);
-    displayCanvas.style.cssText = 'width:100%; height:100%; image-rendering:pixelated;';
-    cell.appendChild(displayCanvas);
-    var label = document.createElement('div');
-    label.style.cssText = 'position:absolute; bottom:0; right:1px; font-size:7px; color:#a855f7;';
-    label.textContent = id;
-    cell.appendChild(label);
-    cell.title = 'Custom #' + id + ' — click to select, × to delete';
-    cell.dataset.customId = id;
-
-    // Delete button
-    var delBtn = document.createElement('div');
-    delBtn.style.cssText = 'position:absolute; top:-2px; left:-2px; width:12px; height:12px; background:#ef4444; color:#fff; font-size:8px; line-height:12px; text-align:center; border-radius:50%; cursor:pointer; display:none; z-index:1;';
-    delBtn.textContent = '×';
-    delBtn.addEventListener('click', function(evt) {
-      evt.stopPropagation();
-      // Remove from map data (replace all instances of this ID with -1)
-      for (var i = 0; i < MAP_W * MAP_H; i++) {
-        if (mapGround[i] === id) mapGround[i] = -1;
-        if (mapObjects[i] === id) mapObjects[i] = -1;
-        if (mapForeground[i] === id) mapForeground[i] = -1;
-      }
-      delete tileCanvases[id];
-      cell.remove();
-      if (selectedTile === id) { selectedTile = -1; document.getElementById('selectedLabel').textContent = 'None'; }
-      renderMap();
-      autoSave();
-      showToast('Custom tile #' + id + ' deleted');
-    });
-    cell.appendChild(delBtn);
-    cell.addEventListener('mouseenter', function() { delBtn.style.display = 'block'; });
-    cell.addEventListener('mouseleave', function() { delBtn.style.display = 'none'; });
-
-    cell.addEventListener('click', function() {
-      selectedTile = id;
-      setMode('paint');
-      // Clear all highlights
-      document.querySelectorAll('.tile-cell').forEach(function(c) { c.classList.remove('selected'); });
-      document.querySelectorAll('#customTiles > div').forEach(function(c) { c.style.borderColor = 'transparent'; });
-      cell.style.borderColor = '#a855f7';
-      cell.style.boxShadow = '0 0 6px #a855f7';
-      document.getElementById('selectedLabel').textContent = 'Custom #' + id;
-      var prev = document.getElementById('selectedPreview');
-      prev.getContext('2d').drawImage(tileCanvas, 0, 0);
-    });
-
-    document.getElementById('customTiles').appendChild(cell);
+    document.getElementById('customTiles'); // no-op anchor
 
     // Save selection rectangle so it stays visible
     var dispX = Math.min(dragStart.x, dragEnd.x);
