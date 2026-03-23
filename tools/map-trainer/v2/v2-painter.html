@@ -6,7 +6,7 @@
 <title>Tile Painter</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0a1a; color: #e0e0e0; font-family: system-ui, sans-serif; height: 100vh; overflow: hidden; display: grid; grid-template-rows: 42px 1fr 180px; grid-template-columns: 200px 1fr; grid-template-areas: "header header" "tiles canvas" "tiles ref"; }
+  body { background: #0a0a1a; color: #e0e0e0; font-family: system-ui, sans-serif; height: 100vh; overflow: hidden; display: grid; grid-template-rows: 42px 1fr 250px; grid-template-columns: 280px 1fr; grid-template-areas: "header header" "tiles canvas" "tiles ref"; }
 
   .header { grid-area: header; background: #141428; border-bottom: 1px solid #2a2a3e; display: flex; align-items: center; padding: 0 16px; gap: 16px; }
   .header h1 { font-size: 14px; font-weight: 700; color: #a855f7; }
@@ -58,9 +58,11 @@
   <button id="layerGround" class="primary" onclick="setLayer('ground')">Ground</button>
   <button id="layerObjects" onclick="setLayer('objects')">Objects</button>
   <button id="layerForeground" onclick="setLayer('foreground')">Foreground</button>
-  <button onclick="exportMap()">Export JSON</button>
-  <button onclick="downloadPng()">Download PNG</button>
+  <button onclick="undo()" title="Ctrl+Z">Undo</button>
+  <button onclick="exportMap()">Export</button>
+  <button onclick="downloadPng()">PNG</button>
   <button class="danger" onclick="clearAll()">Clear All</button>
+  <span class="info" id="autoSaveStatus" style="color:#22c55e;font-size:9px;"></span>
 </div>
 
 <div class="tile-panel">
@@ -124,6 +126,62 @@ let mode = 'paint'; // paint, erase, fill
 let isPainting = false;
 let brushW = 1, brushH = 1;
 
+// ── Undo stack ──
+const undoStack = [];
+const MAX_UNDO = 50;
+
+function pushUndo() {
+  undoStack.push({
+    ground: mapGround.slice(),
+    objects: mapObjects.slice(),
+    foreground: mapForeground.slice()
+  });
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const state = undoStack.pop();
+  for (let i = 0; i < MAP_W * MAP_H; i++) {
+    mapGround[i] = state.ground[i];
+    mapObjects[i] = state.objects[i];
+    mapForeground[i] = state.foreground[i];
+  }
+  renderMap();
+  autoSave();
+}
+
+// ── Autosave ──
+const AUTOSAVE_KEY = 'tile-painter-autosave';
+let autoSaveTimer = null;
+
+function autoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    const data = { ground: mapGround.slice(), objects: mapObjects.slice(), foreground: mapForeground.slice(), w: MAP_W, h: MAP_H };
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+      document.getElementById('autoSaveStatus').textContent = 'saved';
+      setTimeout(() => { document.getElementById('autoSaveStatus').textContent = ''; }, 1500);
+    } catch(e) {}
+  }, 500);
+}
+
+function loadAutoSave() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUTOSAVE_KEY));
+    if (saved && saved.ground && saved.ground.length === MAP_W * MAP_H) {
+      for (let i = 0; i < MAP_W * MAP_H; i++) {
+        mapGround[i] = saved.ground[i] ?? -1;
+        mapObjects[i] = saved.objects?.[i] ?? -1;
+        mapForeground[i] = saved.foreground?.[i] ?? -1;
+      }
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
 function setBrush(w, h) {
   brushW = w; brushH = h;
   document.querySelectorAll('[id^="brush"]').forEach(b => b.classList.remove('active'));
@@ -149,8 +207,25 @@ tilesetImg.src = '/tilemap';
 // Tile buffers cache
 const tileCanvases = [];
 
-tilesetImg.onload = function() {
+tilesetImg.onload = async function() {
   buildTilePicker();
+  // Try loading from server first, then autosave
+  let loaded = false;
+  try {
+    const r = await fetch('/api/painted-map');
+    if (r.ok) {
+      const d = await r.json();
+      if (d.ground && d.ground.length === MAP_W * MAP_H) {
+        for (let i = 0; i < MAP_W * MAP_H; i++) {
+          mapGround[i] = d.ground[i] ?? -1;
+          mapObjects[i] = d.objects?.[i] ?? -1;
+          mapForeground[i] = d.foreground?.[i] ?? -1;
+        }
+        loaded = true;
+      }
+    }
+  } catch(e) {}
+  if (!loaded) loadAutoSave();
   initMapCanvas();
   renderMap();
 };
@@ -344,7 +419,8 @@ function paintCell(x, y) {
 }
 
 mapCanvas.addEventListener('mousedown', (e) => {
-  isPainting = true;
+  pushUndo();
+  isPainting = 'started';
   const cell = getCellFromEvent(e);
   if (cell) paintCell(cell.x, cell.y);
 });
@@ -355,7 +431,7 @@ mapCanvas.addEventListener('mousemove', (e) => {
   if (cell) paintCell(cell.x, cell.y);
 });
 
-mapCanvas.addEventListener('mouseup', () => { isPainting = false; });
+mapCanvas.addEventListener('mouseup', () => { isPainting = false; autoSave(); });
 mapCanvas.addEventListener('mouseleave', () => { isPainting = false; });
 
 // Right-click to erase
@@ -363,8 +439,10 @@ mapCanvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   const cell = getCellFromEvent(e);
   if (cell) {
+    pushUndo();
     layers[activeLayer][cell.y * MAP_W + cell.x] = -1;
     renderMap();
+    autoSave();
   }
 });
 
@@ -438,6 +516,7 @@ function showToast(msg) {
 
 // Keyboard: E for erase, P for paint, Delete/Backspace for clear cell
 document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (e.key === 'e' || e.key === 'E') setMode('erase');
   if (e.key === 'p' || e.key === 'P') setMode('paint');
   if (e.key === 'f' || e.key === 'F') setMode('fill');
