@@ -281,6 +281,12 @@ async function runGeneration() {
   const best = scored[0];
   const stats = evolver.getStats(scored);
 
+  // Free map data from non-best entries to prevent OOM
+  for (let i = 1; i < scored.length; i++) {
+    scored[i].map = null;
+    scored[i].audit = null;
+  }
+
   // Update status
   status.currentBest = best.fitness;
   status.currentAvg = stats.avg;
