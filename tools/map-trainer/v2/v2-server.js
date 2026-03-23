@@ -433,12 +433,27 @@ app.get('/tilemap', (req, res) => {
   res.sendFile(TILESET_PATH);
 });
 
-// Reference image
-app.get('/reference', (req, res) => {
-  if (!fs.existsSync(REFERENCE_PATH)) {
-    return res.status(404).send('Reference image not found');
+// Reference image — render the TARGET LEVEL as pixel-perfect PNG (not the scaled Kenney promo)
+let targetPngCache = null;
+app.get('/reference', async (req, res) => {
+  try {
+    if (!targetPngCache && targetMap) {
+      targetPngCache = await renderMapToPng({
+        width: targetMap.width, height: targetMap.height,
+        ground: targetMap.ground, objects: targetMap.objects, foreground: targetMap.foreground
+      });
+    }
+    if (targetPngCache) {
+      res.type('png').send(targetPngCache);
+    } else if (fs.existsSync(REFERENCE_PATH)) {
+      res.sendFile(REFERENCE_PATH); // fallback to Kenney image
+    } else {
+      res.status(404).send('No reference available');
+    }
+  } catch (e) {
+    if (fs.existsSync(REFERENCE_PATH)) res.sendFile(REFERENCE_PATH);
+    else res.status(500).send(e.message);
   }
-  res.sendFile(REFERENCE_PATH);
 });
 
 // Stop evolution
