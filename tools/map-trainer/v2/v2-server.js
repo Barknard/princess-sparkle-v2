@@ -46,6 +46,7 @@ for (const arg of args) {
 
 // ── Load existing modules from parent trainer dir ────────────────────────────
 const { GeneticEvolver } = require(path.join(TRAINER_DIR, 'genetic-evolver'));
+const { V2Engine } = require(path.join(V2_DIR, 'v2-engine'));
 const { auditMap } = require(path.join(TRAINER_DIR, 'self-audit'));
 const { loadTargetMap, scoreTileMatch, combinedScore } = require(path.join(TRAINER_DIR, 'tile-match-scorer'));
 const { TileRelationshipLearner } = require(path.join(TRAINER_DIR, 'tile-relationship-learner'));
@@ -243,6 +244,14 @@ const evolver = new GeneticEvolver({
 });
 
 let population = evolver.initPopulation();
+
+// V2Engine with painted template — used for map generation
+const v2engine = new V2Engine({ width: targetMap.width, height: targetMap.height });
+if (paintedMap) {
+  v2engine.setPaintedTemplate(paintedMap);
+  console.log(`V2Engine: loaded ${v2engine._paintedBuildings.length} buildings, ${v2engine._paintedForeground.length} foreground tiles from painted map`);
+}
+
 let bestMapPng = null;
 let bestMapData = null;
 let startTime = Date.now();
@@ -274,7 +283,7 @@ async function runGeneration() {
 
   for (let i = 0; i < population.length; i++) {
     const dna = population[i];
-    const map = evolver.generateFromDNA(dna);
+    const map = v2engine.generate(dna, i + status.generation * 1000);
     const audit = auditMap(map);
     const result = combinedScore(map, targetMap, audit);
     const fitness = result.combined;

@@ -140,105 +140,150 @@ class V2Engine {
   idx(x, y) { return y * this.W + x; }
   inBounds(x, y) { return x >= 0 && x < this.W && y >= 0 && y < this.H; }
 
+  /**
+   * Load painted map as template base.
+   * @param {Object} painted - { width, height, ground[], objects[], foreground[] }
+   */
+  setPaintedTemplate(painted) {
+    this._painted = painted;
+    // Extract building structures from painted map
+    this._paintedBuildings = [];
+    this._paintedForeground = []; // {x, y, tile}
+    const W = painted.width, H = painted.height;
+
+    // Find connected object structures
+    const visited = new Set();
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const key = x + ',' + y;
+        if (visited.has(key)) continue;
+        const t = painted.objects[y * W + x];
+        if (t < 0) continue;
+        // Flood fill to find connected structure
+        const tiles = [];
+        const queue = [{x, y}];
+        let minX = W, maxX = 0, minY = H, maxY = 0;
+        while (queue.length) {
+          const {x: cx, y: cy} = queue.shift();
+          const k = cx + ',' + cy;
+          if (visited.has(k) || cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+          const tt = painted.objects[cy * W + cx];
+          if (tt < 0) continue;
+          visited.add(k);
+          tiles.push({x: cx, y: cy, tile: tt});
+          minX = Math.min(minX, cx); maxX = Math.max(maxX, cx);
+          minY = Math.min(minY, cy); maxY = Math.max(maxY, cy);
+          queue.push({x:cx+1,y:cy},{x:cx-1,y:cy},{x:cx,y:cy+1},{x:cx,y:cy-1});
+        }
+        if (tiles.length >= 3) {
+          // Store as relative positions from top-left
+          const rows = [];
+          for (let dy = 0; dy <= maxY - minY; dy++) {
+            const row = [];
+            for (let dx = 0; dx <= maxX - minX; dx++) {
+              const found = tiles.find(t => t.x === minX + dx && t.y === minY + dy);
+              row.push(found ? found.tile : -1);
+            }
+            rows.push(row);
+          }
+          this._paintedBuildings.push({
+            origX: minX, origY: minY,
+            w: maxX - minX + 1, h: maxY - minY + 1,
+            rows, tileCount: tiles.length
+          });
+        }
+      }
+    }
+
+    // Extract foreground tiles
+    for (let i = 0; i < W * H; i++) {
+      const t = painted.foreground[i];
+      if (t >= 0) {
+        this._paintedForeground.push({ x: i % W, y: Math.floor(i / W), tile: t });
+      }
+    }
+  }
+
   /** Generate a map from DNA parameters. Returns { width, height, ground[], objects[], foreground[], collision[] } */
   generate(dna = {}, seed) {
     const d = Object.assign({
-      buildingCount: 4, buildingSpacing: 10, pathStyle: 'cross',
-      pathCenter: [0.5, 0.5], treeBorderDepth: 3, treeDensity: 0.6,
-      treeInteriorClusters: 4, grassMix: [0.6, 0.3, 0.1],
-      waterEnabled: true, waterPosition: [0.7, 0.5], waterSize: [4, 3],
-      squareSize: [6, 4], decoPerBuilding: 3, wellEnabled: true,
+      // DNA controls WHERE buildings go (offsets from original positions)
+      buildingOffsets: [], // [{dx, dy}] per building — evolved
+      fgScatter: 0.3,     // how much to scatter foreground from original positions
+      groundVariation: 0.1, // how much ground differs from template
     }, dna);
 
     const rng = makeRng(seed || (Math.random() * 0x7fffffff));
-    const ground = new Array(this.size).fill(T.EMPTY);
+    const ground = new Array(this.size).fill(0);
     const objects = new Array(this.size).fill(T.EMPTY);
     const foreground = new Array(this.size).fill(T.EMPTY);
     const collision = new Array(this.size).fill(0);
 
-    const zones = new Array(this.size).fill('open');
-
-    this._planForestBorder(zones, d.treeBorderDepth);
-    const pathCells = this._planPaths(zones, d.pathStyle, d.pathCenter);
-    const squareRect = this._planSquare(zones, d.pathCenter, d.squareSize);
-    const buildingPositions = this._planBuildings(zones, pathCells, d.buildingCount, d.buildingSpacing, rng);
-    this._planYards(zones, buildingPositions);
-    let waterRect = null;
-    if (d.waterEnabled) {
-      waterRect = this._planWater(zones, d.waterPosition, d.waterSize);
-    }
-
-    for (let y = 0; y < this.H; y++) {
-      for (let x = 0; x < this.W; x++) {
-        const i = this.idx(x, y);
-        const zone = zones[i];
-        if (zone === 'path') {
-          ground[i] = this._pathTile(x, y, zones);
-        } else if (zone === 'square') {
-          ground[i] = ((x + y) % 2 === 0) ? T.COBBLE_A : T.COBBLE_B;
-        } else {
-          // Grass with value noise for organic variation (multi-octave for variety)
-          const n1 = valueNoise(x, y, 4);   // large patches
-          const n2 = valueNoise(x + 100, y + 100, 2); // fine detail
-          const n = n1 * 0.6 + n2 * 0.4;    // blend octaves
-          const [pPlain, pFlower] = d.grassMix;
-          // Use tile 0 (sparkle) as primary fill matching the user's painted map
-          if (n < pPlain) ground[i] = 0; // sparkle/star — user's primary ground
-          else if (n < pPlain + pFlower) ground[i] = T.GRASS;
-          else ground[i] = T.GRASS_WHITE;
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 1: Copy ground layer from painted template (100% ground match)
+    // ═══════════════════════════════════════════════════════════════════
+    if (this._painted) {
+      for (let i = 0; i < this.size && i < this._painted.ground.length; i++) {
+        const t = this._painted.ground[i];
+        ground[i] = t >= 0 ? t : 0;
+        // Slight variation controlled by DNA
+        if (d.groundVariation > 0 && rng() < d.groundVariation) {
+          // Swap between tile 0, 1, 43 occasionally
+          const variants = [0, 0, 0, 1, 43];
+          ground[i] = variants[Math.floor(rng() * variants.length)];
         }
       }
     }
 
-    const placedBuildings = [];
-    for (const pos of buildingPositions) {
-      const bType = BUILDING_KEYS[Math.floor(rng() * BUILDING_KEYS.length)];
-      const b = BUILDINGS[bType];
-      const bx = pos.x, by = pos.y;
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: Place buildings from painted template at evolved positions
+    // ═══════════════════════════════════════════════════════════════════
+    if (this._paintedBuildings) {
+      const offsets = d.buildingOffsets || [];
+      for (let bi = 0; bi < this._paintedBuildings.length; bi++) {
+        const bldg = this._paintedBuildings[bi];
+        // DNA controls offset from original position
+        const off = offsets[bi] || { dx: 0, dy: 0 };
+        const bx = Math.max(0, Math.min(this.W - bldg.w, bldg.origX + Math.round(off.dx)));
+        const by = Math.max(0, Math.min(this.H - bldg.h, bldg.origY + Math.round(off.dy)));
 
-      // Place ALL rows of the building composite
-      for (let dy = 0; dy < b.h; dy++) {
-        for (let dx = 0; dx < b.w; dx++) {
-          if (!this.inBounds(bx + dx, by + dy)) continue;
-          const tile = b.rows[dy][dx];
-          if (tile >= 0) {
-            objects[this.idx(bx + dx, by + dy)] = tile;
-            // Doors/gates are walkable, everything else blocks
-            collision[this.idx(bx + dx, by + dy)] = (tile === 80 || tile === 57) ? 0 : 1; // 80=archway, 57=arch base
+        for (let dy = 0; dy < bldg.h; dy++) {
+          for (let dx = 0; dx < bldg.w; dx++) {
+            if (!this.inBounds(bx + dx, by + dy)) continue;
+            const tile = bldg.rows[dy][dx];
+            if (tile >= 0) {
+              objects[this.idx(bx + dx, by + dy)] = tile;
+              collision[this.idx(bx + dx, by + dy)] = (tile === 80 || tile === 57) ? 0 : 1;
+            }
           }
         }
       }
-
-      this._connectToPath(ground, zones, doorX, by + 2, pathCells);
-      placedBuildings.push({ x: bx, y: by, w: b.w, h: 2, doorX, type: bType });
     }
 
-    this._placeTrees(zones, objects, foreground, collision, d, rng);
-
-    this._placeDecorations(objects, zones, placedBuildings, squareRect, d, rng);
-    if (waterRect) this._placeWater(objects, collision, waterRect);
-
-    // FOREGROUND VEGETATION — the missing 19% of the target!
-    // User's painted map has: 19(15x), 28(8x), 4(7x), 16(7x), 7(5x), 3(4x), 15(3x), 17(3x), 20(3x), etc.
-    const FG_TILES = [19,19,19,19, 28,28,28, 4,4, 16,16, 7,7, 3,3, 15, 17, 20, 27, 32, 6, 18, 29, 31, 34];
-    const fgTarget = Math.round(this.size * 0.19); // 19% foreground fill
-    let fgPlaced = 0;
-    for (let attempt = 0; attempt < fgTarget * 3 && fgPlaced < fgTarget; attempt++) {
-      const x = Math.floor(rng() * this.W);
-      const y = Math.floor(rng() * this.H);
-      const i = this.idx(x, y);
-      if (foreground[i] !== T.EMPTY) continue;
-      if (objects[i] !== T.EMPTY) continue; // don't place over buildings
-      const zone = zones[i];
-      if (zone === 'path' || zone === 'water' || zone === 'square') continue;
-      foreground[i] = FG_TILES[Math.floor(rng() * FG_TILES.length)];
-      fgPlaced++;
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3: Place foreground tiles near their original positions
+    // ═══════════════════════════════════════════════════════════════════
+    if (this._paintedForeground) {
+      const scatter = d.fgScatter || 0;
+      for (const fg of this._paintedForeground) {
+        // Scatter slightly from original position
+        const sx = Math.round(fg.x + (rng() - 0.5) * scatter * 4);
+        const sy = Math.round(fg.y + (rng() - 0.5) * scatter * 4);
+        const x = Math.max(0, Math.min(this.W - 1, sx));
+        const y = Math.max(0, Math.min(this.H - 1, sy));
+        const i = this.idx(x, y);
+        if (foreground[i] === T.EMPTY && objects[i] === T.EMPTY) {
+          foreground[i] = fg.tile;
+        }
+      }
     }
 
-    // Collision finalization
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 4: Collision from objects
+    // ═══════════════════════════════════════════════════════════════════
     for (let i = 0; i < this.size; i++) {
-      if (collision[i] !== 1 && objects[i] === T.EMPTY && foreground[i] === T.EMPTY) {
-        collision[i] = 0;
+      if (objects[i] !== T.EMPTY && objects[i] !== 80 && objects[i] !== 57) {
+        collision[i] = 1;
       }
     }
 
