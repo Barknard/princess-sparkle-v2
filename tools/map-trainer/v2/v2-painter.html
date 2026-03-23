@@ -6,7 +6,7 @@
 <title>Tile Painter</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0a1a; color: #e0e0e0; font-family: system-ui, sans-serif; height: 100vh; overflow: hidden; display: grid; grid-template-rows: 42px 1fr; grid-template-columns: 200px 1fr; grid-template-areas: "header header" "tiles canvas"; }
+  body { background: #0a0a1a; color: #e0e0e0; font-family: system-ui, sans-serif; height: 100vh; overflow: hidden; display: grid; grid-template-rows: 42px 1fr; grid-template-columns: 200px 1fr 280px; grid-template-areas: "header header header" "tiles canvas ref"; }
 
   .header { grid-area: header; background: #141428; border-bottom: 1px solid #2a2a3e; display: flex; align-items: center; padding: 0 16px; gap: 16px; }
   .header h1 { font-size: 14px; font-weight: 700; color: #a855f7; }
@@ -76,6 +76,11 @@
 
 <div class="canvas-area" id="canvasArea">
   <canvas id="mapCanvas"></canvas>
+</div>
+
+<div style="grid-area:ref; background:#141428; border-left:1px solid #2a2a3e; display:flex; flex-direction:column; overflow:hidden;">
+  <div style="padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; border-bottom:1px solid #2a2a3e;">Reference</div>
+  <img src="/reference" style="width:100%; flex:1; object-fit:contain; image-rendering:pixelated; padding:4px;">
 </div>
 
 <div class="toast" id="toast"></div>
