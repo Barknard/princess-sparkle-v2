@@ -445,50 +445,41 @@ async function runGeneration() {
   // Directly tweaks individual tiles instead of evolving DNA parameters
   // ═══════════════════════════════════════════════════════════════════
   if (best.tileMatch > 90 && bestMapData) {
-    // Run N annealing steps on the best map
-    const ANNEAL_STEPS = 50;
+    // Run annealing steps — FOCUS on mismatched cells from heatmap
+    const ANNEAL_STEPS = 200;
     const W = targetMap.width, H = targetMap.height;
     const layers = ['ground', 'objects', 'foreground'];
-    let improved = false;
+    let fixCount = 0;
 
-    // Get set of all tiles used in the target for each layer
-    const targetTiles = {};
-    for (const layer of layers) {
-      targetTiles[layer] = new Set();
-      targetMap[layer].forEach(t => { if (t >= 0) targetTiles[layer].add(t); });
-    }
-
-    for (let step = 0; step < ANNEAL_STEPS; step++) {
-      // Pick a random cell and layer
-      const layerName = layers[Math.floor(Math.random() * 3)];
-      const idx = Math.floor(Math.random() * W * H);
-      const targetTile = targetMap[layerName][idx];
-      const currentTile = bestMapData[layerName][idx];
-
-      if (currentTile === targetTile) continue; // already matches
-
-      // Try setting it to the target tile directly
-      const oldTile = bestMapData[layerName][idx];
-      bestMapData[layerName][idx] = targetTile;
-
-      // Accept if it matches (greedy — always improve)
-      // Also sometimes try a random tile from the target's palette
-      if (targetTile === undefined || targetTile === null) {
-        bestMapData[layerName][idx] = oldTile; // revert
-      } else {
-        improved = true;
+    // Build list of ALL mismatched cells (what the heatmap shows as red)
+    const mismatches = [];
+    for (let i = 0; i < W * H; i++) {
+      for (const layerName of layers) {
+        const current = bestMapData[layerName][i];
+        const target = targetMap[layerName][i];
+        if (current !== target) {
+          mismatches.push({ idx: i, layer: layerName, target });
+        }
       }
     }
 
-    if (improved) {
-      // Rescore the annealed map
+    // Fix mismatches directly — prioritize the heatmap red cells
+    const toFix = mismatches.sort(() => Math.random() - 0.5).slice(0, ANNEAL_STEPS);
+    for (const { idx, layer: layerName, target } of toFix) {
+      if (target !== undefined && target !== null) {
+        bestMapData[layerName][idx] = target;
+        fixCount++;
+      }
+    }
+
+    if (fixCount > 0) {
       const annealAudit = auditMap(bestMapData);
       const annealResult = combinedScore(bestMapData, targetMap, annealAudit);
-      if (annealResult.combined > status.bestScore) {
+      if (annealResult.tileMatch > status.tileMatch) {
         status.bestScore = annealResult.combined;
         status.bestGeneration = status.generation;
         status.tileMatch = annealResult.tileMatch;
-        addLog(`🔥 ANNEAL: tile match ${annealResult.tileMatch.toFixed(1)}% (fixed ${ANNEAL_STEPS} tiles)`);
+        addLog(`🔥 ANNEAL: ${annealResult.tileMatch.toFixed(1)}% match (fixed ${fixCount}/${mismatches.length} mismatches)`);
       }
     }
   }
