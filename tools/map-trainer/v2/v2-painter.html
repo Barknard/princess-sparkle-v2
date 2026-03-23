@@ -772,7 +772,24 @@ document.addEventListener('keydown', (e) => {
   var refCtx = refCanvas.getContext('2d');
   var dragStart = null;
   var dragEnd = null;
-  var customTileId = 200; // custom tiles start at ID 200
+  var lastSelection = null; // persists after mouseup: {x,y,w,h} in display coords
+  var customTileId = 200;
+
+  // Redraw the persistent selection
+  function drawLastSelection() {
+    if (!lastSelection) return;
+    refCtx.strokeStyle = '#ff00ff';
+    refCtx.lineWidth = 2;
+    refCtx.setLineDash([4, 4]);
+    refCtx.strokeRect(lastSelection.x, lastSelection.y, lastSelection.w, lastSelection.h);
+    refCtx.setLineDash([]);
+    refCtx.fillStyle = 'rgba(255, 0, 255, 0.15)';
+    refCtx.fillRect(lastSelection.x, lastSelection.y, lastSelection.w, lastSelection.h);
+    // Size label
+    refCtx.fillStyle = '#ff00ff';
+    refCtx.font = 'bold 10px monospace';
+    refCtx.fillText(Math.round(lastSelection.w) + '×' + Math.round(lastSelection.h) + 'px', lastSelection.x + 2, lastSelection.y - 4);
+  }
 
   function resizeRefCanvas() {
     var rect = refImg.getBoundingClientRect();
@@ -797,9 +814,10 @@ document.addEventListener('keydown', (e) => {
     if (!dragStart) return;
     var rect = refCanvas.getBoundingClientRect();
     dragEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    // Draw selection rectangle
+    // Draw current drag rectangle + persistent last selection
     refCtx.clearRect(0, 0, refCanvas.width, refCanvas.height);
-    refCtx.strokeStyle = '#ff00ff';
+    drawLastSelection(); // redraw previous selection
+    refCtx.strokeStyle = '#00ffff';
     refCtx.lineWidth = 2;
     refCtx.setLineDash([4, 4]);
     var x = Math.min(dragStart.x, dragEnd.x);
@@ -808,7 +826,7 @@ document.addEventListener('keydown', (e) => {
     var h = Math.abs(dragEnd.y - dragStart.y);
     refCtx.strokeRect(x, y, w, h);
     refCtx.setLineDash([]);
-    refCtx.fillStyle = 'rgba(255, 0, 255, 0.1)';
+    refCtx.fillStyle = 'rgba(0, 255, 255, 0.1)';
     refCtx.fillRect(x, y, w, h);
     e.preventDefault();
     e.stopPropagation();
@@ -912,9 +930,17 @@ document.addEventListener('keydown', (e) => {
 
     document.getElementById('customTiles').appendChild(cell);
 
-    // Keep selection visible so user can adjust and re-save
-    // Don't clear dragStart/dragEnd — let user see what they grabbed
-    showToast('Custom tile #' + id + ' created — adjust selection & drag again for another');
+    // Save selection rectangle so it stays visible
+    var dispX = Math.min(dragStart.x, dragEnd.x);
+    var dispY = Math.min(dragStart.y, dragEnd.y);
+    var dispW = Math.abs(dragEnd.x - dragStart.x);
+    var dispH = Math.abs(dragEnd.y - dragStart.y);
+    lastSelection = { x: dispX, y: dispY, w: dispW, h: dispH };
+    dragStart = null;
+    dragEnd = null;
+    refCtx.clearRect(0, 0, refCanvas.width, refCanvas.height);
+    drawLastSelection();
+    showToast('Custom tile #' + id + ' created — drag again to adjust');
     e.preventDefault();
     e.stopPropagation();
   });
