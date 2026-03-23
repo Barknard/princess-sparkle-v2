@@ -24,8 +24,10 @@
 
   .tile-panel { background: #141428; border-right: 2px solid #a855f733; display: flex; flex-direction: column; overflow: hidden; width: 280px; min-width: 150px; max-width: 600px; cursor: ew-resize; }
   .tile-panel-header { padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; border-bottom: 1px solid #2a2a3e; }
-  .tile-grid-wrap { flex: 1; overflow: hidden; padding: 4px; }
-  .tile-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1px; height: 100%; }
+  .tile-grid-wrap { flex: 1; overflow-y: auto; padding: 4px; min-height: 0; }
+  .tile-grid-wrap::-webkit-scrollbar { width: 4px; }
+  .tile-grid-wrap::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 2px; }
+  .tile-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1px; }
   .tile-cell { cursor: pointer; border: 1px solid transparent; border-radius: 1px; image-rendering: pixelated; position: relative; overflow: hidden; }
   .tile-cell:hover { border-color: #a855f788; }
   .tile-cell.selected { border-color: #a855f7; box-shadow: 0 0 6px #a855f7; }
