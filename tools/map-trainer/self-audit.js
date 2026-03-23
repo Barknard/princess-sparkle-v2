@@ -1253,7 +1253,8 @@ function auditMap(mapData) {
   const { designScore, details: designDetails } = scoreDesignQuality(mapData);
 
   // ── Structural violations (deductions from design score) ───────────
-  const SEVERITY_COST = { critical: 5, major: 2, minor: 1 };
+  // Lower deduction costs — structural violations shouldn't wipe out design score
+  const SEVERITY_COST = { critical: 2, major: 1, minor: 0 };
 
   let deductions = 0;
   let criticalCount = 0;

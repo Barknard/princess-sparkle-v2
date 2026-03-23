@@ -74,6 +74,7 @@ function reportToDashboard(data) {
 }
 
 const { GeneticEvolver } = require('./genetic-evolver');
+const { KnowledgeGenerator } = require('./knowledge-generator');
 const { auditMap } = require('./self-audit');
 const { renderMapToPng } = require('./tile-renderer');
 const { scoreMapWithVision, extractRulesFromCritique } = require('./vision-scorer');
@@ -124,6 +125,12 @@ async function main() {
   `);
 
   const evolver = new GeneticEvolver({ populationSize: POP_SIZE, mapSize: { width: MAP_W, height: MAP_H } });
+  const knowledgeGen = new KnowledgeGenerator({
+    width: MAP_W, height: MAP_H,
+    knowledgePath: KNOWLEDGE_PATH,
+    semanticsPath: path.join(TRAINER_DIR, 'tile-semantics.json')
+  });
+  console.log(`  Knowledge generator: ${knowledgeGen.learnedBlocks.length} learned blocks, ${Object.keys(knowledgeGen.adjacency).length} adjacency tiles`);
   const logger = new EvolutionLogger();
   let population = evolver.initPopulation();
 
@@ -141,10 +148,10 @@ async function main() {
   for (let gen = 1; gen <= MAX_GENS; gen++) {
     const genStart = Date.now();
 
-    // ── Generate maps from all DNA (100% LOCAL, instant) ─────────────
+    // ── Generate maps using KNOWLEDGE generator (uses learned blocks + adjacency)
     const scored = [];
     for (const dna of population) {
-      const mapData = evolver.generateFromDNA(dna);
+      const mapData = knowledgeGen.generate(dna);
       const audit = auditMap(mapData);
       // PRIMARY fitness: tile-by-tile match to target (if available)
       let fitness = audit.score;
