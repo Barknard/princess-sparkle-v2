@@ -456,129 +456,74 @@ class GeneticEvolver {
     const pcy = Math.round(dna.pathCenterY * H);
     const pw  = dna.pathWidth;
 
-    const placePath = (x, y) => {
-      if (!inBounds(x, y)) return;
-      ground[idx(x, y)] = TILE.PATH_CENTER;
-    };
-
-    const placePathStrip = (x, y, horizontal) => {
-      for (let d = -Math.floor(pw / 2); d < Math.ceil(pw / 2); d++) {
-        if (horizontal) {
-          placePath(x, y + d);
-        } else {
-          placePath(x + d, y);
-        }
-      }
-    };
-
-    // Build path arrays for "near-path" calculations later
     const pathTiles = new Set();
 
-    const markPath = (x, y) => {
-      if (inBounds(x, y)) pathTiles.add(idx(x, y));
+    // Place a 2-wide path segment with proper edge tiles
+    // Horizontal: top row = edge(39), bottom row = edge(41)
+    // Vertical: left col = edge(39), right col = edge(41)
+    const placeHPath = (x, y) => {
+      // 2-tile wide horizontal path at rows y and y+1
+      if (inBounds(x, y)) { ground[idx(x, y)] = TILE.PATH_EDGE_LT; pathTiles.add(idx(x, y)); }
+      if (inBounds(x, y + 1)) { ground[idx(x, y + 1)] = TILE.PATH_EDGE_RB; pathTiles.add(idx(x, y + 1)); }
     };
-
-    const placePathWithMark = (x, y, horizontal) => {
-      for (let d = -Math.floor(pw / 2); d < Math.ceil(pw / 2); d++) {
-        const px = horizontal ? x : x + d;
-        const py = horizontal ? y + d : y;
-        placePath(px, py);
-        markPath(px, py);
+    const placeVPath = (x, y) => {
+      // 2-tile wide vertical path at cols x and x+1
+      if (inBounds(x, y)) { ground[idx(x, y)] = TILE.PATH_EDGE_LT; pathTiles.add(idx(x, y)); }
+      if (inBounds(x + 1, y)) { ground[idx(x + 1, y)] = TILE.PATH_EDGE_RB; pathTiles.add(idx(x + 1, y)); }
+    };
+    const placeIntersection = (x, y) => {
+      // 3x3 center tiles at intersection
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (inBounds(x + dx, y + dy)) {
+            ground[idx(x + dx, y + dy)] = TILE.PATH_CENTER;
+            pathTiles.add(idx(x + dx, y + dy));
+          }
+        }
       }
     };
 
     switch (dna.pathStyle) {
       case 'cross': {
-        // Vertical path through center
-        for (let y = 0; y < H; y++) placePathWithMark(pcx, y, false);
-        // Horizontal path through center
-        for (let x = 0; x < W; x++) placePathWithMark(x, pcy, true);
+        // Vertical 2-wide path through center
+        for (let y = 4; y < H - 4; y++) placeVPath(pcx, y);
+        // Horizontal 2-wide path through center
+        for (let x = 4; x < W - 4; x++) placeHPath(x, pcy);
+        // Intersection at center
+        placeIntersection(pcx, pcy);
         break;
       }
       case 'L-shape': {
-        // Vertical from top to center, then horizontal to right
-        for (let y = 0; y <= pcy; y++) placePathWithMark(pcx, y, false);
-        for (let x = pcx; x < W; x++) placePathWithMark(x, pcy, true);
-        break;
-      }
-      case 'radial': {
-        // Four paths from center to edges
-        for (let y = 0; y < H; y++) placePathWithMark(pcx, y, false);
-        for (let x = 0; x < W; x++) placePathWithMark(x, pcy, true);
-        // Diagonal approximations (45 degrees)
-        const diag = Math.min(pcx, pcy, W - pcx, H - pcy);
-        for (let d = 0; d < diag; d++) {
-          placePathWithMark(pcx + d, pcy + d, false);
-          placePathWithMark(pcx - d, pcy - d, false);
-          placePathWithMark(pcx + d, pcy - d, false);
-          placePathWithMark(pcx - d, pcy + d, false);
-        }
+        for (let y = 4; y <= pcy; y++) placeVPath(pcx, y);
+        for (let x = pcx; x < W - 4; x++) placeHPath(x, pcy);
+        placeIntersection(pcx, pcy);
         break;
       }
       case 'loop': {
-        const lx1 = Math.round(W * 0.25);
-        const lx2 = Math.round(W * 0.75);
-        const ly1 = Math.round(H * 0.25);
-        const ly2 = Math.round(H * 0.75);
-        for (let x = lx1; x <= lx2; x++) {
-          placePathWithMark(x, ly1, true);
-          placePathWithMark(x, ly2, true);
-        }
-        for (let y = ly1; y <= ly2; y++) {
-          placePathWithMark(lx1, y, false);
-          placePathWithMark(lx2, y, false);
-        }
+        const lx1 = Math.round(W * 0.2), lx2 = Math.round(W * 0.8);
+        const ly1 = Math.round(H * 0.2), ly2 = Math.round(H * 0.8);
+        for (let x = lx1; x <= lx2; x++) { placeHPath(x, ly1); placeHPath(x, ly2); }
+        for (let y = ly1; y <= ly2; y++) { placeVPath(lx1, y); placeVPath(lx2, y); }
+        placeIntersection(lx1, ly1); placeIntersection(lx2, ly1);
+        placeIntersection(lx1, ly2); placeIntersection(lx2, ly2);
         break;
       }
+      case 'radial':
       case 'organic':
       default: {
-        // Random waypoints connected by L-shaped segments
-        const numWaypoints = 4 + Math.floor(Math.random() * 4);
-        const waypoints = [{ x: pcx, y: pcy }];
-        for (let i = 0; i < numWaypoints; i++) {
-          waypoints.push({
-            x: Math.floor(Math.random() * (W - 4)) + 2,
-            y: Math.floor(Math.random() * (H - 4)) + 2,
-          });
-        }
-        for (let i = 0; i < waypoints.length - 1; i++) {
-          const a = waypoints[i];
-          const b = waypoints[i + 1];
-          // Horizontal then vertical
-          const xDir = b.x > a.x ? 1 : -1;
-          for (let x = a.x; x !== b.x; x += xDir) {
-            placePathWithMark(x, a.y, true);
-          }
-          const yDir = b.y > a.y ? 1 : -1;
-          for (let y = a.y; y !== b.y; y += yDir) {
-            placePathWithMark(b.x, y, false);
-          }
-        }
+        // Cross + branch paths to building areas
+        for (let y = 4; y < H - 4; y++) placeVPath(pcx, y);
+        for (let x = 4; x < W - 4; x++) placeHPath(x, pcy);
+        placeIntersection(pcx, pcy);
+        // Branch paths to quadrants
+        const qx1 = Math.round(W * 0.25), qx2 = Math.round(W * 0.75);
+        const qy1 = Math.round(H * 0.25), qy2 = Math.round(H * 0.75);
+        for (let x = qx1; x <= pcx; x++) placeHPath(x, qy1);
+        for (let x = pcx; x <= qx2; x++) placeHPath(x, qy1);
+        for (let x = qx1; x <= pcx; x++) placeHPath(x, qy2);
+        for (let x = pcx; x <= qx2; x++) placeHPath(x, qy2);
+        placeIntersection(pcx, qy1); placeIntersection(pcx, qy2);
         break;
-      }
-    }
-
-    // Apply path edge tiles (replace ground PATH_CENTER with proper edges)
-    for (const tileIdx of pathTiles) {
-      const x = tileIdx % W;
-      const y = Math.floor(tileIdx / W);
-      // Check neighbors for edge detection
-      const hasPathLeft  = x > 0     && pathTiles.has(idx(x - 1, y));
-      const hasPathRight = x < W - 1 && pathTiles.has(idx(x + 1, y));
-      const hasPathUp    = y > 0     && pathTiles.has(idx(x, y - 1));
-      const hasPathDown  = y < H - 1 && pathTiles.has(idx(x, y + 1));
-
-      const neighbors = (hasPathLeft ? 1 : 0) + (hasPathRight ? 1 : 0) +
-                         (hasPathUp ? 1 : 0) + (hasPathDown ? 1 : 0);
-
-      if (neighbors >= 3) {
-        ground[tileIdx] = TILE.PATH_CENTER;
-      } else if (!hasPathLeft && hasPathRight) {
-        ground[tileIdx] = TILE.PATH_EDGE_LT;
-      } else if (hasPathLeft && !hasPathRight) {
-        ground[tileIdx] = TILE.PATH_EDGE_RB;
-      } else {
-        ground[tileIdx] = TILE.PATH_CENTER;
       }
     }
 
@@ -631,17 +576,11 @@ class GeneticEvolver {
       const doorY = by + 1;
       buildings.push({ x: bx, y: by, w: tpl.w, doorX, doorY, template: tpl });
 
-      // Connect building to nearest path if enabled
+      // Connect building to nearest path — 2-wide vertical path from door down
       if (dna.pathConnectBuildings) {
-        // Simple: draw path from door downward until hitting an existing path
         for (let py = doorY + 1; py < H; py++) {
           if (pathTiles.has(idx(doorX, py))) break;
-          ground[idx(doorX, py)] = TILE.PATH_CENTER;
-          pathTiles.add(idx(doorX, py));
-          if (pw > 1 && doorX + 1 < W) {
-            ground[idx(doorX + 1, py)] = TILE.PATH_CENTER;
-            pathTiles.add(idx(doorX + 1, py));
-          }
+          placeVPath(doorX, py);
         }
       }
     }
@@ -690,14 +629,21 @@ class GeneticEvolver {
     const borderDepth = dna.treeBorderDepth;
     const borderDensity = dna.treeBorderDensity;
 
+    // Staggered tree border — place trees in organized rows with gaps
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const distFromEdge = Math.min(x, y, W - 1 - x, H - 1 - y);
         if (distFromEdge >= borderDepth) continue;
-        if (Math.random() > borderDensity) continue;
         if (occupied[idx(x, y)]) continue;
+        if (pathTiles.has(idx(x, y))) continue; // don't put trees on paths
 
-        const treeType = weightedPick(dna.treeTypeWeights);
+        // Stagger: place every 2-3 tiles, offset by row
+        const stagger = (x + y * 2) % 3;
+        if (stagger !== 0 && Math.random() > borderDensity * 0.5) continue;
+
+        // Mix tree types, favor different types per row for variety
+        const rowBias = (y % 4 < 2) ? 0 : 1; // alternate green/autumn by row pairs
+        const treeType = Math.random() < 0.6 ? rowBias : weightedPick(dna.treeTypeWeights);
         this._placeTree(treeType, x, y, objects, foreground, collision, occupied, W, H);
       }
     }
