@@ -244,7 +244,7 @@ class TileRelationshipLearner {
     const sizes = [];
     for (let h = maxSize; h >= 4; h--) {
       for (let w = maxSize; w >= 4; w--) {
-        if (w * h > 200) continue; // skip very large windows to avoid memory issues
+        if (w * h > 600) continue; // allow windows up to ~25x24
         sizes.push({ w, h });
       }
     }
@@ -348,8 +348,8 @@ class TileRelationshipLearner {
     // Composites from reference get a high pseudo-score
     if (objects) this._scanCompositePatterns(objects, width, height, weight * 100);
 
-    // Large multi-layer composites from reference (ground truth)
-    this._scanLargeComposites(mapData, weight * 100, 20);
+    // Large multi-layer composites from reference (ground truth — scan up to 40x40)
+    this._scanLargeComposites(mapData, weight * 100, 40);
 
     this.totalMapsLearned++;
   }
