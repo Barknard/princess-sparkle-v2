@@ -50,14 +50,44 @@ const TILE_LAYER = {};
  T.WATER_NW, T.WATER_N, T.WATER_NE, T.WATER_W, T.WATER_CENTER, T.WATER_E,
  T.WATER_SW, T.WATER_S, T.WATER_SE].forEach(t => TILE_LAYER[t] = 'o');
 
-// ── Building Templates ──────────────────────────────────────────────────────
+// ── Building Templates (extracted from user's hand-painted map) ─────────────
+// These are the ACTUAL structures the user built, not generic templates.
+// Each row is a row of tile IDs on the objects layer.
 const BUILDINGS = {
-  small_house:  { w: 3, roof: [T.ROOF_L, T.CHIMNEY, T.ROOF_R],       wall: [T.WOOD_L, T.WOOD_DOOR, T.WOOD_PLAIN] },
-  medium_house: { w: 4, roof: [T.ROOF_L, T.ROOF_M, T.CHIMNEY, T.ROOF_R], wall: [T.WOOD_L, T.WOOD_WINDOW, T.WOOD_DOOR, T.WOOD_PLAIN] },
-  large_house:  { w: 5, roof: [T.ROOF_L, T.ROOF_M, T.ROOF_M, T.ROOF_M, T.ROOF_R], wall: [T.WOOD_L, T.WOOD_WINDOW, T.WOOD_DOOR, T.WOOD_WINDOW, T.WOOD_PLAIN] },
-  stone_shop:   { w: 3, roof: [T.ROOF_L, T.CHIMNEY, T.ROOF_R],       wall: [T.STONE_L, T.STONE_DOOR, T.STONE_PLAIN] },
+  // 3x3 house: blue stone roof → brick+red roof wall → wood+stone wall
+  house_3x3: {
+    w: 3, h: 3,
+    rows: [ [48, 49, 50], [60, 63, 62], [72, 85, 75] ]
+  },
+  // 6x4 double house with blue+dark roofs
+  house_6x4: {
+    w: 6, h: 4,
+    rows: [ [52, 53, 54, -1, -1, -1], [64, 65, 66, 52, 53, 54], [76, 88, 79, 64, 67, 66], [76, 89, 79, 76, 89, 79] ]
+  },
+  // 8x3 castle/gatehouse
+  castle_8x3: {
+    w: 8, h: 3,
+    rows: [ [44, 45, 45, 45, 48, 51, 49, 50], [56, 94, -1, 94, 60, 61, 63, 62], [68, 82, -1, 80, 72, 84, 85, 75] ]
+  },
+  // 2x4 tower
+  tower_2x4: {
+    w: 2, h: 4,
+    rows: [ [96, 98], [120, 122], [111, 112], [123, 124] ]
+  },
+  // 7x1 stone wall/fence
+  stone_wall_7: {
+    w: 7, h: 1,
+    rows: [ [80, 81, 45, 81, 45, 81, 82] ]
+  },
 };
 const BUILDING_KEYS = Object.keys(BUILDINGS);
+
+// Legacy compat: map old template format to new
+function getBuildingRows(key) {
+  const b = BUILDINGS[key];
+  if (!b) return null;
+  return b.rows;
+}
 
 // ── Tree Pairs (canopyL, canopyR, trunkL, trunkR) ──────────────────────────
 const TREE_TYPES = [
@@ -152,8 +182,9 @@ class V2Engine {
           const n2 = valueNoise(x + 100, y + 100, 2); // fine detail
           const n = n1 * 0.6 + n2 * 0.4;    // blend octaves
           const [pPlain, pFlower] = d.grassMix;
-          if (n < pPlain) ground[i] = T.GRASS;
-          else if (n < pPlain + pFlower) ground[i] = T.GRASS_FLOWERS;
+          // Use tile 0 (sparkle) as primary fill matching the user's painted map
+          if (n < pPlain) ground[i] = 0; // sparkle/star — user's primary ground
+          else if (n < pPlain + pFlower) ground[i] = T.GRASS;
           else ground[i] = T.GRASS_WHITE;
         }
       }
@@ -165,36 +196,16 @@ class V2Engine {
       const b = BUILDINGS[bType];
       const bx = pos.x, by = pos.y;
 
-      for (let dx = 0; dx < b.w; dx++) {
-        if (this.inBounds(bx + dx, by)) {
-          objects[this.idx(bx + dx, by)] = b.roof[dx];
-          collision[this.idx(bx + dx, by)] = 1;
-        }
-      }
-      for (let dx = 0; dx < b.w; dx++) {
-        if (this.inBounds(bx + dx, by + 1)) {
-          objects[this.idx(bx + dx, by + 1)] = b.wall[dx];
-          const tile = b.wall[dx];
-          collision[this.idx(bx + dx, by + 1)] = (tile === T.WOOD_DOOR || tile === T.STONE_DOOR) ? 0 : 1;
-        }
-      }
-
-      let doorX = bx;
-      for (let dx = 0; dx < b.w; dx++) {
-        if (b.wall[dx] === T.WOOD_DOOR || b.wall[dx] === T.STONE_DOOR) { doorX = bx + dx; break; }
-      }
-
-      const fenceY = by + 2;
-      if (this.inBounds(bx - 1, fenceY) && this.inBounds(bx + b.w, fenceY)) {
-        const fenceLeft = bx - 1;
-        const fenceRight = bx + b.w;
-        for (let fx = fenceLeft; fx <= fenceRight; fx++) {
-          if (!this.inBounds(fx, fenceY)) continue;
-          const fi = this.idx(fx, fenceY);
-          if (fx === fenceLeft) { objects[fi] = T.FENCE_L; collision[fi] = 1; }
-          else if (fx === fenceRight) { objects[fi] = T.FENCE_R; collision[fi] = 1; }
-          else if (fx === doorX) { /* gate opening — leave empty */ }
-          else { objects[fi] = T.FENCE_M; collision[fi] = 1; }
+      // Place ALL rows of the building composite
+      for (let dy = 0; dy < b.h; dy++) {
+        for (let dx = 0; dx < b.w; dx++) {
+          if (!this.inBounds(bx + dx, by + dy)) continue;
+          const tile = b.rows[dy][dx];
+          if (tile >= 0) {
+            objects[this.idx(bx + dx, by + dy)] = tile;
+            // Doors/gates are walkable, everything else blocks
+            collision[this.idx(bx + dx, by + dy)] = (tile === 80 || tile === 57) ? 0 : 1; // 80=archway, 57=arch base
+          }
         }
       }
 
