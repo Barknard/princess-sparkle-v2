@@ -591,22 +591,26 @@ function exportMap() {
     objects: mapObjects.slice(),
     foreground: mapForeground.slice()
   };
-  // Save to server
+  // Save to server AND download file
+  const jsonStr = JSON.stringify(data, null, 2);
   fetch('/api/painted-map', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(r => r.json()).then(d => {
-    showToast('Map saved to server');
+    body: jsonStr
+  }).then(r => r.json()).then(() => {
+    showToast('Saved to server + downloaded');
   }).catch(() => {
-    // Fallback: download as file
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    showToast('Server save failed — downloaded instead');
+  });
+  // Always trigger download
+  {
+    const blob = new Blob([jsonStr], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'painted-map.json';
     a.click();
-    showToast('Map downloaded as JSON');
-  });
+  }
+}
 }
 
 function downloadPng() {
