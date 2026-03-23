@@ -440,51 +440,7 @@ async function runGeneration() {
     evolver.mutationStrength = 0.2;
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // SIMULATED ANNEALING: kicks in when tile match > 90%
-  // Directly tweaks individual tiles instead of evolving DNA parameters
-  // ═══════════════════════════════════════════════════════════════════
-  if (best.tileMatch > 90 && bestMapData) {
-    // Run annealing steps — FOCUS on mismatched cells from heatmap
-    const ANNEAL_STEPS = 200;
-    const W = targetMap.width, H = targetMap.height;
-    const layers = ['ground', 'objects', 'foreground'];
-    let fixCount = 0;
-
-    // Build list of ALL mismatched cells (what the heatmap shows as red)
-    const mismatches = [];
-    for (let i = 0; i < W * H; i++) {
-      for (const layerName of layers) {
-        const current = bestMapData[layerName][i];
-        const target = targetMap[layerName][i];
-        if (current !== target) {
-          mismatches.push({ idx: i, layer: layerName, target });
-        }
-      }
-    }
-
-    // Fix mismatches directly — prioritize the heatmap red cells
-    const toFix = mismatches.sort(() => Math.random() - 0.5).slice(0, ANNEAL_STEPS);
-    for (const { idx, layer: layerName, target } of toFix) {
-      if (target !== undefined && target !== null) {
-        bestMapData[layerName][idx] = target;
-        fixCount++;
-      }
-    }
-
-    if (fixCount > 0) {
-      const annealAudit = auditMap(bestMapData);
-      const annealResult = combinedScore(bestMapData, targetMap, annealAudit);
-      if (annealResult.tileMatch > status.tileMatch) {
-        status.bestScore = annealResult.combined;
-        status.bestGeneration = status.generation;
-        status.tileMatch = annealResult.tileMatch;
-        addLog(`🔥 ANNEAL: ${annealResult.tileMatch.toFixed(1)}% match (fixed ${fixCount}/${mismatches.length} mismatches)`);
-      }
-    }
-  }
-
-  // Evolve next generation (DNA evolution continues in parallel)
+  // Evolve next generation — optimizing for DESIGN QUALITY (variety mode)
   population = evolver.evolveGeneration(scored);
 
   // Schedule next generation (non-blocking)

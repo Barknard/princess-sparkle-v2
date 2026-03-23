@@ -202,6 +202,22 @@ class V2Engine {
         this._paintedForeground.push({ x: i % W, y: Math.floor(i / W), tile: t });
       }
     }
+
+    // Learn ground tile frequency distribution (weighted)
+    const gFreq = {};
+    painted.ground.forEach(t => { if (t >= 0) gFreq[t] = (gFreq[t] || 0) + 1; });
+    this._groundFreq = [];
+    for (const [tile, count] of Object.entries(gFreq)) {
+      for (let i = 0; i < Math.ceil(count / 10); i++) this._groundFreq.push(parseInt(tile));
+    }
+
+    // Learn foreground tile frequency distribution
+    const fFreq = {};
+    painted.foreground.forEach(t => { if (t >= 0) fFreq[t] = (fFreq[t] || 0) + 1; });
+    this._fgFreq = [];
+    for (const [tile, count] of Object.entries(fFreq)) {
+      for (let i = 0; i < Math.ceil(count / 3); i++) this._fgFreq.push(parseInt(tile));
+    }
   }
 
   /** Generate a map from DNA parameters. Returns { width, height, ground[], objects[], foreground[], collision[] } */
@@ -219,67 +235,111 @@ class V2Engine {
     const foreground = new Array(this.size).fill(T.EMPTY);
     const collision = new Array(this.size).fill(0);
 
+    // Learned frequencies from painted map
+    const groundTiles = this._groundFreq || [0, 0, 0, 0, 1, 43];
+    const fgTiles = this._fgFreq || [19, 28, 4, 16, 7, 3, 15, 17, 20];
+
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 1: Copy ground layer from painted template (100% ground match)
+    // STEP 1: Ground layer — noise-based using LEARNED tile frequencies
     // ═══════════════════════════════════════════════════════════════════
-    if (this._painted) {
-      for (let i = 0; i < this.size && i < this._painted.ground.length; i++) {
-        const t = this._painted.ground[i];
-        ground[i] = t >= 0 ? t : 0;
-        // Slight variation controlled by DNA
-        if (d.groundVariation > 0 && rng() < d.groundVariation) {
-          // Swap between tile 0, 1, 43 occasionally
-          const variants = [0, 0, 0, 1, 43];
-          ground[i] = variants[Math.floor(rng() * variants.length)];
+    for (let y = 0; y < this.H; y++) {
+      for (let x = 0; x < this.W; x++) {
+        const n = valueNoise(x + (seed || 0) * 7, y + (seed || 0) * 13, 4);
+        ground[this.idx(x, y)] = groundTiles[Math.floor(n * groundTiles.length)];
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: Paths — 2-wide cross/L/loop based on DNA
+    // ═══════════════════════════════════════════════════════════════════
+    const pcx = Math.round((d.pathCenter || [0.5, 0.5])[0] * this.W);
+    const pcy = Math.round((d.pathCenter || [0.5, 0.5])[1] * this.H);
+    const pathCells = new Set();
+    // Vertical path
+    for (let y = 0; y < this.H; y++) {
+      for (let dx = 0; dx < 2; dx++) {
+        if (this.inBounds(pcx + dx, y)) {
+          ground[this.idx(pcx + dx, y)] = 25; // cobblestone path (tile 25 from your map)
+          pathCells.add(this.idx(pcx + dx, y));
+        }
+      }
+    }
+    // Horizontal path
+    for (let x = 0; x < this.W; x++) {
+      for (let dy = 0; dy < 2; dy++) {
+        if (this.inBounds(x, pcy + dy)) {
+          ground[this.idx(x, pcy + dy)] = 25;
+          pathCells.add(this.idx(x, pcy + dy));
         }
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 2: Place buildings from painted template at evolved positions
+    // STEP 3: Place buildings at RANDOM positions near paths
+    // Uses learned building templates from painted map
     // ═══════════════════════════════════════════════════════════════════
-    if (this._paintedBuildings) {
-      const offsets = d.buildingOffsets || [];
-      for (let bi = 0; bi < this._paintedBuildings.length; bi++) {
-        const bldg = this._paintedBuildings[bi];
-        // DNA controls offset from original position
-        const off = offsets[bi] || { dx: 0, dy: 0 };
-        const bx = Math.max(0, Math.min(this.W - bldg.w, bldg.origX + Math.round(off.dx)));
-        const by = Math.max(0, Math.min(this.H - bldg.h, bldg.origY + Math.round(off.dy)));
+    if (this._paintedBuildings && this._paintedBuildings.length > 0) {
+      const numBuildings = Math.min(d.buildingCount || 4, this._paintedBuildings.length);
+      const placed = [];
 
-        for (let dy = 0; dy < bldg.h; dy++) {
-          for (let dx = 0; dx < bldg.w; dx++) {
-            if (!this.inBounds(bx + dx, by + dy)) continue;
-            const tile = bldg.rows[dy][dx];
-            if (tile >= 0) {
-              objects[this.idx(bx + dx, by + dy)] = tile;
-              collision[this.idx(bx + dx, by + dy)] = (tile === 80 || tile === 57) ? 0 : 1;
+      for (let bi = 0; bi < numBuildings; bi++) {
+        const bldg = this._paintedBuildings[bi % this._paintedBuildings.length];
+
+        // Try random positions near paths
+        for (let attempt = 0; attempt < 50; attempt++) {
+          const bx = Math.floor(rng() * (this.W - bldg.w));
+          const by = Math.floor(rng() * (this.H - bldg.h));
+
+          // Check spacing from other buildings
+          let tooClose = false;
+          for (const p of placed) {
+            if (Math.abs(bx - p.x) < (d.buildingSpacing || 6) && Math.abs(by - p.y) < 4) { tooClose = true; break; }
+          }
+          if (tooClose) continue;
+
+          // Check near a path (within 3 tiles)
+          let nearPath = false;
+          for (let dy = 0; dy < bldg.h + 3 && !nearPath; dy++) {
+            for (let dx = 0; dx < bldg.w && !nearPath; dx++) {
+              if (this.inBounds(bx + dx, by + dy) && pathCells.has(this.idx(bx + dx, by + dy))) nearPath = true;
             }
           }
+          if (!nearPath) continue;
+
+          // Place building
+          for (let dy = 0; dy < bldg.h; dy++) {
+            for (let dx = 0; dx < bldg.w; dx++) {
+              if (!this.inBounds(bx + dx, by + dy)) continue;
+              const tile = bldg.rows[dy][dx];
+              if (tile >= 0) {
+                objects[this.idx(bx + dx, by + dy)] = tile;
+                collision[this.idx(bx + dx, by + dy)] = (tile === 80 || tile === 57) ? 0 : 1;
+              }
+            }
+          }
+          placed.push({ x: bx, y: by });
+          break;
         }
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 3: Place foreground tiles near their original positions
+    // STEP 4: Foreground vegetation — random positions, learned tiles
     // ═══════════════════════════════════════════════════════════════════
-    if (this._paintedForeground) {
-      const scatter = d.fgScatter || 0;
-      for (const fg of this._paintedForeground) {
-        // Scatter slightly from original position
-        const sx = Math.round(fg.x + (rng() - 0.5) * scatter * 4);
-        const sy = Math.round(fg.y + (rng() - 0.5) * scatter * 4);
-        const x = Math.max(0, Math.min(this.W - 1, sx));
-        const y = Math.max(0, Math.min(this.H - 1, sy));
-        const i = this.idx(x, y);
-        if (foreground[i] === T.EMPTY && objects[i] === T.EMPTY) {
-          foreground[i] = fg.tile;
-        }
-      }
+    const fgCount = Math.round(this.size * (d.fgDensity || 0.19));
+    let fgPlaced = 0;
+    for (let attempt = 0; attempt < fgCount * 3 && fgPlaced < fgCount; attempt++) {
+      const x = Math.floor(rng() * this.W);
+      const y = Math.floor(rng() * this.H);
+      const i = this.idx(x, y);
+      if (foreground[i] !== T.EMPTY || objects[i] !== T.EMPTY) continue;
+      if (pathCells.has(i)) continue;
+      foreground[i] = fgTiles[Math.floor(rng() * fgTiles.length)];
+      fgPlaced++;
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 4: Collision from objects
+    // STEP 5: Collision
     // ═══════════════════════════════════════════════════════════════════
     for (let i = 0; i < this.size; i++) {
       if (objects[i] !== T.EMPTY && objects[i] !== 80 && objects[i] !== 57) {
