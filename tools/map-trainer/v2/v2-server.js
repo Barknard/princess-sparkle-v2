@@ -340,11 +340,18 @@ async function runGeneration() {
   const logMsg = `Gen ${status.generation}: best=${best.fitness.toFixed(1)}% tile=${best.tileMatch.toFixed(1)}% audit=${best.designScore.toFixed(0)} div=${stats.diversity.toFixed(1)} [${genSpeed.toFixed(1)} gen/s]`;
   addLog(logMsg);
 
-  // Learn from best map every generation
-  learner.learnFromMap(best.map, best.fitness);
+  // Learn from best map every 50th gen (not every gen — causes OOM)
+  if (status.generation % 50 === 0) {
+    learner.learnFromMap(best.map, best.fitness);
+  }
 
-  // Save knowledge every 20 gens
-  if (status.generation % 20 === 0) {
+  // Force garbage collection every 200 gens to prevent OOM
+  if (status.generation % 200 === 0 && global.gc) {
+    global.gc();
+  }
+
+  // Save knowledge every 100 gens
+  if (status.generation % 100 === 0) {
     try {
       learner.saveToFile(KNOWLEDGE_PATH);
       const kStats = learner.getStats();

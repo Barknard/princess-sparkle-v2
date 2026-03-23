@@ -203,18 +203,19 @@ class V2Learner {
   _recordAdjacency(tileA, dir, tileB, weight) {
     const kA = String(tileA);
     const kB = String(tileB);
-    // Global adjacency
+    // Global adjacency (capped at 10000 to prevent memory bloat)
     if (!this.adjacency[kA]) this.adjacency[kA] = {};
     if (!this.adjacency[kA][dir]) this.adjacency[kA][dir] = {};
-    this.adjacency[kA][dir][kB] = (this.adjacency[kA][dir][kB] || 0) + weight;
-    // Per-layer adjacency — tiles only learn adjacency within their own layer
+    const cur = this.adjacency[kA][dir][kB] || 0;
+    this.adjacency[kA][dir][kB] = Math.min(10000, cur + weight);
+    // Per-layer adjacency
     const layerA = tileLayer(tileA);
     const layerB = tileLayer(tileB);
     if (layerA && layerA === layerB) {
       const la = this.layerAdj[layerA];
       if (!la[kA]) la[kA] = {};
       if (!la[kA][dir]) la[kA][dir] = {};
-      la[kA][dir][kB] = (la[kA][dir][kB] || 0) + weight;
+      la[kA][dir][kB] = Math.min(10000, (la[kA][dir][kB] || 0) + weight);
     }
   }
 
