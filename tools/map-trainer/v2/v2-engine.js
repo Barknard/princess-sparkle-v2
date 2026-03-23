@@ -30,6 +30,26 @@ const T = {
   WATER_SW: 120, WATER_S: 112, WATER_SE: 113,
 };
 
+// ── Layer Assignments: which layer each tile belongs on ─────────────────────
+// 'g' = ground (always filled), 'o' = objects, 'f' = foreground
+const TILE_LAYER = {};
+// Ground tiles: grass, paths, cobblestone, water edges
+[T.GRASS, T.GRASS_FLOWERS, T.GRASS_WHITE, T.PATH_EDGE, T.PATH_CENTER, T.PATH_EDGE_R, T.COBBLE_A, T.COBBLE_B].forEach(t => TILE_LAYER[t] = 'g');
+// Foreground tiles: tree canopies (drawn OVER the player)
+[T.GREEN_CANOPY_L, T.GREEN_CANOPY_R, T.AUTUMN_CANOPY_L, T.AUTUMN_CANOPY_R, T.PINE_TOP, T.DENSE_TOP].forEach(t => TILE_LAYER[t] = 'f');
+// Everything else is objects layer
+[T.ROOF_L, T.ROOF_M, T.ROOF_R, T.CHIMNEY,
+ T.WOOD_L, T.WOOD_PLAIN, T.WOOD_DOOR, T.WOOD_WINDOW,
+ T.STONE_L, T.STONE_PLAIN, T.STONE_DOOR, T.STONE_WINDOW,
+ T.FENCE_L, T.FENCE_M, T.FENCE_R,
+ T.GREEN_TRUNK_L, T.GREEN_TRUNK_R, T.AUTUMN_TRUNK_L, T.AUTUMN_TRUNK_R,
+ T.PINE_TRUNK, T.DENSE_TRUNK,
+ T.SMALL_TREE, T.SMALL_AUTUMN, T.SMALL_COMPLETE, T.SMALL_FRUIT,
+ T.BUSH, T.BERRY, T.TULIP, T.FERN, T.FLOWER_BUSH,
+ T.WELL_TOP, T.WELL_BASE, T.LANTERN, T.BARREL,
+ T.WATER_NW, T.WATER_N, T.WATER_NE, T.WATER_W, T.WATER_CENTER, T.WATER_E,
+ T.WATER_SW, T.WATER_S, T.WATER_SE].forEach(t => TILE_LAYER[t] = 'o');
+
 // ── Building Templates ──────────────────────────────────────────────────────
 const BUILDINGS = {
   small_house:  { w: 3, roof: [T.ROOF_L, T.CHIMNEY, T.ROOF_R],       wall: [T.WOOD_L, T.WOOD_DOOR, T.WOOD_PLAIN] },

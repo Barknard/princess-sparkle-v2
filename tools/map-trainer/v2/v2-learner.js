@@ -21,11 +21,25 @@ const ROOF_TILES = new Set([63, 64, 65, 66, 67]);
 const WALL_TILES = new Set();
 for (let i = 72; i <= 87; i++) WALL_TILES.add(i);
 
+// ── Layer assignments (which layer each tile belongs on) ────────────────────
+const GROUND_TILES = new Set([1, 2, 43, 39, 40, 41, 44, 45]);
+const FOREGROUND_TILES = new Set([4, 5, 7, 8, 10, 11]);
+// Everything else with id >= 0 that isn't ground or foreground = objects
+
+function tileLayer(tileId) {
+  if (tileId < 0) return null;
+  if (GROUND_TILES.has(tileId)) return 'ground';
+  if (FOREGROUND_TILES.has(tileId)) return 'foreground';
+  return 'objects';
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 class V2Learner {
   constructor() {
     // adjacency[tileA][direction][tileB] = count
     this.adjacency = {};
+    // Per-layer adjacency: layerAdj[layer][tileA][direction][tileB] = count
+    this.layerAdj = { ground: {}, objects: {}, foreground: {} };
     // composites: { id: { tiles: [[row0],[row1]], count, type } }
     this.composites = {};
     // Stats
@@ -41,10 +55,11 @@ class V2Learner {
   loadFromFile(filePath) {
     if (!fs.existsSync(filePath)) return;
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (data.version !== '2.0') {
-      console.warn(`Knowledge file version ${data.version} — expected 2.0, loading anyway`);
+    if (data.version && !data.version.startsWith('2.')) {
+      console.warn(`Knowledge file version ${data.version} — expected 2.x, loading anyway`);
     }
     this.adjacency = data.adjacency || {};
+    this.layerAdj = data.layerAdj || { ground: {}, objects: {}, foreground: {} };
     this.composites = {};
     if (Array.isArray(data.composites)) {
       for (const c of data.composites) {
@@ -75,7 +90,7 @@ class V2Learner {
     }
 
     const data = {
-      version: '2.0',
+      version: '2.1',
       stats: {
         maps: this.totalMaps,
         tiles: this.totalTiles,
@@ -83,6 +98,7 @@ class V2Learner {
         composites: compList.length,
       },
       adjacency: this.adjacency,
+      layerAdj: this.layerAdj,
       composites: compList,
     };
 
@@ -187,9 +203,19 @@ class V2Learner {
   _recordAdjacency(tileA, dir, tileB, weight) {
     const kA = String(tileA);
     const kB = String(tileB);
+    // Global adjacency
     if (!this.adjacency[kA]) this.adjacency[kA] = {};
     if (!this.adjacency[kA][dir]) this.adjacency[kA][dir] = {};
     this.adjacency[kA][dir][kB] = (this.adjacency[kA][dir][kB] || 0) + weight;
+    // Per-layer adjacency — tiles only learn adjacency within their own layer
+    const layerA = tileLayer(tileA);
+    const layerB = tileLayer(tileB);
+    if (layerA && layerA === layerB) {
+      const la = this.layerAdj[layerA];
+      if (!la[kA]) la[kA] = {};
+      if (!la[kA][dir]) la[kA][dir] = {};
+      la[kA][dir][kB] = (la[kA][dir][kB] || 0) + weight;
+    }
   }
 
   /**
@@ -330,4 +356,4 @@ if (require.main === module) {
   console.log('\nAll self-tests PASSED');
 }
 
-module.exports = { V2Learner };
+module.exports = { V2Learner, tileLayer, GROUND_TILES, FOREGROUND_TILES };
