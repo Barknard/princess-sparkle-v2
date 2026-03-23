@@ -987,7 +987,24 @@ window.addEventListener('resize', () => { initMapCanvas(); renderMap(); });
       initMapCanvas(); renderMap();
     }
   });
-  document.addEventListener('mouseup', function() { tpDrag = false; refDrag = false; });
+  document.addEventListener('mouseup', function() {
+    if (tpDrag || refDrag) {
+      // Save panel sizes to localStorage
+      localStorage.setItem('painter-panel-sizes', JSON.stringify({
+        tileW: tilePanel.style.width,
+        refH: refArea.style.height
+      }));
+    }
+    tpDrag = false; refDrag = false;
+  });
+  // Restore saved panel sizes
+  try {
+    var saved = JSON.parse(localStorage.getItem('painter-panel-sizes'));
+    if (saved) {
+      if (saved.tileW) tilePanel.style.width = saved.tileW;
+      if (saved.refH) refArea.style.height = saved.refH;
+    }
+  } catch(e) {}
 })();
 </script>
 </body>
