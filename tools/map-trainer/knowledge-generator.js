@@ -293,11 +293,67 @@ class KnowledgeGenerator {
 
     // ---- Level 1: Load adjacency knowledge ----
     this.adjacency = {};  // adjacency[tileA][direction][tileB] = count
+    this.learnedBlocks = []; // Large multi-layer composites (building blocks)
     if (options.knowledgePath && fs.existsSync(options.knowledgePath)) {
       try {
         const k = JSON.parse(fs.readFileSync(options.knowledgePath, 'utf8'));
         this.adjacency = k.adjacency || {};
         this._totalMapsLearned = k.totalMapsLearned || 0;
+
+        // Load large multi-layer composites (building blocks)
+        const rawPatterns = k.rawPatterns || {};
+        for (const [id, data] of Object.entries(rawPatterns)) {
+          if (!data.multiLayer || !data.width || data.width < 4) continue;
+          // Only keep patterns that have real structure (buildings)
+          const oFlat = data.multiLayer.objects.flat();
+          const hasRoof = oFlat.some(t => [63,64,65,67,51,52,53,55].includes(t));
+          const hasWall = oFlat.some(t => t >= 72 && t <= 87);
+          if (!hasRoof || !hasWall) continue;
+
+          // Trim the composite — find the bounding box of non-empty tiles
+          const ml = data.multiLayer;
+          let minX = data.width, maxX = 0, minY = data.height, maxY = 0;
+          for (let y = 0; y < data.height; y++) {
+            for (let x = 0; x < data.width; x++) {
+              const o = ml.objects[y]?.[x] ?? -1;
+              const f = ml.foreground[y]?.[x] ?? -1;
+              if (o !== -1 || f !== -1) {
+                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+              }
+            }
+          }
+          if (maxX < minX) continue; // no content
+
+          // Extract trimmed block
+          const tw = maxX - minX + 1;
+          const th = maxY - minY + 1;
+          if (tw < 3 || th < 2) continue; // too small
+
+          const block = { ground: [], objects: [], foreground: [], width: tw, height: th, count: data.count, score: data.totalScore / Math.max(1, data.count) };
+          for (let y = minY; y <= maxY; y++) {
+            block.ground.push((ml.ground[y] || []).slice(minX, maxX + 1));
+            block.objects.push((ml.objects[y] || []).slice(minX, maxX + 1));
+            block.foreground.push((ml.foreground[y] || []).slice(minX, maxX + 1));
+          }
+
+          // Find door position in this block
+          block.doorX = -1; block.doorY = -1;
+          for (let y = 0; y < th; y++) {
+            for (let x = 0; x < tw; x++) {
+              if (block.objects[y][x] === TILE.WOOD_DOOR || block.objects[y][x] === TILE.STONE_DOOR) {
+                block.doorX = x; block.doorY = y;
+              }
+            }
+          }
+
+          this.learnedBlocks.push(block);
+        }
+
+        // Sort by score descending — best blocks first
+        this.learnedBlocks.sort((a, b) => b.score - a.score);
+        // Keep top 50
+        if (this.learnedBlocks.length > 50) this.learnedBlocks = this.learnedBlocks.slice(0, 50);
       } catch (e) {
         console.warn('Warning: Could not load knowledge file:', e.message);
       }
@@ -861,7 +917,7 @@ class KnowledgeGenerator {
     }
 
     // =======================================================================
-    // PASS 4: Buildings (composite placement with adjacency validation)
+    // PASS 4: Buildings (learned blocks first, then composite templates)
     // =======================================================================
     const buildings = [];
     const numBuildings = dna.buildingCount || 3;
@@ -869,7 +925,73 @@ class KnowledgeGenerator {
     const yMax = Math.round((dna.buildingYBand ? dna.buildingYBand[1] : 0.70) * H);
     const minSpacing = dna.buildingMinSpacing || 10;
 
-    // Determine which templates to use from DNA
+    // TRY LEARNED BLOCKS FIRST — stamp whole building+fence+deco units
+    if (this.learnedBlocks.length > 0) {
+      const shuffledBlocks = [...this.learnedBlocks].sort(() => Math.random() - 0.5);
+
+      for (let attempt = 0; attempt < numBuildings * 30 && buildings.length < numBuildings; attempt++) {
+        const block = shuffledBlocks[attempt % shuffledBlocks.length];
+        const bw = block.width;
+        const bh = block.height;
+
+        // Pick position
+        const bx = Math.floor(Math.random() * (W - bw - 4)) + 2;
+        const by = yMin + Math.floor(Math.random() * Math.max(1, yMax - yMin - bh));
+
+        // Check bounds
+        if (by < 1 || by + bh >= H || bx + bw >= W) continue;
+
+        // Check spacing
+        let tooClose = false;
+        for (const b of buildings) {
+          if (Math.abs(bx - b.x) < minSpacing && Math.abs(by - b.y) < minSpacing) { tooClose = true; break; }
+        }
+        if (tooClose) continue;
+
+        // Check clear area (no paths or occupied)
+        let blocked = false;
+        for (let dy = 0; dy < bh && !blocked; dy++) {
+          for (let dx = 0; dx < bw && !blocked; dx++) {
+            const pi = this._idx(bx + dx, by + dy);
+            if (this._occupied[pi]) blocked = true;
+          }
+        }
+        if (blocked) continue;
+
+        // STAMP the entire block — all 3 layers
+        for (let dy = 0; dy < bh; dy++) {
+          for (let dx = 0; dx < bw; dx++) {
+            const ti = this._idx(bx + dx, by + dy);
+            const gt = block.ground[dy]?.[dx];
+            const ot = block.objects[dy]?.[dx];
+            const ft = block.foreground[dy]?.[dx];
+
+            if (gt !== undefined && gt !== -1) this._ground[ti] = gt;
+            if (ot !== undefined && ot !== -1) {
+              this._objects[ti] = ot;
+              this._occupied[ti] = 1;
+              // Collision for non-door building tiles
+              if (ot !== TILE.WOOD_DOOR && ot !== TILE.STONE_DOOR) {
+                this._collision[ti] = 1;
+              }
+            }
+            if (ft !== undefined && ft !== -1) this._foreground[ti] = ft;
+          }
+        }
+
+        // Record building info
+        const doorX = block.doorX >= 0 ? bx + block.doorX : bx + Math.floor(bw / 2);
+        const doorY = block.doorY >= 0 ? by + block.doorY : by + 1;
+        buildings.push({ x: bx, y: by, w: bw, h: bh, doorX, doorY, source: 'learned-block' });
+
+        // Connect door to nearest path
+        if (dna.pathConnectBuildings !== false) {
+          this._connectToPath(doorX, doorY);
+        }
+      }
+    }
+
+    // FALLBACK: Use template-based placement for remaining buildings needed
     const templateIndices = dna.buildingTemplates || [0, 1];
     const availableTemplates = this.composites.buildings;
 
