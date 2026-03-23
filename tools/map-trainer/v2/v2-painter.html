@@ -871,7 +871,31 @@ document.addEventListener('keydown', (e) => {
     label.style.cssText = 'position:absolute; bottom:0; right:1px; font-size:7px; color:#a855f7;';
     label.textContent = id;
     cell.appendChild(label);
-    cell.title = 'Custom #' + id + ' — works on any layer';
+    cell.title = 'Custom #' + id + ' — click to select, × to delete';
+    cell.dataset.customId = id;
+
+    // Delete button
+    var delBtn = document.createElement('div');
+    delBtn.style.cssText = 'position:absolute; top:-2px; left:-2px; width:12px; height:12px; background:#ef4444; color:#fff; font-size:8px; line-height:12px; text-align:center; border-radius:50%; cursor:pointer; display:none; z-index:1;';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', function(evt) {
+      evt.stopPropagation();
+      // Remove from map data (replace all instances of this ID with -1)
+      for (var i = 0; i < MAP_W * MAP_H; i++) {
+        if (mapGround[i] === id) mapGround[i] = -1;
+        if (mapObjects[i] === id) mapObjects[i] = -1;
+        if (mapForeground[i] === id) mapForeground[i] = -1;
+      }
+      delete tileCanvases[id];
+      cell.remove();
+      if (selectedTile === id) { selectedTile = -1; document.getElementById('selectedLabel').textContent = 'None'; }
+      renderMap();
+      autoSave();
+      showToast('Custom tile #' + id + ' deleted');
+    });
+    cell.appendChild(delBtn);
+    cell.addEventListener('mouseenter', function() { delBtn.style.display = 'block'; });
+    cell.addEventListener('mouseleave', function() { delBtn.style.display = 'none'; });
 
     cell.addEventListener('click', function() {
       selectedTile = id;
@@ -888,11 +912,9 @@ document.addEventListener('keydown', (e) => {
 
     document.getElementById('customTiles').appendChild(cell);
 
-    // Clear selection
-    dragStart = null;
-    dragEnd = null;
-    refCtx.clearRect(0, 0, refCanvas.width, refCanvas.height);
-    showToast('Custom tile #' + id + ' created from reference');
+    // Keep selection visible so user can adjust and re-save
+    // Don't clear dragStart/dragEnd — let user see what they grabbed
+    showToast('Custom tile #' + id + ' created — adjust selection & drag again for another');
     e.preventDefault();
     e.stopPropagation();
   });
