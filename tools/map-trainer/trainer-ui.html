@@ -1019,37 +1019,26 @@ async function pollStatus() {
     const status = await resp.json();
 
     // Hide waiting overlay if we have ANY data
-    const hasData = (status.completedGenerations > 0) || (status.log && status.log.length > 0) || status.running;
+    var hasData = (status.completedGenerations > 0) || (status.log && status.log.length > 0) || status.running;
     if (hasData) {
       $('waitingOverlay').classList.add('hidden');
     }
 
-    updateRunStatus(status.running !== false);
-    updateKPIs(status);
-    updateChart();
-    updateLogs(status);
-    updateBestDNA(status);
-
-    // Try to get best map image
-    try {
-      var rResp = await fetch('/api/batch/results');
-      if (rResp.ok) {
-        var resultsData = await rResp.json();
-        updateBestMap(resultsData);
-      }
-    } catch (_) { /* results endpoint is optional */ }
-
-    // Set best map image
+    // Set best map image FIRST (before anything that might throw)
     if (status.bestImage) {
       document.getElementById('bestMapImg').src = status.bestImage + '?t=' + Date.now();
       document.getElementById('bestMapPlaceholder').style.display = 'none';
-    } else {
-      document.getElementById('bestMapImg').src = '';
-      document.getElementById('bestMapPlaceholder').style.display = '';
     }
 
+    // These might throw — wrapped individually so one failure doesn't kill the rest
+    try { updateRunStatus(status.running !== false); } catch(_) {}
+    try { updateKPIs(status); } catch(_) {}
+    try { updateChart(); } catch(_) {}
+    try { updateLogs(status); } catch(_) {}
+    try { updateBestDNA(status); } catch(_) {}
+
   } catch (_) {
-    updateRunStatus(false);
+    try { updateRunStatus(false); } catch(_) {}
   }
 }
 
