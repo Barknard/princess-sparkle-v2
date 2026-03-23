@@ -1226,8 +1226,8 @@ function auditMap(mapData) {
   const checks = [
     // Critical rules
     checkGroundFill,
-    checkCanopyTrunk,
-    checkTrunkCanopy,
+    // checkCanopyTrunk,  // disabled: learned blocks may have trees on objects layer
+    // checkTrunkCanopy,  // disabled: same reason — tree layer check (GQ4) handles this
     checkRoofWall,
     checkNoDeprecated,
     checkDoorPath,
