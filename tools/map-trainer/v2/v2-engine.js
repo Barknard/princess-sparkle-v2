@@ -76,8 +76,8 @@ const MATERIALS = {
     // Red roof + wood mid + stone walls (painted map style)
     roof:  { L: 52, M: 53, R: 54 },   // red roof (tag: roof+red)
     mid:   { L: 64, M: 65, R: 66 },   // red/stone mid (tag: roof+stone)
-    base:  { L: 84, M: 85, R: 87 },   // stone walls (tag: wall+stone+wood)
-    doors: [85, 86, 89],               // stone doors (tag: door+wall)
+    base:  { L: 84, M: 84, R: 84 },   // stone walls — solid, no accidental doors
+    doors: [85, 86],                    // stone doors (explicitly placed only)
   },
   red_wood: {
     // Red roof + wood mid + wood walls
@@ -90,7 +90,7 @@ const MATERIALS = {
     // Gray roof + stone walls
     roof:  { L: 48, M: 49, R: 50 },   // gray roof
     mid:   { L: 76, M: 77, R: 79 },   // stone mid (tag: wall+stone)
-    base:  { L: 88, M: 89, R: 91 },   // stone walls (tag: wall+stone)
+    base:  { L: 88, M: 88, R: 88 },   // stone walls — solid, no accidental doors
     doors: [89, 90],
   },
   castle: {
@@ -109,12 +109,18 @@ const MATERIAL_KEYS = ['gray_wood', 'red_stone', 'red_wood', 'gray_stone'];
 // Every building is uniquely generated from rules. Painted templates are
 // training data only — they teach the material system, never get copied.
 
-// Generate a house: roof on top, mid detail above door only, base with door
-function generateHouse(rng) {
+// Generate a house with proper architectural rules:
+//   1. Roof row on top — ONLY roof tiles, no windows/doors
+//   2. Sloped roof overhang above door position (pitched-roof detail)
+//   3. Wall rows — windows placed randomly (not stacked), no doors
+//   4. Base row — exactly 1 door, rest are wall tiles
+//   5. Optional chimney on roof (at least 1 building per map should have one)
+function generateHouse(rng, wantChimney) {
   const mat = MATERIALS[MATERIAL_KEYS[Math.floor(rng() * MATERIAL_KEYS.length)]];
-  const w = 2 + Math.floor(rng() * 5);   // 2-6 wide (min 2 per user rule)
+  const w = 2 + Math.floor(rng() * 5);   // 2-6 wide
   const rows = [];
 
+  // Helper: make a row of L-M-R tiles
   const makeRow = (lmr) => {
     if (w === 2) return [lmr.L, lmr.R];
     const row = [lmr.L];
@@ -123,16 +129,21 @@ function generateHouse(rng) {
     return row;
   };
 
-  // Pick door position (center-ish)
-  const doorX = w === 2 ? Math.floor(rng() * 2) : Math.min(1 + Math.floor(rng() * (w - 2)), w - 1);
+  // Pick door position (center-ish, but not at edges)
+  const doorX = w <= 2 ? Math.floor(rng() * w) : 1 + Math.floor(rng() * (w - 2));
 
-  // Roof row
-  rows.push(makeRow(mat.roof));
+  // ── ROW 0: Roof — ONLY roof tiles, no windows/doors ──
+  const roofRow = makeRow(mat.roof);
+  // Optional chimney (tags: chimney tiles are 51, 55)
+  if (wantChimney && w >= 3) {
+    const chimneyX = doorX === 0 ? w - 1 : 0; // chimney opposite side from door
+    const chimneyTile = mat.roof.L === 48 ? 51 : 55; // gray→51, red→55
+    roofRow[chimneyX] = chimneyTile;
+  }
+  rows.push(roofRow);
 
-  // Mid row — pitched roof detail ONLY above the door column
-  // Always include at least 1 mid row (minimum 3 tall: roof + mid + base)
-  const midRow = makeRow(mat.base); // default to base wall tiles
-  // Place mid L-M-R overhang centered on door position
+  // ── ROW 1: Pitched roof overhang above door (sloped roof detail) ──
+  const midRow = makeRow(mat.base); // default to wall tiles
   if (w >= 3) {
     const overhangStart = Math.max(0, doorX - 1);
     const overhangEnd = Math.min(w - 1, doorX + 1);
@@ -140,26 +151,38 @@ function generateHouse(rng) {
     midRow[doorX] = mat.mid.M;
     midRow[overhangEnd] = mat.mid.R;
   } else {
-    // 2-wide: just use mid tiles
     midRow[0] = mat.mid.L;
     midRow[w - 1] = mat.mid.R;
   }
   rows.push(midRow);
 
-  // Extra wall rows for taller buildings (0-1 additional)
-  const extraWalls = 1 + Math.floor(rng() * 2); // 1-2 extra wall rows for taller buildings
-  for (let i = 0; i < extraWalls; i++) rows.push(makeRow(mat.base));
+  // ── ROWS 2+: Wall rows — windows placed RANDOMLY, not stacked ──
+  const wallRows = 1 + Math.floor(rng() * 2); // 1-2 wall rows
+  // Window tiles from tags: 84 (stone window), 88 (stone window variant)
+  // For wood buildings: 75 (wood window)
+  const windowTiles = mat === MATERIALS.gray_wood || mat === MATERIALS.red_wood ? [75] : [84, 88];
+  for (let wr = 0; wr < wallRows; wr++) {
+    const wallRow = makeRow(mat.base);
+    // Randomly place 0-1 windows per wall row (NOT always in same columns)
+    if (w >= 3 && rng() < 0.6) {
+      const wx = 1 + Math.floor(rng() * (w - 2)); // random position, not at edges
+      if (wx !== doorX) {
+        wallRow[wx] = windowTiles[Math.floor(rng() * windowTiles.length)];
+      }
+    }
+    rows.push(wallRow);
+  }
 
-  // Base row
+  // ── LAST ROW: Base — exactly 1 door ──
   const baseRow = makeRow(mat.base);
-  rows.push(baseRow);
-
-  // Pick a door tile from the material's door options
+  // Every building gets a door
   const doorTile = mat.doors && mat.doors.length > 0
     ? mat.doors[Math.floor(rng() * mat.doors.length)]
-    : -1;
+    : mat.base.M; // fallback
+  baseRow[doorX] = doorTile;
+  rows.push(baseRow);
 
-  return { w, h: rows.length, rows, doorX, doorTile, tileCount: rows.flat().filter(t => t >= 0).length };
+  return { w, h: rows.length, rows, doorX, doorTile, hasDoor: true, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
 // Generate a castle: thick solid walls with towers and gate
@@ -592,16 +615,19 @@ class V2Engine {
         ];
       }
 
+      let chimneyPlaced = false;
       for (let bi = 0; bi < numBuildings; bi++) {
-        // ALL buildings are procedurally generated from rules — never copied
+        // At least 1 building gets a chimney — first building that hasn't had one yet
+        const wantChimney = !chimneyPlaced && (bi === 0 || rng() < 0.25);
         let bldg;
         const roll = rng();
-        if (false) { // fences disabled
-          bldg = generateFence(rng);         // 12% fence
-        } else if (false) { // fences disabled // castle DISABLED - tiles are wrong (fence/water tiles labeled as castle)
-          bldg = generateFence(rng);  // was: castle (broken)
+        if (roll < 0.08) {
+          bldg = generateCastle(rng);         // 8% castle
+        } else if (roll < 0.15) {
+          bldg = generateFence(rng);          // 7% fence
         } else {
-          bldg = generateHouse(rng);         // 82% house
+          bldg = generateHouse(rng, wantChimney);
+          if (wantChimney) chimneyPlaced = true;
         }
 
         for (let attempt = 0; attempt < 120; attempt++) {
@@ -642,16 +668,13 @@ class V2Engine {
           }
           if (overlap) continue;
 
-          // Decide if this building gets a door (max 2 per map)
-          const giveDoor = !bldg.isFence && doorPositions.length < 2 && bldg.doorTile >= 0 && rng() < 0.45;
-          let doorCellIdx = -1;
-          if (giveDoor) {
-            const doorRow = bldg.rows[bldg.h - 1];
-            doorRow[bldg.doorX] = bldg.doorTile;
-            doorCellIdx = this.idx(bx + bldg.doorX, by + bldg.h - 1);
-          }
+          // Every house has a door built into its bottom row
+          // Track the door cell for walkability and path connections
+          const doorCellIdx = bldg.hasDoor
+            ? this.idx(bx + bldg.doorX, by + bldg.h - 1)
+            : -1;
 
-          // Place all tiles — only the explicit door is walkable
+          // Place all tiles
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;
@@ -662,7 +685,7 @@ class V2Engine {
               }
             }
           }
-          if (giveDoor) doorPositions.push({ x: bx + bldg.doorX, y: by + bldg.h - 1 });
+          if (bldg.hasDoor) doorPositions.push({ x: bx + bldg.doorX, y: by + bldg.h - 1 });
           placed.push({ x: bx, y: by, w: bldg.w, h: bldg.h });
           break;
         }
