@@ -190,11 +190,10 @@ function generateHouse(rng, wantChimney) {
 
   // ── ROW 0: Top roof — full width, ONLY roof tiles ──
   const roofRow = makeRow(mat.roof);
-  // Chimney — ALWAYS on top roof row, never anywhere else
-  // Uses chimney-tagged tiles: 51 (gray chimney), 55 (red chimney)
-  if (wantChimney && w >= 3) {
-    const chimneyX = doorX === 0 ? w - 1 : 0; // opposite side from door
-    // Match chimney color to roof: gray roof→51, red roof→55
+  // Chimney — ALWAYS on top roof row. Large buildings (4+ wide) get chimney more often.
+  const actuallyWantChimney = wantChimney || (w >= 4 && rng() < 0.5);
+  if (actuallyWantChimney && w >= 3) {
+    const chimneyX = doorX === 0 ? w - 1 : 0;
     const isGrayRoof = mat.roof.L === 48 || mat.roof.L === 49 || mat.roof.L === 50;
     roofRow[chimneyX] = isGrayRoof ? 51 : 55;
   }
@@ -233,10 +232,11 @@ function generateHouse(rng, wantChimney) {
   const leftDoor = (mat.doors || []).find(id => _tileTags[id] && _tileTags[id].includes('left'));
   const rightDoor = (mat.doors || []).find(id => _tileTags[id] && _tileTags[id].includes('right'));
 
-  if (w >= 3 && leftDoor && rightDoor && rng() < 0.35) {
-    // 35% chance: left+right door pair (always together)
-    baseRow[doorX] = leftDoor;
-    baseRow[Math.min(doorX + 1, w - 1)] = rightDoor;
+  if (w >= 4 && leftDoor && rightDoor && rng() < 0.3) {
+    // 30% chance on 4+ wide buildings: left+right door pair
+    const pairX = Math.max(1, Math.min(doorX, w - 2)); // ensure both fit
+    baseRow[pairX] = leftDoor;
+    baseRow[pairX + 1] = rightDoor;
   } else if (middleDoors.length > 0) {
     // Single middle door
     baseRow[doorX] = middleDoors[Math.floor(rng() * middleDoors.length)];
@@ -304,9 +304,9 @@ function generateCastle(rng) {
 function generateFence(rng, width) {
   // Fence tiles from user tags: 44-47, 68-71, 80-82
   const FENCE_SETS = [
-    { L: 44, M: 45, R: 46 },
-    { L: 68, M: 69, R: 70 },
-    { L: 80, M: 81, R: 82 },
+    { L: 44, M: 45, R: 46, post: 47 },
+    { L: 68, M: 69, R: 70, post: 71 },
+    { L: 80, M: 81, R: 82, post: 81 },
   ];
   const fenceSet = FENCE_SETS[Math.floor(rng() * FENCE_SETS.length)];
   const w = width || (3 + Math.floor(rng() * 6)); // 3-8 wide
@@ -314,6 +314,7 @@ function generateFence(rng, width) {
   for (let i = 0; i < w; i++) {
     if (i === 0) row.push(fenceSet.L);
     else if (i === w - 1) row.push(fenceSet.R);
+    else if (i % 3 === 0) row.push(fenceSet.post); // post every 3 tiles
     else row.push(fenceSet.M);
   }
   return { w, h: 1, rows: [row], tileCount: w, isFence: true, hasDoor: false };
@@ -922,6 +923,13 @@ class V2Engine {
       return foreground[i] === T.EMPTY && objects[i] === T.EMPTY
         && !pathCells.has(i) && !doorClearZone.has(i) && !buildingBuffer.has(i);
     };
+    // Canopies CAN overhang paths (foreground is drawn OVER the player)
+    const canPlaceCanopy = (x, y) => {
+      if (!this.inBounds(x, y)) return false;
+      const i = this.idx(x, y);
+      return foreground[i] === T.EMPTY && objects[i] === T.EMPTY
+        && !doorClearZone.has(i) && !buildingBuffer.has(i);
+    };
 
     // Helper: can place on objects layer at (x,y)? Must be away from buildings.
     const canPlaceObj = (x, y) => {
@@ -1092,31 +1100,29 @@ class V2Engine {
       if (placeTree(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
     }
 
-    // PHASE B2: Edge repair — scan every dense tile (19) and ensure all exposed edges have closure
-    // This catches gaps where cluster placement was partial
-    const DENSE_TILE = 19;
+    // PHASE B2: Edge repair — scan ALL tree/canopy tiles and close exposed edges
+    // Covers dense(19), canopy(3,4,7,10,11), and trunk(15,16) tiles
+    // Uses canPlaceCanopy which allows edges to overhang paths (foreground layer)
+    const TREE_FG_TILES = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 19]);
     const EDGE_TOP = [7, 7, 7, 6];
     const EDGE_BOT = [32, 31, 28];
     const EDGE_LEFT = [6, 18, 28];
     const EDGE_RIGHT = [20, 20, 32];
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
-        if (foreground[this.idx(x, y)] !== DENSE_TILE) continue;
-        // Check each neighbor — if it's empty foreground AND placeable, add edge tile
-        // Top
-        if (y > 0 && foreground[this.idx(x, y - 1)] === T.EMPTY && canPlaceFg(x, y - 1)) {
+        if (!TREE_FG_TILES.has(foreground[this.idx(x, y)])) continue;
+        // Check each neighbor — if empty, add directional edge tile
+        // canPlaceCanopy allows edges over paths (foreground overlaps player)
+        if (y > 0 && foreground[this.idx(x, y - 1)] === T.EMPTY && canPlaceCanopy(x, y - 1)) {
           foreground[this.idx(x, y - 1)] = EDGE_TOP[Math.floor(rng() * EDGE_TOP.length)];
         }
-        // Bottom
-        if (y < this.H - 1 && foreground[this.idx(x, y + 1)] === T.EMPTY && canPlaceFg(x, y + 1)) {
+        if (y < this.H - 1 && foreground[this.idx(x, y + 1)] === T.EMPTY && canPlaceCanopy(x, y + 1)) {
           foreground[this.idx(x, y + 1)] = EDGE_BOT[Math.floor(rng() * EDGE_BOT.length)];
         }
-        // Left
-        if (x > 0 && foreground[this.idx(x - 1, y)] === T.EMPTY && canPlaceFg(x - 1, y)) {
+        if (x > 0 && foreground[this.idx(x - 1, y)] === T.EMPTY && canPlaceCanopy(x - 1, y)) {
           foreground[this.idx(x - 1, y)] = EDGE_LEFT[Math.floor(rng() * EDGE_LEFT.length)];
         }
-        // Right
-        if (x < this.W - 1 && foreground[this.idx(x + 1, y)] === T.EMPTY && canPlaceFg(x + 1, y)) {
+        if (x < this.W - 1 && foreground[this.idx(x + 1, y)] === T.EMPTY && canPlaceCanopy(x + 1, y)) {
           foreground[this.idx(x + 1, y)] = EDGE_RIGHT[Math.floor(rng() * EDGE_RIGHT.length)];
         }
       }
