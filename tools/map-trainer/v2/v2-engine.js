@@ -680,13 +680,13 @@ class V2Engine {
           tile = grassPool[Math.floor(rng() * grassPool.length)];
         }
         
-        // Adjacency preference still applies
+        // Adjacency preference — check left AND top neighbor for better pattern matching
         if (x > 0 && layerAdj.ground) {
           const leftTile = String(ground[this.idx(x - 1, y)]);
           const allowed = layerAdj.ground[leftTile]?.east;
           if (allowed) {
             const keys = Object.keys(allowed);
-            if (keys.length > 0 && rng() < 0.5) { // 50% follow adjacency (reduced from 70%)
+            if (keys.length > 0 && rng() < 0.7) { // 70% follow adjacency
               const adjTile = parseInt(keys[Math.floor(rng() * keys.length)]);
               // Only use adjacency suggestion if it's a grass tile
               if ([0, 1, 2, 43].includes(adjTile)) tile = adjTile;
@@ -1348,10 +1348,10 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 5: Water feature (small pond, 30% chance)
+    // STEP 5: Water feature (small pond, 60% chance — painted map has water)
     // Reference map style: 3x2 or 4x3 water area with proper edge tiles
     // ═══════════════════════════════════════════════════════════════════
-    if (rng() < 0.3) {
+    if (rng() < 0.6) {
       const ww = 2 + Math.floor(rng() * 3); // 2-4 wide
       const wh = 2 + Math.floor(rng() * 2); // 2-3 tall
       // Try to place in an open area
