@@ -370,13 +370,18 @@
 <div class="inspector-overlay" id="inspector">
   <button class="inspector-close" onclick="closeInspector()">&times;</button>
   <div class="inspector-map">
-    <canvas id="inspector-canvas" onclick="inspectorClick(event)"></canvas>
+    <canvas id="inspector-canvas"
+      onmousedown="inspectorMouseDown(event)"
+      onmousemove="inspectorMouseMove(event)"
+      onmouseup="inspectorMouseUp(event)"></canvas>
   </div>
   <div class="inspector-panel">
     <h3>Tile Inspector</h3>
+    <div style="font-size:11px;color:#666;margin-bottom:6px">Click tile to inspect. Drag to select area.</div>
     <div id="inspector-info">Click a tile on the map to inspect it</div>
     <div id="inspector-neighbors"></div>
-    <button class="btn-flag" id="btn-flag" onclick="flagTile()" style="display:none">Flag as Wrong</button>
+    <button class="btn-flag" id="btn-flag" onclick="flagTile()" style="display:none">Flag Tile</button>
+    <button class="btn-flag" id="btn-flag-area" onclick="flagArea()" style="display:none;background:#d97706">Flag Area</button>
     <div class="flagged-list" id="flagged-list">
       <h3 style="margin-top:12px">Flagged Tiles</h3>
       <div id="flagged-items"></div>
@@ -634,9 +639,130 @@ function renderFlaggedList() {
   var html = '';
   for (var i = flaggedTiles.length - 1; i >= 0; i--) {
     var f = flaggedTiles[i];
-    html += '<div class="flagged-item">(' + f.x + ',' + f.y + ') g:' + f.ground + ' o:' + f.objects + ' f:' + f.foreground + ' — ' + f.note + '</div>';
+    if (f.type === 'area') {
+      html += '<div class="flagged-item" style="border-color:#d97706">Area (' + f.x1 + ',' + f.y1 + ')→(' + f.x2 + ',' + f.y2 + ') — ' + f.note + '</div>';
+    } else {
+      html += '<div class="flagged-item">(' + f.x + ',' + f.y + ') g:' + f.ground + ' o:' + f.objects + ' f:' + f.foreground + ' — ' + f.note + '</div>';
+    }
   }
   document.getElementById('flagged-items').innerHTML = html || '<div style="color:#555">No flagged tiles yet</div>';
+}
+
+// ── Area selection (drag to select rectangle) ───────────────────
+var inspectorDragging = false;
+var inspectorDragStart = null;
+var inspectorSelection = null; // {x1,y1,x2,y2} in tile coords
+
+function getTileCoord(e) {
+  var canvas = document.getElementById('inspector-canvas');
+  var rect = canvas.getBoundingClientRect();
+  var s = 16 * inspectorScale;
+  return {
+    x: Math.floor((e.clientX - rect.left) / s),
+    y: Math.floor((e.clientY - rect.top) / s)
+  };
+}
+
+function inspectorMouseDown(e) {
+  inspectorDragging = true;
+  inspectorDragStart = getTileCoord(e);
+  inspectorSelection = null;
+}
+
+function inspectorMouseMove(e) {
+  if (!inspectorDragging || !inspectorDragStart) return;
+  var cur = getTileCoord(e);
+  if (cur.x !== inspectorDragStart.x || cur.y !== inspectorDragStart.y) {
+    inspectorSelection = {
+      x1: Math.min(inspectorDragStart.x, cur.x),
+      y1: Math.min(inspectorDragStart.y, cur.y),
+      x2: Math.max(inspectorDragStart.x, cur.x),
+      y2: Math.max(inspectorDragStart.y, cur.y)
+    };
+    renderInspector();
+    // Draw selection overlay
+    var canvas = document.getElementById('inspector-canvas');
+    var ctx = canvas.getContext('2d');
+    var s = 16 * inspectorScale;
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 3]);
+    ctx.strokeRect(
+      inspectorSelection.x1 * s, inspectorSelection.y1 * s,
+      (inspectorSelection.x2 - inspectorSelection.x1 + 1) * s,
+      (inspectorSelection.y2 - inspectorSelection.y1 + 1) * s
+    );
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(217, 119, 6, 0.15)';
+    ctx.fillRect(
+      inspectorSelection.x1 * s, inspectorSelection.y1 * s,
+      (inspectorSelection.x2 - inspectorSelection.x1 + 1) * s,
+      (inspectorSelection.y2 - inspectorSelection.y1 + 1) * s
+    );
+  }
+}
+
+function inspectorMouseUp(e) {
+  inspectorDragging = false;
+  if (inspectorSelection) {
+    // Show area info
+    var w = inspectorSelection.x2 - inspectorSelection.x1 + 1;
+    var h = inspectorSelection.y2 - inspectorSelection.y1 + 1;
+    var html = '<div class="tile-info">';
+    html += '<div>Selected area: <span class="tile-id">(' + inspectorSelection.x1 + ',' + inspectorSelection.y1 + ') to (' + inspectorSelection.x2 + ',' + inspectorSelection.y2 + ')</span> — ' + w + 'x' + h + ' tiles</div>';
+    // List unique tiles in the area
+    var objTiles = {}, fgTiles = {};
+    for (var y = inspectorSelection.y1; y <= inspectorSelection.y2; y++) {
+      for (var x = inspectorSelection.x1; x <= inspectorSelection.x2; x++) {
+        if (x < 0 || x >= inspectorData.width || y < 0 || y >= inspectorData.height) continue;
+        var i = y * inspectorData.width + x;
+        var o = inspectorData.objects[i], f = inspectorData.foreground[i];
+        if (o >= 0) objTiles[o] = (objTiles[o] || 0) + 1;
+        if (f >= 0) fgTiles[f] = (fgTiles[f] || 0) + 1;
+      }
+    }
+    html += '<div style="margin-top:6px"><strong>Objects:</strong> ';
+    for (var tid in objTiles) html += tid + '(' + getTileName(parseInt(tid)) + ')x' + objTiles[tid] + ' ';
+    html += '</div><div><strong>Foreground:</strong> ';
+    for (var tid in fgTiles) html += tid + '(' + getTileName(parseInt(tid)) + ')x' + fgTiles[tid] + ' ';
+    html += '</div></div>';
+    document.getElementById('inspector-info').innerHTML = html;
+    document.getElementById('btn-flag').style.display = 'none';
+    document.getElementById('btn-flag-area').style.display = 'block';
+    inspectorSelected = null;
+  } else {
+    // Single click
+    inspectorClick(e);
+    document.getElementById('btn-flag-area').style.display = 'none';
+  }
+}
+
+function flagArea() {
+  if (!inspectorSelection || !inspectorData) return;
+  var note = prompt('What looks wrong in this area?') || 'area flagged';
+  // Collect all tiles in the selection
+  var tiles = [];
+  for (var y = inspectorSelection.y1; y <= inspectorSelection.y2; y++) {
+    for (var x = inspectorSelection.x1; x <= inspectorSelection.x2; x++) {
+      if (x < 0 || x >= inspectorData.width || y < 0 || y >= inspectorData.height) continue;
+      var i = y * inspectorData.width + x;
+      tiles.push({ x: x, y: y, ground: inspectorData.ground[i], objects: inspectorData.objects[i], foreground: inspectorData.foreground[i] });
+    }
+  }
+  var entry = {
+    type: 'area',
+    x1: inspectorSelection.x1, y1: inspectorSelection.y1,
+    x2: inspectorSelection.x2, y2: inspectorSelection.y2,
+    tiles: tiles,
+    note: note,
+    time: new Date().toISOString()
+  };
+  flaggedTiles.push(entry);
+  localStorage.setItem('flaggedTiles', JSON.stringify(flaggedTiles));
+  saveFlagsToServer();
+  renderFlaggedList();
+  renderInspector();
+  inspectorSelection = null;
 }
 
 function closeLightbox() { closeInspector(); }
