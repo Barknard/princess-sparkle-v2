@@ -1216,17 +1216,16 @@ class V2Engine {
       if (placeTree(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
     }
 
-    // PHASE B2: Edge repair — scan ALL tree/canopy tiles and close exposed edges
-    // Covers dense(19), canopy(3,4,7,10,11), and trunk(15,16) tiles
-    // Uses canPlaceCanopy which allows edges to overhang paths (foreground layer)
-    const TREE_FG_TILES = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 19]);
+    // PHASE B2: Edge repair — ONLY for dense cluster body tiles (19)
+    // Do NOT trigger edges from edge tiles themselves (prevents cascading)
+    const CLUSTER_BODY = new Set([19]);
     const EDGE_TOP = [7, 7, 7, 6];
     const EDGE_BOT = [32, 31, 28];
     const EDGE_LEFT = [6, 18, 28];
     const EDGE_RIGHT = [20, 20, 32];
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
-        if (!TREE_FG_TILES.has(foreground[this.idx(x, y)])) continue;
+        if (!CLUSTER_BODY.has(foreground[this.idx(x, y)])) continue;
         // Check each neighbor — if empty, add directional edge tile
         // canPlaceCanopy allows edges over paths (foreground overlaps player)
         if (y > 0 && foreground[this.idx(x, y - 1)] === T.EMPTY && canPlaceCanopy(x, y - 1)) {
