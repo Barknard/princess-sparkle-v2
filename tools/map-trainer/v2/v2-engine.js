@@ -1031,10 +1031,9 @@ class V2Engine {
         }
 
         // Fix stacked doors: if a door is directly above another door, replace top with wall
-        if (WALKABLE_DOORS.has(obj) && y + 1 < this.H) {
-          const belowIdx = this.idx(x, y + 1);
-          if (WALKABLE_DOORS.has(objects[belowIdx])) {
-            // Replace THIS door with the material's wall tile
+        if ((obj === 74 || obj === 86) && y + 1 < this.H) {
+          const belowObj = objects[this.idx(x, y + 1)];
+          if (belowObj === 74 || belowObj === 86) {
             objects[i] = (obj === 74) ? 73 : 85; // wood plain or stone plain
           }
         }
