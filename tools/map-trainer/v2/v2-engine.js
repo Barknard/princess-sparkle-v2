@@ -1198,12 +1198,19 @@ class V2Engine {
       const x = Math.floor(rng() * this.W);
       const y = Math.floor(rng() * (this.H - 1)); // room for trunk below
 
-      // Not inside a cluster zone
+      // Not inside or adjacent to a cluster zone (2-tile buffer)
       let nearCluster = false;
       for (const cz of clusterZones) {
-        if (x >= cz.x - 1 && x <= cz.x + cz.w && y >= cz.y - 1 && y <= cz.y + cz.h) { nearCluster = true; break; }
+        if (x >= cz.x - 2 && x <= cz.x + cz.w + 1 && y >= cz.y - 2 && y <= cz.y + cz.h + 1) { nearCluster = true; break; }
       }
       if (nearCluster) continue;
+
+      // Also check: don't place next to any existing tree/dense foreground tile
+      let nextToTree = false;
+      for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
+        if (this.inBounds(nx, ny) && foreground[this.idx(nx, ny)] !== T.EMPTY) { nextToTree = true; break; }
+      }
+      if (nextToTree) continue;
 
       const tt = singlePool[Math.floor(rng() * singlePool.length)];
       if (placeTree(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
