@@ -1078,16 +1078,8 @@ class V2Engine {
       // Edge tiles from painted map: 32, 20, 31 (stone, bush, sand)
       const edgeTiles = [32, 20, 31, 28];
 
-      // TOP ROW: canopy tiles (7 or 6)
-      for (let dx = 0; dx < w; dx++) {
-        if (canPlaceFg(cx + dx, cy)) {
-          foreground[this.idx(cx + dx, cy)] = topTile;
-          count++;
-        }
-      }
-
-      // BODY ROWS: tile 19 fills densely
-      for (let dy = 1; dy < h; dy++) {
+      // ALL ROWS: tile 19 fills densely (edge repair adds canopy tops above)
+      for (let dy = 0; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
           if (canPlaceFg(cx + dx, cy + dy)) {
             foreground[this.idx(cx + dx, cy + dy)] = bodyTile;
