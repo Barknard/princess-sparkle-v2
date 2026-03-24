@@ -118,7 +118,10 @@
     "tree"
   ],
   "19": [
-    "foreground"
+    "foreground",
+    "center",
+    "middle",
+    "tree"
   ],
   "20": [
     "foreground",
@@ -132,8 +135,9 @@
   ],
   "22": [
     "foreground",
-    "tree",
-    "center"
+    "center",
+    "middle",
+    "tree"
   ],
   "23": [
     "foreground",
@@ -287,26 +291,34 @@
     "solid",
     "fence",
     "left",
-    "top"
+    "top",
+    "fence-end",
+    "wood"
   ],
   "45": [
     "objects",
     "solid",
     "fence",
     "top",
-    "center"
+    "center",
+    "fence-post",
+    "wood"
   ],
   "46": [
     "objects",
     "solid",
     "fence",
     "top",
-    "right"
+    "right",
+    "fence-end",
+    "wood"
   ],
   "47": [
     "objects",
     "solid",
-    "fence"
+    "fence",
+    "fence-end",
+    "wood"
   ],
   "48": [
     "objects",
@@ -385,7 +397,9 @@
     "solid",
     "fence",
     "left",
-    "center"
+    "center",
+    "fence-post",
+    "wood"
   ],
   "57": [
     "objects",
@@ -396,12 +410,16 @@
     "solid",
     "fence",
     "right",
-    "center"
+    "center",
+    "fence-post",
+    "wood"
   ],
   "59": [
     "objects",
     "solid",
-    "fence"
+    "fence",
+    "fence-post",
+    "wood"
   ],
   "60": [
     "objects",
@@ -488,26 +506,34 @@
     "solid",
     "fence",
     "bottom",
-    "left"
+    "left",
+    "fence-end",
+    "wood"
   ],
   "69": [
     "objects",
     "solid",
     "fence",
     "bottom",
-    "middle"
+    "middle",
+    "fence-post",
+    "wood"
   ],
   "70": [
     "objects",
     "solid",
     "fence",
     "right",
-    "bottom"
+    "bottom",
+    "fence-end",
+    "wood"
   ],
   "71": [
     "objects",
     "solid",
-    "fence"
+    "fence",
+    "fence-end",
+    "wood"
   ],
   "72": [
     "objects",
@@ -575,17 +601,23 @@
   "80": [
     "objects",
     "solid",
-    "fence"
+    "fence",
+    "fence-end",
+    "wood"
   ],
   "81": [
     "objects",
     "solid",
-    "fence"
+    "fence",
+    "fence-rail",
+    "wood"
   ],
   "82": [
     "objects",
     "solid",
-    "fence"
+    "fence",
+    "fence-end",
+    "wood"
   ],
   "83": [
     "objects",

@@ -305,20 +305,27 @@ function generateCastle(rng) {
 // Generate a fence: L-M-R rail pattern, variable length
 // Fences do NOT have doors — they're just walls/barriers
 function generateFence(rng, width) {
-  // Fence tiles from user tags: 44-47, 68-71, 80-82
-  const FENCE_SETS = [
-    { L: 44, M: 45, R: 46, post: 47 },
-    { L: 68, M: 69, R: 70, post: 71 },
-    { L: 80, M: 81, R: 82, post: 81 },
-  ];
-  const fenceSet = FENCE_SETS[Math.floor(rng() * FENCE_SETS.length)];
-  const w = width || (3 + Math.floor(rng() * 6)); // 3-8 wide
+  // Build from tags: fence-end(left) for L, fence-rail for M, fence-end(right) for R, fence-post for posts
+  const ends = [], rails = [], posts = [];
+  for (const [id, tags] of Object.entries(_tileTags)) {
+    if (!tags.includes('fence')) continue;
+    const tid = parseInt(id);
+    if (tags.includes('fence-end')) ends.push(tid);
+    if (tags.includes('fence-rail')) rails.push(tid);
+    if (tags.includes('fence-post')) posts.push(tid);
+  }
+  const L = ends.length ? ends[Math.floor(rng() * ends.length)] : 44;
+  const M = rails.length ? rails[Math.floor(rng() * rails.length)] : 81;
+  const R = ends.length ? ends[Math.floor(rng() * ends.length)] : 46;
+  const post = posts.length ? posts[Math.floor(rng() * posts.length)] : 45;
+
+  const w = width || (3 + Math.floor(rng() * 6));
   const row = [];
   for (let i = 0; i < w; i++) {
-    if (i === 0) row.push(fenceSet.L);
-    else if (i === w - 1) row.push(fenceSet.R);
-    else if (i % 3 === 0) row.push(fenceSet.post); // post every 3 tiles
-    else row.push(fenceSet.M);
+    if (i === 0) row.push(L);
+    else if (i === w - 1) row.push(R);
+    else if (i % 3 === 0) row.push(post);
+    else row.push(M);
   }
   return { w, h: 1, rows: [row], tileCount: w, isFence: true, hasDoor: false };
 }
@@ -876,11 +883,34 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 3c: Fences — placed AFTER paths so they don't cross
     // ═══════════════════════════════════════════════════════════════════
-    const FENCE_STYLES = [
-      { L: 44, M: 45, R: 46, post: 47 },
-      { L: 68, M: 69, R: 70, post: 71 },
-      { L: 80, M: 81, R: 82, post: 81 },
-    ];
+    // Build fence styles from tags: fence-end(left) → L, fence-rail → M, fence-end(right) → R, fence-post → post
+    const fenceEndsL = [], fenceEndsR = [], fenceRails = [], fencePosts = [];
+    for (const [id, tags] of Object.entries(_tileTags)) {
+      if (!tags.includes('fence')) continue;
+      const tid = parseInt(id);
+      if (tags.includes('fence-end') && tags.includes('left')) fenceEndsL.push(tid);
+      else if (tags.includes('fence-end') && tags.includes('right')) fenceEndsR.push(tid);
+      else if (tags.includes('fence-end')) { fenceEndsL.push(tid); fenceEndsR.push(tid); } // no position = either end
+      if (tags.includes('fence-rail')) fenceRails.push(tid);
+      if (tags.includes('fence-post')) fencePosts.push(tid);
+    }
+    // Build styles pairing top/bottom fence rows
+    const FENCE_STYLES = [];
+    if (fenceEndsL.length && fenceRails.length && fenceEndsR.length) {
+      // Create a few styles from available tiles
+      for (let fi = 0; fi < Math.min(3, fenceEndsL.length); fi++) {
+        FENCE_STYLES.push({
+          L: fenceEndsL[fi % fenceEndsL.length],
+          M: fenceRails[fi % fenceRails.length] || fenceEndsL[0],
+          R: fenceEndsR[fi % fenceEndsR.length],
+          post: fencePosts[fi % fencePosts.length] || fenceRails[0],
+        });
+      }
+    }
+    // Fallback if no tags
+    if (FENCE_STYLES.length === 0) {
+      FENCE_STYLES.push({ L: 44, M: 81, R: 46, post: 45 });
+    }
     const numFences = 1 + Math.floor(rng() * 2);
     for (let fi = 0; fi < numFences; fi++) {
       const fenceType = FENCE_STYLES[Math.floor(rng() * FENCE_STYLES.length)];
