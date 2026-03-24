@@ -94,11 +94,10 @@ const MATERIAL_KEYS = ['red', 'gray', 'blue']; // house materials (castle/stone 
 // Every building is uniquely generated from rules. Painted templates are
 // training data only — they teach the material system, never get copied.
 
-// Generate a house: roof on top, mid rows, base with door
+// Generate a house: roof on top, mid detail above door only, base with door
 function generateHouse(rng) {
   const mat = MATERIALS[MATERIAL_KEYS[Math.floor(rng() * MATERIAL_KEYS.length)]];
   const w = 3 + Math.floor(rng() * 4);   // 3-6 wide
-  const midRows = Math.floor(rng() * 3);  // 0-2 mid rows (making 2-4 tall)
   const rows = [];
 
   const makeRow = (lmr) => {
@@ -108,17 +107,36 @@ function generateHouse(rng) {
     return row;
   };
 
-  // Roof
+  // Pick door position first (drives the pitched roof placement)
+  const doorPositions = [1, Math.floor(w / 2), w - 2];
+  const doorX = Math.min(doorPositions[Math.floor(rng() * doorPositions.length)], w - 1);
+
+  // Roof row
   rows.push(makeRow(mat.roof));
-  // Mid rows (wall detail — more rows = taller building)
-  for (let i = 0; i < midRows; i++) rows.push(makeRow(mat.mid));
-  // Base with door — door position varies
+
+  // Mid row — pitched roof detail goes ONLY above the door column
+  // The "mid" tiles (60/61/62/63 etc) are the under-roof overhang
+  // They sit in one row, only above where the door is
+  const hasMidDetail = rng() < 0.7; // 70% of houses have the overhang detail
+  if (hasMidDetail) {
+    const midRow = makeRow(mat.base); // default to base tiles
+    // Place mid L-M-R centered on the door position (3-tile overhang)
+    const overhangStart = Math.max(0, doorX - 1);
+    const overhangEnd = Math.min(w - 1, doorX + 1);
+    if (overhangStart < w) midRow[overhangStart] = mat.mid.L;
+    midRow[doorX] = mat.mid.M;
+    if (overhangEnd < w) midRow[overhangEnd] = mat.mid.R;
+    rows.push(midRow);
+  }
+
+  // Extra wall rows for taller buildings (0-1 additional)
+  const extraWalls = Math.floor(rng() * 2); // 0-1
+  for (let i = 0; i < extraWalls; i++) rows.push(makeRow(mat.base));
+
+  // Base row with door
   const baseRow = makeRow(mat.base);
   if (mat.door >= 0) {
-    // Door can be left-center, center, or right-center
-    const doorPositions = [1, Math.floor(w / 2), w - 2];
-    const doorX = doorPositions[Math.floor(rng() * doorPositions.length)];
-    baseRow[Math.min(doorX, w - 1)] = mat.door;
+    baseRow[doorX] = mat.door;
   }
   rows.push(baseRow);
 
