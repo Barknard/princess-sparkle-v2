@@ -54,41 +54,57 @@ const TILE_LAYER = {};
 // Buildings are composed of material sets. Each set has L-M-R tiles for each layer.
 // The middle tile can repeat to make wider buildings. Layers stack vertically.
 // This allows generating buildings of ANY size from a small set of materials.
+// ── Building Materials — derived from tile-catalog.json tags ─────────────────
+// Each material has tiles verified by catalog position tags (left/middle/right)
+// and material tags (red/blue/stone/wood/brick).
 const MATERIALS = {
   red: {
-    roof:  { L: 48, M: 49, R: 50 },
-    mid:   { L: 60, M: 63, R: 62 },  // 63 = wall pattern
-    base:  { L: 72, M: 85, R: 75 },
-    door:  80,
-  },
-  gray: {
-    roof:  { L: 52, M: 53, R: 54 },
-    mid:   { L: 64, M: 65, R: 66 },
-    base:  { L: 76, M: 88, R: 79 },
-    door:  57,
+    // Red Roof: 63(L), 64(M), 65(R) — catalog: "Red Roof Left/Middle/Right Slope"
+    roof:  { L: 63, M: 64, R: 65 },
+    // Brick mid-row: 60(L), 61(Center), 62(R) — catalog: "Brick Wall Left/Center/Right"
+    mid:   { L: 60, M: 61, R: 62 },
+    // Wood wall base: 72(L), 73(Center), 75(Window) — catalog: "Wood Wall Left/Center/Window"
+    base:  { L: 72, M: 73, R: 75 },
+    door:  74, // catalog: "Wood Door" (building-door tag)
   },
   blue: {
-    roof:  { L: 51, M: 49, R: 55 },
-    mid:   { L: 61, M: 63, R: 62 },
-    base:  { L: 84, M: 85, R: 75 },
-    door:  80,
-  },
-  castle: {
-    roof:  { L: 96, M: 96, R: 98 },     // solid wall top (L fills middle too)
-    mid:   { L: 120, M: 120, R: 122 },   // solid wall mid
-    base:  { L: 123, M: 123, R: 124 },   // solid wall base
-    gate:  { L: 111, R: 112 },
-    tower: 102,
-    door:  -1,
+    // Blue Roof: 51(L), 52(M), 53(R) — catalog: "Blue Roof Left/Middle/Right Slope"
+    roof:  { L: 51, M: 52, R: 53 },
+    // Stone mid-row: 48(stone wall), 49(window), 50(plain) — catalog: stone material
+    mid:   { L: 48, M: 49, R: 50 },
+    // Dark stone base: 84(L), 85(Center), 87(Window) — catalog: "Dark Stone Wall"
+    base:  { L: 84, M: 85, R: 87 },
+    door:  86, // catalog: "Dark Stone Door"
   },
   stone: {
-    wall:  { L: 44, M: 45, R: 44 },      // fence/wall segments
-    base:  { L: 56, M: 94, R: 68 },
-    door:  82,
-    post:  81,
+    // Stone/gray building (no colored roof — flat stone top)
+    roof:  { L: 56, M: 58, R: 57 },  // Gray stone arch top / dark gray stone wall
+    mid:   { L: 76, M: 81, R: 79 },  // Blue-gray panel / medium gray / gray wall
+    base:  { L: 82, M: 81, R: 82 },  // Dark stone wall
+    door:  86, // Dark Stone Door
+  },
+  fence_white: {
+    // White fence: 96(L), 97(M), 98(R) — catalog verified
+    rail:  { L: 96, M: 97, R: 98 },
+    post:  108, // Vertical Fence Post
+  },
+  fence_wood: {
+    // Brown wood fence: 99(L), 100(M), 101(R) — catalog verified
+    rail:  { L: 99, M: 100, R: 101 },
+    post:  108,
+  },
+  castle: {
+    // Castle uses stone-family tiles in a specific pattern
+    // Towers are optional bookends, walls fill solid between
+    roof:  { L: 56, M: 58, R: 57 },    // stone arch / dark stone (top row)
+    mid:   { L: 84, M: 85, R: 87 },    // dark stone walls (mid rows)
+    base:  { L: 82, M: 81, R: 82 },    // dark stone base
+    gate:  { L: 86, R: 86 },           // stone doors as gate
+    tower: 56,                           // stone arch top as tower cap
+    door:  -1,
   },
 };
-const MATERIAL_KEYS = ['red', 'gray', 'blue']; // house materials (castle/stone are special)
+const MATERIAL_KEYS = ['red', 'blue', 'stone']; // house materials
 
 // ── Procedural Building Generators ──────────────────────────────────────────
 // Every building is uniquely generated from rules. Painted templates are
@@ -189,16 +205,18 @@ function generateCastle(rng) {
   return { w: totalW, h: totalH, rows, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
-// Generate a fence: posts + rails, variable length
+// Generate a fence: L-M-R rail pattern, variable length
 // Fences do NOT have doors — they're just walls/barriers
 function generateFence(rng, width) {
-  const mat = MATERIALS.stone;
+  const fenceMat = rng() < 0.5 ? MATERIALS.fence_white : MATERIALS.fence_wood;
   const w = width || (3 + Math.floor(rng() * 6)); // 3-8 wide
   const row = [];
 
+  // Proper L-M-R pattern: left end, middles, right end
   for (let i = 0; i < w; i++) {
-    if (i % 2 === 0) row.push(mat.post); // 81 = fence post
-    else row.push(mat.wall.M);            // 45 = fence rail
+    if (i === 0) row.push(fenceMat.rail.L);
+    else if (i === w - 1) row.push(fenceMat.rail.R);
+    else row.push(fenceMat.rail.M);
   }
   return { w, h: 1, rows: [row], tileCount: w, isFence: true };
 }
@@ -458,7 +476,7 @@ class V2Engine {
           if (overlap) continue;
 
           // Place building + find doors (only real building doors, not fence pieces)
-          const REAL_DOORS = new Set([80, 57]); // wood door, stone door
+          const REAL_DOORS = new Set([74, 86]); // 74=Wood Door, 86=Dark Stone Door (catalog verified)
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;

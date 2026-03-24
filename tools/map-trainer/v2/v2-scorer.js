@@ -16,13 +16,16 @@
 const PATH_TILES = new Set([25, 39, 40, 41, 13, 14, 24, 36, 37, 38]);
 const COBBLE_TILES = new Set([25, 44, 45]);
 const GRASS_TILES = new Set([0, 1, 2, 43]); // tile 0 (sparkle) is user's primary ground
-// Roofs: user uses blue (51-55), red (63-67), brick (60-62)
-const ROOF_TILES = new Set([48, 49, 50, 51, 52, 53, 54, 55, 60, 61, 62, 63, 64, 65, 66, 67]);
-const WALL_TILES = new Set();
-for (let i = 72; i <= 89; i++) WALL_TILES.add(i); // extended: includes 88,89 (interior tiles user uses)
-[44, 45, 56, 57, 68, 76, 79, 80, 81, 82, 83, 84, 85].forEach(t => WALL_TILES.add(t)); // stone/arch tiles
-const DOOR_TILES = new Set([57, 74, 80, 86]); // 57=arch base, 80=dark archway
-const FENCE_TILES = new Set([96, 97, 98, 99, 100, 101]);
+// Roofs — catalog verified: red(63-65), blue(51-53), peak/chimney(55,67)
+const ROOF_TILES = new Set([51, 52, 53, 55, 63, 64, 65, 67]);
+// Mid-row overhang — brick(60-62), stone(48-50)
+const MID_TILES = new Set([48, 49, 50, 60, 61, 62]);
+// Walls — wood(72-75), dark stone(84-87), gray(76,79,81,82), stone arch(56-58,68)
+const WALL_TILES = new Set([56, 57, 58, 68, 72, 73, 74, 75, 76, 79, 81, 82, 84, 85, 86, 87]);
+// Doors — catalog: 74(Wood Door), 86(Dark Stone Door)
+const DOOR_TILES = new Set([74, 86]);
+// Fences — white(96-98), brown(99-101), post(108)
+const FENCE_TILES = new Set([96, 97, 98, 99, 100, 101, 108]);
 // Trees/vegetation — ALL on FOREGROUND layer (user's style)
 // Canopy tops: green(4), pine(7), autumn(3), dark(6), bush-canopy(28,20)
 const CANOPY_TILES = new Set([3, 4, 6, 7, 28, 20]);
@@ -38,6 +41,21 @@ const WELL_TILES = new Set([92, 104]);
 const LANTERN_BARREL = new Set([93, 94, 95, 102, 107]);
 // ALL vegetation/decoration on foreground (user's layer choice)
 const FG_VEGETATION = new Set([3, 4, 6, 7, 15, 16, 17, 18, 19, 20, 27, 28, 29, 31, 32, 34, 103]);
+
+// Load tile catalog for tag-based validation
+let TILE_CATALOG = null;
+try {
+  const catalogPath = require('path').join(__dirname, '..', '..', 'tools', 'tile-catalog.json');
+  if (require('fs').existsSync(catalogPath)) {
+    TILE_CATALOG = require(catalogPath).tiles;
+  }
+} catch (e) { /* catalog optional */ }
+
+// Build lookup: tile ID → tags set
+const TILE_TAGS = {};
+if (TILE_CATALOG) {
+  TILE_CATALOG.forEach(t => { TILE_TAGS[t.id] = new Set(t.tags || []); });
+}
 
 class V2Scorer {
   constructor(targetMap) {
