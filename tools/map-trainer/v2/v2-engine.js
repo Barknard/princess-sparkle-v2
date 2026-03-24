@@ -593,59 +593,77 @@ class V2Engine {
         && !pathCells.has(i) && !doorClearZone.has(i);
     };
 
-    // Place a complete tree (canopy + trunk, both cells guaranteed)
-    const placeTreePair = (x, y, canopyTile, trunkTile) => {
-      if (!canPlaceFg(x, y) || !canPlaceFg(x, y + 1)) return false;
+    // Helper: can place on objects layer at (x,y)?
+    const canPlaceObj = (x, y) => {
+      if (!this.inBounds(x, y)) return false;
+      const i = this.idx(x, y);
+      return objects[i] === T.EMPTY && !pathCells.has(i) && !doorClearZone.has(i);
+    };
+
+    // Place a tree: canopy on FOREGROUND (y), trunk on OBJECTS (y+1)
+    // This matches the Kenney tileset layer design:
+    //   canopies are foreground overlays, trunks are solid objects
+    const placeTree = (x, y, canopyTile, trunkTile) => {
+      if (!canPlaceFg(x, y) || !canPlaceObj(x, y + 1)) return false;
       foreground[this.idx(x, y)] = canopyTile;
-      foreground[this.idx(x, y + 1)] = trunkTile;
+      objects[this.idx(x, y + 1)] = trunkTile;
+      collision[this.idx(x, y + 1)] = 1; // trunks block movement
       return true;
     };
 
-    // Place a tree cluster as individual trees with proper canopy+trunk pairs
-    // This creates a natural-looking grove, not a solid block
-    const placePineCluster = (cx, cy, w, h) => {
+    // Place a tree cluster — mix of tree pairs and standalone small trees
+    const placeTreeCluster = (cx, cy, w, h) => {
       let count = 0;
-      // Tree types: green (4,12), autumn (7,24), pine (10,22)
-      const treeTypes = [
-        { canopy: 4, trunk: 12 },   // green tree (4=canopy TL, 12=trunk TL)
-        { canopy: 7, trunk: 24 },   // autumn (7=canopy TL, 24=trunk TL)
-        { canopy: 10, trunk: 22 },  // pine (10=top, 22=trunk)
+      // Tree pair types: canopy(foreground) + trunk(objects)
+      const pairTypes = [
+        { canopy: 4, trunk: 12 },   // green (canopy TL + trunk BL)
+        { canopy: 5, trunk: 13 },   // green (canopy TR + trunk BR)
+        { canopy: 7, trunk: 24 },   // autumn (canopy TL + trunk BL)
+        { canopy: 10, trunk: 22 },  // pine (top + trunk)
+        { canopy: 11, trunk: 23 },  // dense (top + trunk)
       ];
-      
-      // Place 2-4 individual trees in the cluster area
-      const treesToPlace = 2 + Math.floor(rng() * 3);
+      // Standalone small trees (foreground only, no trunk)
+      const smallTypes = [6, 9, 16, 17]; // small green, small autumn, complete, fruit
+
+      // Place 3-6 trees in the cluster area
+      const treesToPlace = 3 + Math.floor(rng() * 4);
       for (let i = 0; i < treesToPlace; i++) {
         const x = cx + Math.floor(rng() * w);
-        const y = cy + Math.floor(rng() * Math.max(1, h - 1));  // leave room for trunk
-        
-        if (!canPlaceFg(x, y) || !canPlaceFg(x, y + 1)) continue;
-        
-        const tt = treeTypes[Math.floor(rng() * treeTypes.length)];
-        foreground[this.idx(x, y)] = tt.canopy;
-        foreground[this.idx(x, y + 1)] = tt.trunk;
-        count += 2;
+        const y = cy + Math.floor(rng() * Math.max(1, h - 1));
+
+        if (rng() < 0.6) {
+          // 60% tree pair (canopy + trunk)
+          const tt = pairTypes[Math.floor(rng() * pairTypes.length)];
+          if (placeTree(x, y, tt.canopy, tt.trunk)) count += 2;
+        } else {
+          // 40% standalone small tree (foreground only)
+          if (canPlaceFg(x, y)) {
+            foreground[this.idx(x, y)] = smallTypes[Math.floor(rng() * smallTypes.length)];
+            count++;
+          }
+        }
       }
-      
-      // Add some bushes around the edges
-      const bushTypes = [28, 20, 17]; // bush, flower bush, tulip
-      const bushCount = 1 + Math.floor(rng() * 3);
-      for (let i = 0; i < bushCount; i++) {
+
+      // Edge bushes/decoration
+      const edgeTypes = [28, 19, 20, 15]; // bush, flower bush, small bush, tulip
+      for (let i = 0; i < 2 + Math.floor(rng() * 3); i++) {
         const bx = cx + Math.floor(rng() * (w + 2)) - 1;
         const by = cy + Math.floor(rng() * (h + 1));
         if (canPlaceFg(bx, by)) {
-          foreground[this.idx(bx, by)] = bushTypes[Math.floor(rng() * bushTypes.length)];
+          foreground[this.idx(bx, by)] = edgeTypes[Math.floor(rng() * edgeTypes.length)];
           count++;
         }
       }
-      
       return count;
     };
 
-    // Tree types for single trees (always placed as vertical pairs)
+    // Single tree types for scattered placement
     const SINGLE_TREES = [
-      { canopy: 4, trunk: 16, weight: 7 },   // green
-      { canopy: 3, trunk: 15, weight: 4 },   // autumn
-      { canopy: 6, trunk: 18, weight: 1 },   // dark pine
+      { canopy: 4, trunk: 12, weight: 5 },   // green L
+      { canopy: 5, trunk: 13, weight: 5 },   // green R
+      { canopy: 7, trunk: 24, weight: 3 },   // autumn
+      { canopy: 10, trunk: 22, weight: 2 },  // pine
+      { canopy: 11, trunk: 23, weight: 1 },  // dense
     ];
     const singlePool = [];
     for (const tt of SINGLE_TREES) {
@@ -674,7 +692,7 @@ class V2Engine {
 
       const cw = 3 + Math.floor(rng() * 4);  // 3-6 wide clusters
       const ch = 3 + Math.floor(rng() * 2);  // 3-4 tall clusters
-      placePineCluster(cx, cy, cw, ch);
+      placeTreeCluster(cx, cy, cw, ch);
       clusterZones.push({ x: cx, y: cy, w: cw, h: ch });
     }
 
@@ -693,7 +711,7 @@ class V2Engine {
       if (nearCluster) continue;
 
       const tt = singlePool[Math.floor(rng() * singlePool.length)];
-      if (placeTreePair(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
+      if (placeTree(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
     }
 
     // PHASE C: Small bushes/decorations to fill remaining foreground budget
