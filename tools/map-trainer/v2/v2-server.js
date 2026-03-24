@@ -264,6 +264,8 @@ if (paintedMap) {
 }
 // Load user feedback (flagged tiles) as negative examples
 v2engine.loadFlaggedTiles(path.join(V2_DIR, 'flagged-tiles.json'));
+// Load user-defined tile tags
+v2engine.loadTileTags(path.join(V2_DIR, 'tile-tags.json'));
 
 let bestMapPng = null;
 let bestMapData = null;
@@ -604,6 +606,20 @@ app.post('/api/start', (req, res) => {
 
 // ── Annotator ───────────────────────────────────────────────────────────
 const ANNOTATIONS_PATH = path.join(V2_DIR, 'annotations.json');
+
+// API: Tile tags — user-defined metadata for all tiles
+const TILE_TAGS_PATH = path.join(V2_DIR, 'tile-tags.json');
+app.get('/api/tile-tags', (req, res) => {
+  if (fs.existsSync(TILE_TAGS_PATH)) return res.sendFile(TILE_TAGS_PATH);
+  res.json({});
+});
+app.post('/api/tile-tags', (req, res) => {
+  fs.writeFileSync(TILE_TAGS_PATH, JSON.stringify(req.body, null, 2));
+  // Reload into engine immediately — next generation uses updated tags
+  v2engine.loadTileTags(TILE_TAGS_PATH);
+  addLog(`💾 Tile tags updated: ${Object.keys(req.body).filter(k => k !== '_customTags').length} tiles tagged — engine reloaded`);
+  res.json({ ok: true, count: Object.keys(req.body).length });
+});
 
 app.get('/annotate', (req, res) => {
   res.sendFile(path.join(V2_DIR, 'v2-annotator.html'));

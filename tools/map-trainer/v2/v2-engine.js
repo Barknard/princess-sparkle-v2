@@ -281,6 +281,38 @@ class V2Engine {
    * Load painted map as template base.
    * @param {Object} painted - { width, height, ground[], objects[], foreground[] }
    */
+  /** Load user-defined tile tags from tagger tool */
+  loadTileTags(tagsPath) {
+    if (!require('fs').existsSync(tagsPath)) return;
+    try {
+      const data = JSON.parse(require('fs').readFileSync(tagsPath, 'utf8'));
+      this._tileTags = {}; // id → Set of tags
+      for (const [id, tags] of Object.entries(data)) {
+        if (id === '_customTags') continue;
+        if (Array.isArray(tags)) this._tileTags[parseInt(id)] = new Set(tags);
+      }
+      // Build lookup maps for fast access during generation
+      this._tagLookup = {
+        walkable: new Set(), solid: new Set(), path: new Set(),
+        ground: new Set(), objects: new Set(), foreground: new Set(),
+        roof: new Set(), wall: new Set(), door: new Set(), fence: new Set(),
+        tree: new Set(), canopy: new Set(), trunk: new Set(),
+        water: new Set(), castle: new Set(), decoration: new Set(),
+      };
+      for (const [id, tags] of Object.entries(this._tileTags)) {
+        for (const tag of tags) {
+          if (this._tagLookup[tag]) this._tagLookup[tag].add(parseInt(id));
+        }
+      }
+      const taggedCount = Object.keys(this._tileTags).length;
+      if (taggedCount > 0) {
+        console.log('V2Engine: loaded tile tags for ' + taggedCount + ' tiles');
+      }
+    } catch (e) {
+      console.error('Failed to load tile tags:', e.message);
+    }
+  }
+
   /** Load user feedback (flagged tiles) as negative examples */
   loadFlaggedTiles(flaggedPath) {
     if (!require('fs').existsSync(flaggedPath)) return;

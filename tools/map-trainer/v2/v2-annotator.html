@@ -3,1020 +3,490 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tile Annotator — V2 Map Trainer</title>
+<title>Tile Tagger — V2 Map Trainer</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a1a; color: #ccc;
+  font-family: system-ui, -apple-system, sans-serif;
+  height: 100vh; overflow: hidden; user-select: none;
+}
+.app {
+  display: grid; height: 100vh;
+  grid-template-rows: 42px 1fr;
+  grid-template-columns: 1fr 340px;
+  gap: 6px; padding: 6px;
+}
+.header {
+  grid-column: 1 / -1;
+  background: #141428; border: 1px solid #2a2a3e; border-radius: 8px;
+  display: flex; align-items: center; padding: 0 16px; gap: 16px;
+  font-family: monospace; font-size: 13px;
+}
+.header .title { font-weight: bold; color: #a855f7; font-size: 14px; }
+.header a { color: #22d3ee; text-decoration: none; }
+.header button {
+  background: #2a2a3e; color: #ccc; border: 1px solid #3a3a5e;
+  border-radius: 4px; padding: 4px 12px; cursor: pointer; font-size: 12px;
+}
+.header button:hover { background: #3a3a5e; }
+.header .saved { color: #4ade80; font-size: 11px; opacity: 0; transition: opacity 0.3s; }
+.header .saved.show { opacity: 1; }
 
-  body {
-    background: #0a0a1a;
-    color: #ccc;
-    font-family: system-ui, -apple-system, sans-serif;
-    height: 100vh;
-    overflow: hidden;
-    user-select: none;
-  }
+/* Tile Grid */
+.tile-grid {
+  background: #141428; border: 1px solid #2a2a3e; border-radius: 8px;
+  padding: 12px; overflow-y: auto;
+}
+.tile-grid-inner {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+}
+.tile-cell {
+  position: relative; aspect-ratio: 1;
+  border: 2px solid transparent; border-radius: 4px;
+  cursor: pointer; background: #0a0a1a;
+  transition: border-color 0.1s;
+}
+.tile-cell canvas {
+  width: 100%; height: 100%; image-rendering: pixelated; display: block;
+}
+.tile-cell:hover { border-color: #555; }
+.tile-cell.selected { border-color: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.4); }
+.tile-cell .id {
+  position: absolute; bottom: 1px; right: 2px;
+  font-size: 9px; color: #888; font-family: monospace;
+}
+.tile-cell .tag-dots {
+  position: absolute; top: 1px; left: 2px;
+  display: flex; gap: 1px; flex-wrap: wrap; max-width: 80%;
+}
+.tile-cell .tag-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+}
 
-  /* ── Layout ─────────────────────────────────────── */
-  .app {
-    display: grid;
-    height: 100vh;
-    grid-template-rows: 44px 1fr;
-    grid-template-columns: 1fr 260px;
-    grid-template-areas:
-      "header  header"
-      "map     sidebar";
-    gap: 0;
-  }
+/* Tag Panel */
+.tag-panel {
+  background: #141428; border: 1px solid #2a2a3e; border-radius: 8px;
+  padding: 12px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tag-panel h3 { color: #a855f7; font-size: 14px; }
+.tag-section { margin-bottom: 8px; }
+.tag-section-title {
+  font-size: 11px; color: #888; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 4px;
+}
+.tag-btn {
+  display: inline-block; padding: 4px 10px; margin: 2px;
+  border-radius: 12px; font-size: 11px; cursor: pointer;
+  border: 1px solid #333; background: #1a1a2a; color: #aaa;
+  transition: all 0.15s;
+}
+.tag-btn:hover { border-color: #555; background: #222; }
+.tag-btn.active { border-color: #a855f7; background: #2a1a3a; color: #d8b4fe; }
+.tag-btn.partial { border-color: #d97706; background: #2a1a1a; color: #fbbf24; }
 
-  /* ── Header ─────────────────────────────────────── */
-  .header {
-    grid-area: header;
-    background: #141428;
-    border-bottom: 1px solid #2a2a3e;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 16px;
-    font-family: monospace;
-    font-size: 13px;
-  }
-
-  .header .title {
-    font-weight: bold;
-    color: #a855f7;
-    font-size: 14px;
-    white-space: nowrap;
-  }
-
-  .header a {
-    color: #818cf8;
-    text-decoration: none;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .header a:hover { color: #a855f7; }
-
-  .header .spacer { flex: 1; }
-
-  .header .stats {
-    color: #9ca3af;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .header .stats b { color: #a855f7; }
-
-  .progress-bar {
-    width: 140px;
-    height: 6px;
-    background: #1e1e3a;
-    border-radius: 3px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  .progress-bar .fill {
-    height: 100%;
-    background: linear-gradient(90deg, #7c3aed, #a855f7);
-    border-radius: 3px;
-    transition: width 0.2s ease;
-  }
-
-  /* ── Map Area ───────────────────────────────────── */
-  .map-area {
-    grid-area: map;
-    background: #0d0d20;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .map-container {
-    position: relative;
-    /* sized by JS */
-  }
-
-  .map-container img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-
-  .map-container canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    cursor: crosshair;
-  }
-
-  /* ── Sidebar ────────────────────────────────────── */
-  .sidebar {
-    grid-area: sidebar;
-    background: #141428;
-    border-left: 1px solid #2a2a3e;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .sidebar-header {
-    padding: 12px 14px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #2a2a3e;
-  }
-
-  .tag-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 6px 8px;
-  }
-  .tag-list::-webkit-scrollbar { width: 4px; }
-  .tag-list::-webkit-scrollbar-track { background: transparent; }
-  .tag-list::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 2px; }
-
-  .tag-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 5px 10px;
-    margin-bottom: 2px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    color: #ccc;
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.1s ease;
-  }
-  .tag-btn:hover {
-    background: #1e1e3a;
-  }
-  .tag-btn.selected {
-    background: #1e1e3a;
-    border-color: #a855f7;
-    color: #fff;
-  }
-
-  .tag-swatch {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    flex-shrink: 0;
-  }
-
-  .tag-label { flex: 1; text-align: left; }
-
-  .tag-count {
-    font-size: 10px;
-    color: #6b7280;
-    font-family: monospace;
-    min-width: 24px;
-    text-align: right;
-  }
-
-  /* ── Sidebar Actions ────────────────────────────── */
-  .sidebar-actions {
-    padding: 10px 8px;
-    border-top: 1px solid #2a2a3e;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .action-row {
-    display: flex;
-    gap: 6px;
-  }
-
-  .btn {
-    flex: 1;
-    padding: 7px 10px;
-    background: #1e1e3a;
-    border: 1px solid #2a2a3e;
-    border-radius: 6px;
-    color: #ccc;
-    font-size: 11px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.1s ease;
-    text-align: center;
-  }
-  .btn:hover {
-    background: #2a2a4e;
-    border-color: #a855f7;
-    color: #fff;
-  }
-  .btn.primary {
-    background: #7c3aed;
-    border-color: #7c3aed;
-    color: #fff;
-  }
-  .btn.primary:hover {
-    background: #6d28d9;
-  }
-  .btn.danger:hover {
-    border-color: #ef4444;
-    color: #ef4444;
-  }
-
-  /* ── Cell Info ──────────────────────────────────── */
-  .cell-info {
-    padding: 8px 14px;
-    border-top: 1px solid #2a2a3e;
-    font-size: 11px;
-    font-family: monospace;
-    color: #6b7280;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-  }
-  .cell-info span { color: #a855f7; }
-
-  /* ── Toast ──────────────────────────────────────── */
-  .toast {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%) translateY(60px);
-    background: #1e1e3a;
-    border: 1px solid #a855f7;
-    color: #e0e0e0;
-    padding: 8px 20px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-family: monospace;
-    opacity: 0;
-    transition: all 0.25s ease;
-    pointer-events: none;
-    z-index: 100;
-  }
-  .toast.visible {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+.selection-info {
+  background: #0a0a1a; border: 1px solid #2a2a3e; border-radius: 6px;
+  padding: 8px; font-size: 12px; min-height: 40px;
+}
+.custom-tag-input {
+  display: flex; gap: 4px; margin-top: 4px;
+}
+.custom-tag-input input {
+  flex: 1; background: #0a0a1a; border: 1px solid #333;
+  border-radius: 4px; padding: 4px 8px; color: #ccc; font-size: 12px;
+}
+.custom-tag-input button {
+  background: #2a2a3e; color: #ccc; border: 1px solid #3a3a5e;
+  border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;
+}
+.filter-bar {
+  display: flex; gap: 4px; align-items: center; font-size: 11px;
+}
+.filter-bar input {
+  flex: 1; background: #0a0a1a; border: 1px solid #333;
+  border-radius: 4px; padding: 3px 6px; color: #ccc; font-size: 11px;
+}
 </style>
 </head>
 <body>
-
 <div class="app">
-  <!-- Header -->
   <div class="header">
-    <span class="title">Tile Annotator</span>
-    <a href="/">&#8592; Dashboard</a>
-    <span class="spacer"></span>
-    <span class="stats">Tagged: <b id="taggedCount">0</b> / <b>2,400</b> cells</span>
-    <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
+    <span class="title">Tile Tagger</span>
+    <span id="sel-count">0 selected</span>
+    <button onclick="clearSelection()">Clear Selection</button>
+    <button onclick="selectAll()">Select All</button>
+    <button onclick="saveTags()">Save Tags</button>
+    <span class="saved" id="saved-msg">Saved!</span>
+    <span style="flex:1"></span>
+    <a href="/">Dashboard</a>
+    <a href="/paint">Painter</a>
   </div>
 
-  <!-- Map Area -->
-  <div class="map-area" id="mapArea">
-    <div class="map-container" id="mapContainer">
-      <img id="refImage" src="/reference" alt="Reference Map">
-      <canvas id="annotCanvas"></canvas>
+  <div class="tile-grid">
+    <div class="filter-bar" style="margin-bottom:8px">
+      <span>Filter:</span>
+      <input type="text" id="filter-input" placeholder="Type tag to filter tiles..." oninput="filterTiles()">
+      <button onclick="document.getElementById('filter-input').value='';filterTiles()">Clear</button>
     </div>
+    <div class="tile-grid-inner" id="tile-grid"></div>
   </div>
 
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="sidebar-header">Tags</div>
-    <div class="tag-list" id="tagList"></div>
-    <div class="cell-info" id="cellInfo">Hover a cell to see info</div>
+  <div class="tag-panel">
+    <h3>Tags for Selection</h3>
+    <div class="selection-info" id="selection-info">Select tiles to tag them</div>
 
-    <!-- Tile Overlay — pick a tile to align the grid -->
-    <div style="border-top:1px solid #2a2a3e; padding-top:8px; margin-top:8px;">
-      <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:6px;">Tile Overlay (align grid)</div>
-      <div style="font-size:9px; color:#777; margin-bottom:6px;">Click a tile below, then drag it on the map to match a known tile. Adjust grid sliders until cells align.</div>
-      <canvas id="tilesetPreview" width="192" height="176" style="width:100%; image-rendering:pixelated; cursor:pointer; border:1px solid #2a2a3e; border-radius:4px; margin-bottom:6px;"></canvas>
-      <div id="tileOverlayInfo" style="font-size:9px; color:#a855f7;">Click a tile to select it</div>
-      <button onclick="setGridFromOverlay()" style="margin-top:4px; background:#22c55e; color:#000; border:none; border-radius:4px; padding:4px 10px; font-size:10px; font-weight:700; cursor:pointer; width:100%;">Set Grid From Tile ✓</button>
+    <div class="tag-section">
+      <div class="tag-section-title">Layer</div>
+      <div id="tags-layer"></div>
     </div>
-
-    <!-- Grid Calibration -->
-    <div style="border-top:1px solid #2a2a3e; padding-top:8px; margin-top:8px;">
-      <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:6px;">Grid Calibration</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10px; color:#888;">
-        <label>Cols: <input type="number" id="calCols" value="19" min="5" max="60" style="width:40px; background:#0a0a1a; border:1px solid #2a2a3e; color:#ccc; padding:2px 4px; border-radius:3px;"></label>
-        <label>Rows: <input type="number" id="calRows" value="11" min="5" max="40" style="width:40px; background:#0a0a1a; border:1px solid #2a2a3e; color:#ccc; padding:2px 4px; border-radius:3px;"></label>
-        <label>Offset X: <input type="range" id="calOffX" min="-30" max="30" value="0" step="0.5" style="width:60px;"></label>
-        <label>Offset Y: <input type="range" id="calOffY" min="-30" max="30" value="0" step="0.5" style="width:60px;"></label>
-        <label>Cell W: <input type="range" id="calCellW" min="20" max="70" value="48" step="0.1" style="width:60px;"></label>
-        <label>Cell H: <input type="range" id="calCellH" min="20" max="70" value="47" step="0.1" style="width:60px;"></label>
-      </div>
-      <div id="calInfo" style="font-size:9px; color:#555; margin-top:4px;">19×11 | offset: 0,0 | cell: 48.3×46.8</div>
+    <div class="tag-section">
+      <div class="tag-section-title">Gameplay</div>
+      <div id="tags-gameplay"></div>
     </div>
-
-    <div class="sidebar-actions">
-      <div class="action-row">
-        <button class="btn" id="btnClearTags">Clear Tags</button>
-        <button class="btn danger" id="btnClearMap">Clear Map</button>
-      </div>
-      <div class="action-row">
-        <button class="btn primary" id="btnSave">Save</button>
-        <button class="btn" id="btnLoad">Load</button>
+    <div class="tag-section">
+      <div class="tag-section-title">Structure</div>
+      <div id="tags-structure"></div>
+    </div>
+    <div class="tag-section">
+      <div class="tag-section-title">Material</div>
+      <div id="tags-material"></div>
+    </div>
+    <div class="tag-section">
+      <div class="tag-section-title">Position</div>
+      <div id="tags-position"></div>
+    </div>
+    <div class="tag-section">
+      <div class="tag-section-title">Nature</div>
+      <div id="tags-nature"></div>
+    </div>
+    <div class="tag-section">
+      <div class="tag-section-title">Custom</div>
+      <div id="tags-custom"></div>
+      <div class="custom-tag-input">
+        <input type="text" id="custom-tag-input" placeholder="New tag..." onkeydown="if(event.key==='Enter')addCustomTag()">
+        <button onclick="addCustomTag()">Add</button>
       </div>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <script>
-// ── Tag definitions ──────────────────────────────────
-const TAGS = [
-  // ── GROUND LAYER (always filled) ──
-  { id: 'ground:grass',        label: '[G] Grass',           color: '#22c55e' },
-  { id: 'ground:grass-flower', label: '[G] Grass+Flowers',   color: '#86efac' },
-  { id: 'ground:path',         label: '[G] Path',            color: '#d97706' },
-  { id: 'ground:path-edge',    label: '[G] Path Edge',       color: '#f59e0b' },
-  { id: 'ground:cobblestone',  label: '[G] Cobblestone',     color: '#9ca3af' },
-  { id: 'ground:water',        label: '[G] Water',           color: '#3b82f6' },
-  { id: 'ground:water-edge',   label: '[G] Water Edge',      color: '#60a5fa' },
-  // ── OBJECTS LAYER (things on the ground) ──
-  { id: 'obj:building-roof',   label: '[O] Building Roof',   color: '#ef4444' },
-  { id: 'obj:building-wall',   label: '[O] Building Wall',   color: '#b91c1c' },
-  { id: 'obj:building-door',   label: '[O] Building Door',   color: '#f97316' },
-  { id: 'obj:building-window', label: '[O] Building Window',  color: '#ea580c' },
-  { id: 'obj:castle',          label: '[O] Castle',          color: '#64748b' },
-  { id: 'obj:castle-gate',     label: '[O] Castle Gate',     color: '#94a3b8' },
-  { id: 'obj:stone',           label: '[O] Stone',           color: '#78716c' },
-  { id: 'obj:fence',           label: '[O] Fence',           color: '#a16207' },
-  { id: 'obj:tree-trunk',      label: '[O] Tree Trunk',      color: '#713f12' },
-  { id: 'obj:single-tree',     label: '[O] Single Tree',     color: '#166534' },
-  { id: 'obj:bush',            label: '[O] Bush/Flower',     color: '#65a30d' },
-  { id: 'obj:decoration',      label: '[O] Decoration',      color: '#7c3aed' },
-  { id: 'obj:well',            label: '[O] Well',            color: '#6d28d9' },
-  { id: 'obj:barrel',          label: '[O] Barrel',          color: '#92400e' },
-  { id: 'obj:lantern',         label: '[O] Lantern',         color: '#fbbf24' },
-  // ── FOREGROUND LAYER (drawn over player) ──
-  { id: 'fg:tree-canopy',      label: '[F] Tree Canopy',     color: '#15803d' },
-  { id: 'fg:tree-group',       label: '[F] Tree Group',      color: '#059669' },
-  // ── POSITION MODIFIERS (stack with others) ──
-  { id: 'pos-left',            label: '← Left',              color: '#06b6d4' },
-  { id: 'pos-right',           label: '→ Right',             color: '#06b6d4' },
-  { id: 'pos-top',             label: '↑ Top',               color: '#06b6d4' },
-  { id: 'pos-bottom',          label: '↓ Bottom',            color: '#06b6d4' },
-  { id: 'pos-center',          label: '● Center',            color: '#0891b2' },
-  { id: 'empty',               label: 'Empty',               color: '#374151' },
-];
+// ── Standard Tags ──────────────────────────────────────
+var TAG_GROUPS = {
+  layer: [
+    { tag: 'ground', color: '#4ade80', desc: 'Goes on ground layer' },
+    { tag: 'objects', color: '#facc15', desc: 'Goes on objects layer' },
+    { tag: 'foreground', color: '#22d3ee', desc: 'Goes on foreground layer (over player)' },
+  ],
+  gameplay: [
+    { tag: 'walkable', color: '#4ade80', desc: 'Player can walk through' },
+    { tag: 'solid', color: '#ef4444', desc: 'Blocks player movement' },
+    { tag: 'path', color: '#d97706', desc: 'Can be used as a path/road' },
+    { tag: 'interactable', color: '#a855f7', desc: 'Player can interact with' },
+    { tag: 'animated', color: '#ec4899', desc: 'Has animation frames' },
+    { tag: 'deprecated', color: '#666', desc: 'Do not use in generation' },
+  ],
+  structure: [
+    { tag: 'roof', color: '#ef4444', desc: 'Building roof tile' },
+    { tag: 'wall', color: '#d97706', desc: 'Building wall tile' },
+    { tag: 'door', color: '#22d3ee', desc: 'Building entrance/door' },
+    { tag: 'window', color: '#60a5fa', desc: 'Wall with window' },
+    { tag: 'fence', color: '#a3a3a3', desc: 'Fence/barrier piece' },
+    { tag: 'castle', color: '#8b5cf6', desc: 'Castle/fortress piece' },
+    { tag: 'building', color: '#f97316', desc: 'Part of a building' },
+    { tag: 'decoration', color: '#ec4899', desc: 'Decorative object' },
+  ],
+  material: [
+    { tag: 'red', color: '#ef4444' }, { tag: 'blue', color: '#3b82f6' },
+    { tag: 'gray', color: '#9ca3af' }, { tag: 'stone', color: '#78716c' },
+    { tag: 'wood', color: '#a16207' }, { tag: 'brick', color: '#dc2626' },
+    { tag: 'white', color: '#e5e7eb' }, { tag: 'brown', color: '#92400e' },
+  ],
+  position: [
+    { tag: 'left', color: '#60a5fa' }, { tag: 'center', color: '#a78bfa' },
+    { tag: 'right', color: '#34d399' }, { tag: 'top', color: '#fbbf24' },
+    { tag: 'bottom', color: '#f87171' }, { tag: 'middle', color: '#c084fc' },
+  ],
+  nature: [
+    { tag: 'tree', color: '#22c55e' }, { tag: 'canopy', color: '#16a34a' },
+    { tag: 'trunk', color: '#854d0e' }, { tag: 'bush', color: '#65a30d' },
+    { tag: 'flower', color: '#f472b6' }, { tag: 'grass', color: '#4ade80' },
+    { tag: 'water', color: '#38bdf8' }, { tag: 'dirt', color: '#a16207' },
+  ],
+};
 
-const TAG_MAP = {};
-TAGS.forEach(t => TAG_MAP[t.id] = t);
+// ── State ──────────────────────────────────────────────
+var tileset = null;
+var tileCanvases = {}; // id → canvas
+var selectedTiles = new Set();
+var tileTags = {}; // id → Set of tags
+var customTags = []; // user-added tag names
+var isDragging = false;
+var dragMode = null; // 'select' or 'deselect'
 
-// ── Grid calibration (adjustable to align with reference image) ──
-let gridCols = 19;
-let gridRows = 11;
-let gridOffsetX = 0;   // pixels offset from left edge of image
-let gridOffsetY = 0;   // pixels offset from top edge of image
-let gridCellW = 48.3;  // pixel width of one cell (918/19 ≈ 48.3)
-let gridCellH = 46.8;  // pixel height of one cell (515/11 ≈ 46.8)
-const STORAGE_KEY = 'tile-annotations-v2';
-const CALIB_KEY = 'tile-grid-calibration';
+// ── Init ───────────────────────────────────────────────
+var img = new Image();
+img.onload = function() {
+  tileset = img;
+  buildGrid();
+  loadTags();
+};
+img.src = '/tilemap';
 
-// Load saved calibration
-try {
-  const saved = JSON.parse(localStorage.getItem(CALIB_KEY));
-  if (saved) {
-    gridCols = saved.cols || gridCols;
-    gridRows = saved.rows || gridRows;
-    gridOffsetX = saved.offsetX || 0;
-    gridOffsetY = saved.offsetY || 0;
-    gridCellW = saved.cellW || gridCellW;
-    gridCellH = saved.cellH || gridCellH;
-  }
-} catch(e) {}
-
-function saveCalibration() {
-  localStorage.setItem(CALIB_KEY, JSON.stringify({
-    cols: gridCols, rows: gridRows,
-    offsetX: gridOffsetX, offsetY: gridOffsetY,
-    cellW: gridCellW, cellH: gridCellH
-  }));
-}
-
-function get_GRID_W() { return gridCols; }
-function get_GRID_H() { return gridRows; }
-function get_TOTAL_CELLS() { return gridCols * gridRows; }
-
-// Aliases for compat
-Object.defineProperty(window, 'GRID_W', { get: () => gridCols });
-Object.defineProperty(window, 'GRID_H', { get: () => gridRows });
-Object.defineProperty(window, 'TOTAL_CELLS', { get: () => gridCols * gridRows });
-
-// ── State ────────────────────────────────────────────
-let annotations = { version: '2.0', width: gridCols, height: gridRows, cells: {}, stats: { totalTagged: 0, tagCounts: {} } };
-let selectedTags = new Set();
-let isPainting = false;
-let hoverCell = null;
-
-// ── DOM refs ─────────────────────────────────────────
-const mapArea      = document.getElementById('mapArea');
-const mapContainer = document.getElementById('mapContainer');
-const refImage     = document.getElementById('refImage');
-const canvas       = document.getElementById('annotCanvas');
-const ctx          = canvas.getContext('2d');
-const tagListEl    = document.getElementById('tagList');
-const cellInfoEl   = document.getElementById('cellInfo');
-const taggedCountEl = document.getElementById('taggedCount');
-const progressFill = document.getElementById('progressFill');
-const toastEl      = document.getElementById('toast');
-
-// ── Initialize ───────────────────────────────────────
-function init() {
-  buildTagList();
-  loadFromStorage();
-  refImage.addEventListener('load', fitMap);
-  refImage.addEventListener('error', () => {
-    // If reference image can't load, show placeholder
-    mapContainer.style.background = '#1e1e3a';
-    mapContainer.style.width = '900px';
-    mapContainer.style.height = '600px';
-    refImage.style.display = 'none';
-    fitCanvas();
-    render();
-  });
-  if (refImage.complete && refImage.naturalWidth > 0) fitMap();
-  window.addEventListener('resize', fitMap);
-  setupCanvasEvents();
-  setupActions();
-}
-
-// ── Fit map container to available space ─────────────
-function fitMap() {
-  const areaW = mapArea.clientWidth - 24;
-  const areaH = mapArea.clientHeight - 24;
-  const imgRatio = 918 / 515; // Kenney sample aspect ratio
-  let w, h;
-  if (areaW / areaH > imgRatio) {
-    h = areaH;
-    w = h * imgRatio;
-  } else {
-    w = areaW;
-    h = w / imgRatio;
-  }
-  mapContainer.style.width = Math.floor(w) + 'px';
-  mapContainer.style.height = Math.floor(h) + 'px';
-  fitCanvas();
-  render();
-}
-
-function fitCanvas() {
-  // Use a higher resolution canvas for crisp lines
-  const rect = mapContainer.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.floor(rect.width * dpr);
-  canvas.height = Math.floor(rect.height * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-// ── Build tag list ───────────────────────────────────
-function buildTagList() {
-  tagListEl.innerHTML = '';
-  TAGS.forEach(tag => {
-    const btn = document.createElement('button');
-    btn.className = 'tag-btn';
-    btn.dataset.tagId = tag.id;
-    btn.innerHTML = `
-      <span class="tag-swatch" style="background:${tag.color}"></span>
-      <span class="tag-label">${tag.label}</span>
-      <span class="tag-count" id="count-${tag.id}">0</span>
-    `;
-    btn.addEventListener('click', () => toggleTag(tag.id));
-    tagListEl.appendChild(btn);
-  });
-}
-
-function toggleTag(tagId) {
-  if (selectedTags.has(tagId)) {
-    selectedTags.delete(tagId);
-  } else {
-    selectedTags.add(tagId);
-  }
-  refreshTagButtons();
-}
-
-function refreshTagButtons() {
-  tagListEl.querySelectorAll('.tag-btn').forEach(btn => {
-    btn.classList.toggle('selected', selectedTags.has(btn.dataset.tagId));
-  });
-}
-
-// ── Canvas events ────────────────────────────────────
-function setupCanvasEvents() {
-  canvas.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    isPainting = true;
-    const cell = getCellFromEvent(e);
-    if (cell) {
-      applyTags(cell.x, cell.y);
-      render();
-    }
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    const cell = getCellFromEvent(e);
-    hoverCell = cell;
-    if (isPainting && cell) {
-      applyTags(cell.x, cell.y);
-    }
-    updateCellInfo(cell);
-    render();
-  });
-
-  canvas.addEventListener('mouseup', () => { isPainting = false; });
-
-  canvas.addEventListener('mouseleave', () => {
-    isPainting = false;
-    hoverCell = null;
-    updateCellInfo(null);
-    render();
-  });
-
-  // Prevent context menu on canvas
-  canvas.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    // Right-click to erase tags on cell
-    const cell = getCellFromEvent(e);
-    if (cell) {
-      const idx = cell.y * GRID_W + cell.x;
-      delete annotations.cells[idx];
-      updateStats();
-      render();
-    }
-  });
-}
-
-function getCellFromEvent(e) {
-  const rect = canvas.getBoundingClientRect();
-  const imgW = 918, imgH = 515;
-  const scaleX = rect.width / imgW;
-  const scaleY = rect.height / imgH;
-  const offX = gridOffsetX * scaleX;
-  const offY = gridOffsetY * scaleY;
-  const cellW = gridCellW * scaleX;
-  const cellH = gridCellH * scaleY;
-  const px = e.clientX - rect.left - offX;
-  const py = e.clientY - rect.top - offY;
-  const x = Math.floor(px / cellW);
-  const y = Math.floor(py / cellH);
-  if (x < 0 || x >= gridCols || y < 0 || y >= gridRows) return null;
-  return { x, y };
-}
-
-function applyTags(x, y) {
-  const tags = getSelectedTagIds();
-  if (tags.length === 0) return;
-  const idx = y * GRID_W + x;
-  annotations.cells[idx] = tags.slice();
-  updateStats();
-}
-
-function getSelectedTagIds() {
-  return Array.from(selectedTags);
-}
-
-// ── Update info displays ─────────────────────────────
-function updateCellInfo(cell) {
-  if (!cell) {
-    cellInfoEl.innerHTML = 'Hover a cell to see info';
-    return;
-  }
-  const idx = cell.y * GRID_W + cell.x;
-  const tags = annotations.cells[idx] || [];
-  const tagStr = tags.length > 0
-    ? tags.map(t => `<span>${TAG_MAP[t]?.label || t}</span>`).join(', ')
-    : '<span style="color:#6b7280">untagged</span>';
-  cellInfoEl.innerHTML = `(${cell.x}, ${cell.y}) ${tagStr}`;
-}
-
-function updateStats() {
-  const tagCounts = {};
-  let totalTagged = 0;
-  for (const [idx, tags] of Object.entries(annotations.cells)) {
-    if (tags && tags.length > 0) {
-      totalTagged++;
-      tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
-    }
-  }
-  annotations.stats = { totalTagged, tagCounts };
-
-  // Update header
-  taggedCountEl.textContent = totalTagged.toLocaleString();
-  const pct = (totalTagged / TOTAL_CELLS * 100);
-  progressFill.style.width = pct.toFixed(1) + '%';
-
-  // Update per-tag counts
-  TAGS.forEach(tag => {
-    const el = document.getElementById('count-' + tag.id);
-    if (el) el.textContent = tagCounts[tag.id] || 0;
-  });
-}
-
-// ── Render ───────────────────────────────────────────
-function render() {
-  const rect = mapContainer.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
-  ctx.clearRect(0, 0, w, h);
-
-  // Use calibrated grid: scale offset/cell size from image pixels to display pixels
-  const imgW = 918, imgH = 515; // Kenney sample actual pixel size
-  const scaleX = w / imgW;
-  const scaleY = h / imgH;
-  const offX = gridOffsetX * scaleX;
-  const offY = gridOffsetY * scaleY;
-  const cellW = gridCellW * scaleX;
-  const cellH = gridCellH * scaleY;
-
-  // Draw tagged cell overlays
-  for (const [idx, tags] of Object.entries(annotations.cells)) {
-    if (!tags || tags.length === 0) continue;
-    const i = parseInt(idx);
-    const cx = i % gridCols;
-    const cy = Math.floor(i / gridCols);
-    const tag = TAG_MAP[tags[0]];
-    if (tag) {
-      ctx.fillStyle = tag.color + '80';
-      ctx.fillRect(offX + cx * cellW, offY + cy * cellH, cellW, cellH);
-    }
-    if (tags.length > 1) {
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(offX + cx * cellW + cellW - 3, offY + cy * cellH + 3, 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // Draw grid lines
-  ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
-  ctx.lineWidth = 0.5;
-  for (let x = 0; x <= gridCols; x++) {
-    ctx.beginPath();
-    ctx.moveTo(offX + x * cellW, offY);
-    ctx.lineTo(offX + x * cellW, offY + gridRows * cellH);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= gridRows; y++) {
-    ctx.beginPath();
-    ctx.moveTo(offX, offY + y * cellH);
-    ctx.lineTo(offX + gridCols * cellW, offY + y * cellH);
-    ctx.stroke();
-  }
-
-  // Hover highlight
-  if (hoverCell) {
-    const hx = hoverCell.x;
-    const hy = hoverCell.y;
-
-    // Highlight cell border
-    ctx.strokeStyle = '#a855f7';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(offX + hx * cellW, offY + hy * cellH, cellW, cellH);
-
-    // Subtle fill
-    ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
-    ctx.fillRect(offX + hx * cellW, offY + hy * cellH, cellW, cellH);
-
-    // Tooltip near cell
-    const tags = annotations.cells[hy * gridCols + hx] || [];
-    const label = tags.length > 0 ? tags.join(', ') : 'untagged';
-    const text = `(${hx},${hy}) ${label}`;
-    ctx.font = '10px monospace';
-    const tm = ctx.measureText(text);
-
-    let tx = offX + hx * cellW + 2;
-    let ty = offY + hy * cellH - 4;
-    if (ty < 14) ty = offY + hy * cellH + cellH + 12;
-    if (tx + tm.width + 4 > w) tx = w - tm.width - 6;
-
-    ctx.fillStyle = 'rgba(10, 10, 26, 0.85)';
-    ctx.fillRect(tx - 2, ty - 10, tm.width + 4, 13);
-    ctx.fillStyle = '#e0e0e0';
-    ctx.fillText(text, tx, ty);
-  }
-}
-
-// ── Actions ──────────────────────────────────────────
-function setupActions() {
-  document.getElementById('btnClearTags').addEventListener('click', () => {
-    selectedTags.clear();
-    refreshTagButtons();
-    showToast('Tag selection cleared');
-  });
-
-  document.getElementById('btnClearMap').addEventListener('click', () => {
-    if (!confirm('Clear ALL annotations from the entire map? This cannot be undone.')) return;
-    annotations.cells = {};
-    updateStats();
-    render();
-    showToast('All annotations cleared');
-  });
-
-  document.getElementById('btnSave').addEventListener('click', saveAnnotations);
-  document.getElementById('btnLoad').addEventListener('click', loadAnnotations);
-
-  // Wire calibration controls
-  function updateCalibration() {
-    gridCols = parseInt(document.getElementById('calCols').value) || 19;
-    gridRows = parseInt(document.getElementById('calRows').value) || 11;
-    gridOffsetX = parseFloat(document.getElementById('calOffX').value) || 0;
-    gridOffsetY = parseFloat(document.getElementById('calOffY').value) || 0;
-    gridCellW = parseFloat(document.getElementById('calCellW').value) || 48;
-    gridCellH = parseFloat(document.getElementById('calCellH').value) || 47;
-    document.getElementById('calInfo').textContent =
-      gridCols + '×' + gridRows + ' | offset: ' + gridOffsetX.toFixed(1) + ',' + gridOffsetY.toFixed(1) +
-      ' | cell: ' + gridCellW.toFixed(1) + '×' + gridCellH.toFixed(1);
-    saveCalibration();
-    render();
-  }
-  ['calCols', 'calRows'].forEach(id => document.getElementById(id).addEventListener('change', updateCalibration));
-  ['calOffX', 'calOffY', 'calCellW', 'calCellH'].forEach(id => document.getElementById(id).addEventListener('input', updateCalibration));
-
-  // Set initial values from saved calibration
-  document.getElementById('calCols').value = gridCols;
-  document.getElementById('calRows').value = gridRows;
-  document.getElementById('calOffX').value = gridOffsetX;
-  document.getElementById('calOffY').value = gridOffsetY;
-  document.getElementById('calCellW').value = gridCellW;
-  document.getElementById('calCellH').value = gridCellH;
-  updateCalibration();
-
-  // ══════════════════════════════════════════════════════
-  // TILE OVERLAY: drag + resize, then set grid from it
-  // ══════════════════════════════════════════════════════
-  var tilesetImg = new Image();
-  tilesetImg.crossOrigin = 'anonymous';
-  tilesetImg.src = '/tilemap';
-  var selectedOverlayTile = -1;
-  // Overlay rect in IMAGE pixels (not display pixels)
-  var overlay = { x: 200, y: 200, w: 48, h: 48, visible: false };
-  var overlayDrag = null; // { mode: 'move'|'resize', startX, startY, origX, origY, origW, origH }
-
-  tilesetImg.onload = function() {
-    var prev = document.getElementById('tilesetPreview');
-    var pctx = prev.getContext('2d');
-    pctx.imageSmoothingEnabled = false;
-    // Draw ALL 132 tiles (12 cols × 11 rows, full tileset)
-    pctx.drawImage(tilesetImg, 0, 0, 192, 176, 0, 0, 192, 176);
-
-    prev.addEventListener('click', function(e) {
-      var rect = prev.getBoundingClientRect();
-      var scaleX = 192 / rect.width;
-      var scaleY = 176 / rect.height;
-      var px = (e.clientX - rect.left) * scaleX;
-      var py = (e.clientY - rect.top) * scaleY;
-      var col = Math.floor(px / 16);
-      var row = Math.floor(py / 16);
-      selectedOverlayTile = row * 12 + col;
-      if (selectedOverlayTile >= 0 && selectedOverlayTile < 132) {
-        overlay.visible = true;
-        document.getElementById('tileOverlayInfo').innerHTML =
-          'Tile ' + selectedOverlayTile + ' — <b>Shift+drag</b> to move, <b>Shift+drag corner</b> to resize, then <b style="color:#22c55e">Set Grid</b>';
-        pctx.clearRect(0, 0, 192, 176);
-        pctx.drawImage(tilesetImg, 0, 0, 192, 176, 0, 0, 192, 176);
-        pctx.strokeStyle = '#a855f7';
-        pctx.lineWidth = 2;
-        pctx.strokeRect(col * 16, row * 16, 16, 16);
-        render();
-      }
+function buildGrid() {
+  var grid = document.getElementById('tile-grid');
+  var inner = grid.querySelector('.tile-grid-inner');
+  inner.innerHTML = '';
+  for (var id = 0; id < 132; id++) {
+    var cell = document.createElement('div');
+    cell.className = 'tile-cell';
+    cell.dataset.id = id;
+    // Draw tile
+    var c = document.createElement('canvas');
+    c.width = 16; c.height = 16;
+    var sx = (id % 12) * 16, sy = Math.floor(id / 12) * 16;
+    c.getContext('2d').drawImage(tileset, sx, sy, 16, 16, 0, 0, 16, 16);
+    tileCanvases[id] = c;
+    cell.appendChild(c);
+    // ID label
+    var lbl = document.createElement('div');
+    lbl.className = 'id'; lbl.textContent = id;
+    cell.appendChild(lbl);
+    // Tag dots container
+    var dots = document.createElement('div');
+    dots.className = 'tag-dots'; dots.id = 'dots-' + id;
+    cell.appendChild(dots);
+    // Events
+    cell.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var tid = parseInt(this.dataset.id);
+      if (selectedTiles.has(tid)) { dragMode = 'deselect'; selectedTiles.delete(tid); }
+      else { dragMode = 'select'; selectedTiles.add(tid); }
+      isDragging = true;
+      updateSelection();
     });
-  };
-
-  // Convert display coords to image coords
-  function displayToImg(dx, dy) {
-    var rect = canvas.getBoundingClientRect();
-    return { x: dx / rect.width * 918, y: dy / rect.height * 515 };
+    cell.addEventListener('mouseenter', function() {
+      if (!isDragging) return;
+      var tid = parseInt(this.dataset.id);
+      if (dragMode === 'select') selectedTiles.add(tid);
+      else selectedTiles.delete(tid);
+      updateSelection();
+    });
+    inner.appendChild(cell);
   }
-  function imgToDisplay(ix, iy) {
-    var rect = canvas.getBoundingClientRect();
-    return { x: ix / 918 * rect.width, y: iy / 515 * rect.height };
-  }
-
-  // Check if display point is near the overlay resize corner (bottom-right)
-  function isNearResizeCorner(dx, dy) {
-    if (!overlay.visible) return false;
-    var corner = imgToDisplay(overlay.x + overlay.w, overlay.y + overlay.h);
-    return Math.abs(dx - corner.x) < 10 && Math.abs(dy - corner.y) < 10;
-  }
-  function isInsideOverlay(dx, dy) {
-    if (!overlay.visible) return false;
-    var tl = imgToDisplay(overlay.x, overlay.y);
-    var br = imgToDisplay(overlay.x + overlay.w, overlay.y + overlay.h);
-    return dx >= tl.x && dx <= br.x && dy >= tl.y && dy <= br.y;
-  }
-
-  // Override mousedown on canvas for overlay drag/resize (hold Shift)
-  canvas.addEventListener('mousedown', function(e) {
-    if (!overlay.visible || !e.shiftKey) return; // Shift+click for overlay interaction
-    var rect = canvas.getBoundingClientRect();
-    var dx = e.clientX - rect.left;
-    var dy = e.clientY - rect.top;
-
-    if (isNearResizeCorner(dx, dy)) {
-      overlayDrag = { mode: 'resize', startX: dx, startY: dy, origW: overlay.w, origH: overlay.h };
-      e.preventDefault(); e.stopPropagation();
-    } else if (isInsideOverlay(dx, dy)) {
-      overlayDrag = { mode: 'move', startX: dx, startY: dy, origX: overlay.x, origY: overlay.y };
-      e.preventDefault(); e.stopPropagation();
-    }
-  }, true); // capture phase so it fires before annotation painting
-
-  canvas.addEventListener('mousemove', function(e) {
-    if (!overlayDrag) return;
-    var rect = canvas.getBoundingClientRect();
-    var dx = e.clientX - rect.left;
-    var dy = e.clientY - rect.top;
-    var ddx = (dx - overlayDrag.startX) / rect.width * 918;
-    var ddy = (dy - overlayDrag.startY) / rect.height * 515;
-
-    if (overlayDrag.mode === 'move') {
-      overlay.x = overlayDrag.origX + ddx;
-      overlay.y = overlayDrag.origY + ddy;
-    } else if (overlayDrag.mode === 'resize') {
-      overlay.w = Math.max(10, overlayDrag.origW + ddx);
-      overlay.h = Math.max(10, overlayDrag.origH + ddy);
-    }
-    render();
-    e.preventDefault(); e.stopPropagation();
-  }, true);
-
-  canvas.addEventListener('mouseup', function() {
-    if (overlayDrag) {
-      overlayDrag = null;
-      // Update the tile overlay info with current size
-      document.getElementById('tileOverlayInfo').innerHTML =
-        'Tile ' + selectedOverlayTile + ' | Size: ' + overlay.w.toFixed(1) + '×' + overlay.h.toFixed(1) + 'px' +
-        ' — <b style="color:#22c55e">Set Grid</b> to apply';
-    }
-  }, true);
-
-  // "Set Grid From Tile" — auto-calculate grid params from overlay size/position
-  window.setGridFromOverlay = function() {
-    if (!overlay.visible) return;
-    // The overlay rectangle represents ONE tile in image pixels
-    gridCellW = overlay.w;
-    gridCellH = overlay.h;
-    // Calculate offset: snap the overlay position to the nearest grid origin
-    gridOffsetX = overlay.x % overlay.w;
-    gridOffsetY = overlay.y % overlay.h;
-    // Calculate cols/rows from image dimensions
-    gridCols = Math.round((918 - gridOffsetX) / gridCellW);
-    gridRows = Math.round((515 - gridOffsetY) / gridCellH);
-    // Update UI
-    document.getElementById('calCols').value = gridCols;
-    document.getElementById('calRows').value = gridRows;
-    document.getElementById('calOffX').value = gridOffsetX;
-    document.getElementById('calOffY').value = gridOffsetY;
-    document.getElementById('calCellW').value = gridCellW;
-    document.getElementById('calCellH').value = gridCellH;
-    saveCalibration();
-    render();
-    document.getElementById('calInfo').textContent =
-      gridCols + '×' + gridRows + ' | offset: ' + gridOffsetX.toFixed(1) + ',' + gridOffsetY.toFixed(1) +
-      ' | cell: ' + gridCellW.toFixed(1) + '×' + gridCellH.toFixed(1);
-    document.getElementById('tileOverlayInfo').innerHTML =
-      '<span style="color:#22c55e">✓ Grid set!</span> ' + gridCols + '×' + gridRows + ' cells, ' + gridCellW.toFixed(1) + '×' + gridCellH.toFixed(1) + 'px each';
-  };
-
-  // Wrap render to draw overlay
-  var baseRender = render;
-  render = function() {
-    baseRender();
-    if (!overlay.visible || selectedOverlayTile < 0 || !tilesetImg.complete) return;
-
-    var tl = imgToDisplay(overlay.x, overlay.y);
-    var sz = imgToDisplay(overlay.x + overlay.w, overlay.y + overlay.h);
-    var dw = sz.x - tl.x;
-    var dh = sz.y - tl.y;
-
-    var col = selectedOverlayTile % 12;
-    var row = Math.floor(selectedOverlayTile / 12);
-
-    // Draw tile image
-    ctx.globalAlpha = 0.8;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tilesetImg, col * 16, row * 16, 16, 16, tl.x, tl.y, dw, dh);
-    ctx.globalAlpha = 1.0;
-
-    // Magenta border
-    ctx.strokeStyle = '#ff00ff';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(tl.x, tl.y, dw, dh);
-
-    // Resize handle (bottom-right corner)
-    ctx.fillStyle = '#ff00ff';
-    ctx.fillRect(tl.x + dw - 6, tl.y + dh - 6, 8, 8);
-
-    // Label
-    ctx.fillStyle = '#ff00ff';
-    ctx.font = 'bold 10px monospace';
-    ctx.fillText('Shift+drag to move/resize', tl.x + 2, tl.y - 4);
-  };
+  document.addEventListener('mouseup', function() { isDragging = false; });
 }
 
-// ── Save / Load ──────────────────────────────────────
-function saveAnnotations() {
-  // Save to localStorage
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(annotations));
-  } catch (e) {
-    console.warn('localStorage save failed:', e);
-  }
+function updateSelection() {
+  document.querySelectorAll('.tile-cell').forEach(function(cell) {
+    var id = parseInt(cell.dataset.id);
+    cell.classList.toggle('selected', selectedTiles.has(id));
+  });
+  document.getElementById('sel-count').textContent = selectedTiles.size + ' selected';
+  updateTagButtons();
+  updateSelectionInfo();
+}
 
-  // POST to server
-  fetch('/api/annotations', {
+function clearSelection() { selectedTiles.clear(); updateSelection(); }
+function selectAll() { for (var i = 0; i < 132; i++) selectedTiles.add(i); updateSelection(); }
+
+// ── Tag Buttons ────────────────────────────────────────
+function buildTagButtons() {
+  for (var group in TAG_GROUPS) {
+    var container = document.getElementById('tags-' + group);
+    if (!container) continue;
+    container.innerHTML = '';
+    TAG_GROUPS[group].forEach(function(t) {
+      var btn = document.createElement('span');
+      btn.className = 'tag-btn';
+      btn.dataset.tag = t.tag;
+      btn.textContent = t.tag;
+      btn.title = t.desc || t.tag;
+      btn.style.borderLeftColor = t.color;
+      btn.style.borderLeftWidth = '3px';
+      btn.addEventListener('click', function() { toggleTag(this.dataset.tag); });
+      container.appendChild(btn);
+    });
+  }
+  renderCustomTags();
+}
+
+function renderCustomTags() {
+  var container = document.getElementById('tags-custom');
+  // Keep only the input area, rebuild tag buttons
+  var buttons = container.querySelectorAll('.tag-btn');
+  buttons.forEach(function(b) { b.remove(); });
+  customTags.forEach(function(tag) {
+    var btn = document.createElement('span');
+    btn.className = 'tag-btn';
+    btn.dataset.tag = tag;
+    btn.textContent = tag;
+    btn.style.borderLeftColor = '#888';
+    btn.style.borderLeftWidth = '3px';
+    btn.addEventListener('click', function() { toggleTag(this.dataset.tag); });
+    container.insertBefore(btn, container.querySelector('.custom-tag-input'));
+  });
+}
+
+function addCustomTag() {
+  var input = document.getElementById('custom-tag-input');
+  var tag = input.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  if (!tag) return;
+  if (!customTags.includes(tag)) {
+    customTags.push(tag);
+    renderCustomTags();
+  }
+  input.value = '';
+  // Auto-apply to selection
+  toggleTag(tag);
+}
+
+function toggleTag(tag) {
+  if (selectedTiles.size === 0) return;
+  // Check if ALL selected tiles have this tag
+  var allHave = true;
+  selectedTiles.forEach(function(id) {
+    if (!tileTags[id] || !tileTags[id].has(tag)) allHave = false;
+  });
+  // Toggle: if all have it, remove from all. Otherwise, add to all.
+  selectedTiles.forEach(function(id) {
+    if (!tileTags[id]) tileTags[id] = new Set();
+    if (allHave) tileTags[id].delete(tag);
+    else tileTags[id].add(tag);
+  });
+  updateTagButtons();
+  updateDots();
+  autoSave();
+}
+
+function updateTagButtons() {
+  document.querySelectorAll('.tag-btn').forEach(function(btn) {
+    var tag = btn.dataset.tag;
+    if (selectedTiles.size === 0) {
+      btn.classList.remove('active', 'partial');
+      return;
+    }
+    var count = 0;
+    selectedTiles.forEach(function(id) {
+      if (tileTags[id] && tileTags[id].has(tag)) count++;
+    });
+    btn.classList.toggle('active', count === selectedTiles.size);
+    btn.classList.toggle('partial', count > 0 && count < selectedTiles.size);
+  });
+}
+
+function updateSelectionInfo() {
+  var el = document.getElementById('selection-info');
+  if (selectedTiles.size === 0) { el.innerHTML = 'Select tiles to tag them'; return; }
+  if (selectedTiles.size === 1) {
+    var id = [...selectedTiles][0];
+    var tags = tileTags[id] ? [...tileTags[id]].join(', ') : 'none';
+    el.innerHTML = '<b>Tile ' + id + '</b><br>Tags: ' + tags;
+  } else {
+    // Find common tags
+    var common = null;
+    selectedTiles.forEach(function(id) {
+      var t = tileTags[id] ? new Set(tileTags[id]) : new Set();
+      if (!common) common = t;
+      else common = new Set([...common].filter(function(x) { return t.has(x); }));
+    });
+    el.innerHTML = '<b>' + selectedTiles.size + ' tiles</b><br>Common tags: ' + (common && common.size ? [...common].join(', ') : 'none');
+  }
+}
+
+function updateDots() {
+  var tagColors = {};
+  for (var group in TAG_GROUPS) {
+    TAG_GROUPS[group].forEach(function(t) { tagColors[t.tag] = t.color; });
+  }
+  for (var id = 0; id < 132; id++) {
+    var dotsEl = document.getElementById('dots-' + id);
+    if (!dotsEl) continue;
+    dotsEl.innerHTML = '';
+    if (tileTags[id]) {
+      tileTags[id].forEach(function(tag) {
+        var dot = document.createElement('div');
+        dot.className = 'tag-dot';
+        dot.style.background = tagColors[tag] || '#888';
+        dot.title = tag;
+        dotsEl.appendChild(dot);
+      });
+    }
+  }
+}
+
+// ── Filter ─────────────────────────────────────────────
+function filterTiles() {
+  var query = document.getElementById('filter-input').value.trim().toLowerCase();
+  document.querySelectorAll('.tile-cell').forEach(function(cell) {
+    var id = parseInt(cell.dataset.id);
+    if (!query) { cell.style.display = ''; return; }
+    var tags = tileTags[id] ? [...tileTags[id]] : [];
+    var match = tags.some(function(t) { return t.includes(query); });
+    cell.style.display = match ? '' : 'none';
+  });
+}
+
+// ── Save / Load ────────────────────────────────────────
+function saveTags() {
+  var data = {};
+  for (var id in tileTags) {
+    if (tileTags[id] && tileTags[id].size > 0) {
+      data[id] = [...tileTags[id]];
+    }
+  }
+  data._customTags = customTags;
+  fetch('/api/tile-tags', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(annotations)
-  })
-  .then(res => {
-    if (res.ok) {
-      showToast('Saved to server + localStorage');
-    } else {
-      showToast('Saved to localStorage (server unavailable)');
-    }
-  })
-  .catch(() => {
-    showToast('Saved to localStorage (server offline)');
+    body: JSON.stringify(data)
+  }).then(function() {
+    var msg = document.getElementById('saved-msg');
+    msg.classList.add('show');
+    setTimeout(function() { msg.classList.remove('show'); }, 2000);
+  });
+  localStorage.setItem('tile-tags', JSON.stringify(data));
+}
+
+var _autoSaveTimer = null;
+function autoSave() {
+  // Save immediately to server — no delay, real-time
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(saveTags, 300); // 300ms debounce for rapid clicking
+}
+
+function loadTags() {
+  // Try server first, fallback to localStorage
+  fetch('/api/tile-tags').then(function(r) { return r.json(); }).then(function(data) {
+    applyLoadedTags(data);
+  }).catch(function() {
+    try {
+      var data = JSON.parse(localStorage.getItem('tile-tags'));
+      if (data) applyLoadedTags(data);
+    } catch(e) {}
   });
 }
 
-function loadAnnotations() {
-  // Try server first
-  fetch('/api/annotations')
-    .then(res => {
-      if (!res.ok) throw new Error('not ok');
-      return res.json();
-    })
-    .then(data => {
-      if (data && data.cells) {
-        annotations = data;
-        updateStats();
-        render();
-        showToast('Loaded from server');
-      } else {
-        throw new Error('empty');
-      }
-    })
-    .catch(() => {
-      // Fall back to localStorage
-      loadFromStorage();
-      showToast('Loaded from localStorage');
-    });
-}
-
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw);
-      if (data && data.cells) {
-        annotations = data;
-        updateStats();
-        return true;
-      }
+function applyLoadedTags(data) {
+  tileTags = {};
+  customTags = data._customTags || [];
+  for (var id in data) {
+    if (id === '_customTags') continue;
+    if (Array.isArray(data[id])) {
+      tileTags[parseInt(id)] = new Set(data[id]);
     }
-  } catch (e) {
-    console.warn('localStorage load failed:', e);
   }
-  return false;
+  renderCustomTags();
+  updateDots();
+  updateTagButtons();
 }
 
-// ── Toast ────────────────────────────────────────────
-let toastTimer = null;
-function showToast(msg) {
-  toastEl.textContent = msg;
-  toastEl.classList.add('visible');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove('visible'), 2000);
-}
-
-// ── Keyboard shortcuts ──────────────────────────────
-document.addEventListener('keydown', (e) => {
-  // Ctrl+S to save
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    saveAnnotations();
-  }
-  // Escape to clear tag selection
-  if (e.key === 'Escape') {
-    selectedTags.clear();
-    refreshTagButtons();
-    showToast('Tag selection cleared');
-  }
-});
-
-// ── Start ────────────────────────────────────────────
-init();
+// ── Init ───────────────────────────────────────────────
+buildTagButtons();
 </script>
 </body>
 </html>
