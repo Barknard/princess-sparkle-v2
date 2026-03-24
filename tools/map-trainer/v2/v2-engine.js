@@ -90,14 +90,17 @@ const MATERIALS = {
 };
 const MATERIAL_KEYS = ['red', 'gray', 'blue']; // house materials (castle/stone are special)
 
-// Generate a building of specified width and height from a material
-function generateBuilding(rng, width, height, material) {
-  if (!material) material = MATERIALS[MATERIAL_KEYS[Math.floor(rng() * MATERIAL_KEYS.length)]];
-  const rows = [];
-  const w = Math.max(3, width);  // minimum 3 wide (L-M-R)
-  const h = Math.max(2, height); // minimum 2 tall (roof + base)
+// ── Procedural Building Generators ──────────────────────────────────────────
+// Every building is uniquely generated from rules. Painted templates are
+// training data only — they teach the material system, never get copied.
 
-  // Build each row: L, then M repeated, then R
+// Generate a house: roof on top, mid rows, base with door
+function generateHouse(rng) {
+  const mat = MATERIALS[MATERIAL_KEYS[Math.floor(rng() * MATERIAL_KEYS.length)]];
+  const w = 3 + Math.floor(rng() * 4);   // 3-6 wide
+  const midRows = Math.floor(rng() * 3);  // 0-2 mid rows (making 2-4 tall)
+  const rows = [];
+
   const makeRow = (lmr) => {
     const row = [lmr.L];
     for (let i = 0; i < w - 2; i++) row.push(lmr.M);
@@ -105,41 +108,91 @@ function generateBuilding(rng, width, height, material) {
     return row;
   };
 
-  if (h >= 3) {
-    // roof row
-    rows.push(makeRow(material.roof));
-    // mid rows (repeat for taller buildings)
-    for (let i = 0; i < h - 2; i++) rows.push(makeRow(material.mid));
-    // base row with door in center
-    const baseRow = makeRow(material.base);
-    if (material.door >= 0) {
-      const doorX = Math.floor(w / 2);
-      baseRow[doorX] = material.door;
-    }
-    rows.push(baseRow);
-  } else {
-    // 2-tall: roof + base with door
-    rows.push(makeRow(material.roof));
-    const baseRow = makeRow(material.base);
-    if (material.door >= 0) baseRow[Math.floor(w / 2)] = material.door;
-    rows.push(baseRow);
+  // Roof
+  rows.push(makeRow(mat.roof));
+  // Mid rows (wall detail — more rows = taller building)
+  for (let i = 0; i < midRows; i++) rows.push(makeRow(mat.mid));
+  // Base with door — door position varies
+  const baseRow = makeRow(mat.base);
+  if (mat.door >= 0) {
+    // Door can be left-center, center, or right-center
+    const doorPositions = [1, Math.floor(w / 2), w - 2];
+    const doorX = doorPositions[Math.floor(rng() * doorPositions.length)];
+    baseRow[Math.min(doorX, w - 1)] = mat.door;
   }
+  rows.push(baseRow);
+
   return { w, h: rows.length, rows, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
-// Generate a fence/wall of specified width
-function generateFence(rng, width) {
-  const mat = MATERIALS.stone;
-  const row = [mat.door]; // start with gate
-  for (let i = 1; i < width - 1; i++) {
-    row.push(i % 2 === 0 ? mat.wall.M : mat.post);
+// Generate a castle: towers (optional), walls, gate
+function generateCastle(rng) {
+  const mat = MATERIALS.castle;
+  const hasTowers = rng() < 0.7;         // 70% chance of towers
+  const gateWidth = 2;                     // gate is always 2 wide (L+R)
+  const wallsPerSide = 1 + Math.floor(rng() * 2); // 1-2 wall columns per side
+  const towerH = hasTowers ? (2 + Math.floor(rng() * 2)) : 0; // 2-3 tall towers
+  const bodyH = 2 + Math.floor(rng() * 2); // 2-3 tall body
+
+  // Width: tower(1) + walls + gate(2) + walls + tower(1)
+  const sideW = hasTowers ? 1 + wallsPerSide : wallsPerSide;
+  const totalW = sideW + gateWidth + sideW;
+  const totalH = Math.max(towerH, bodyH);
+  const rows = [];
+
+  for (let dy = 0; dy < totalH; dy++) {
+    const row = [];
+    for (let dx = 0; dx < totalW; dx++) {
+      const isLeftTower = hasTowers && dx === 0;
+      const isRightTower = hasTowers && dx === totalW - 1;
+      const isGateL = dx === sideW;
+      const isGateR = dx === sideW + 1;
+      const isWall = !isLeftTower && !isRightTower && !isGateL && !isGateR;
+
+      if (isLeftTower || isRightTower) {
+        if (dy === 0) row.push(mat.tower);           // tower cap
+        else if (dy < totalH - 1) row.push(isLeftTower ? mat.mid.L : mat.mid.R);
+        else row.push(isLeftTower ? mat.base.L : mat.base.R);
+      } else if (isGateL || isGateR) {
+        if (dy < totalH - 2) row.push(-1);           // empty above gate
+        else if (dy === totalH - 2) row.push(isGateL ? mat.gate.L : mat.gate.R);
+        else row.push(isGateL ? mat.base.L : mat.base.R);
+      } else if (isWall) {
+        if (dy === 0) row.push(dx < sideW ? mat.roof.L : mat.roof.R);
+        else if (dy < totalH - 1) row.push(dx < sideW ? mat.mid.L : mat.mid.R);
+        else row.push(dx < sideW ? mat.base.L : mat.base.R);
+      }
+    }
+    rows.push(row);
   }
-  row.push(mat.base.M); // end with gate piece
-  return { w: width, h: 1, rows: [row], tileCount: width };
+
+  return { w: totalW, h: totalH, rows, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
-// Keep painted templates as-is (they're always valid)
-// But ALSO allow procedural generation of new building sizes
+// Generate a fence: posts + rails, variable length, optional gate
+function generateFence(rng, width) {
+  const mat = MATERIALS.stone;
+  const w = width || (3 + Math.floor(rng() * 6)); // 3-8 wide
+  const hasGate = rng() < 0.5;
+  const row = [];
+
+  for (let i = 0; i < w; i++) {
+    if (i === 0 && hasGate) row.push(mat.door);           // gate at start
+    else if (i === w - 1 && hasGate) row.push(mat.base.M); // gate at end
+    else if (i % 2 === 0) row.push(mat.post);
+    else row.push(mat.wall.M);
+  }
+  // Fences can be 1 or 2 tall (with stone base below)
+  if (rng() < 0.3 && w >= 4) {
+    const baseRow = [];
+    for (let i = 0; i < w; i++) {
+      if (row[i] === mat.door || row[i] === mat.base.M) baseRow.push(row[i]); // doors align
+      else baseRow.push(mat.base.L);
+    }
+    return { w, h: 2, rows: [row, baseRow], tileCount: w * 2 };
+  }
+  return { w, h: 1, rows: [row], tileCount: w };
+}
 
 // ── Tree Pairs (canopyL, canopyR, trunkL, trunkR) ──────────────────────────
 const TREE_TYPES = [
@@ -349,24 +402,22 @@ class V2Engine {
     const doorPositions = []; // tracked for clear-path and no-tree zones
     const placed = []; // building bounding boxes
     {
-      const numBuildings = d.buildingCount || (this._paintedBuildings?.length || 4) + Math.floor(rng() * 3);
+      // Building count learned from painted map, with some variation
+      const baseCount = this._paintedBuildings?.length || 4;
+      const numBuildings = Math.max(3, baseCount + Math.floor((rng() - 0.5) * 4)); // ±2 from base
       // Find building rows from layout
       const buildingRows = rowLayout.filter(r => r.type === 'building').map(r => r.row);
 
       for (let bi = 0; bi < numBuildings; bi++) {
-        // Use painted template if available, otherwise generate procedurally
+        // ALL buildings are procedurally generated from rules — never copied
         let bldg;
-        if (this._paintedBuildings && bi < this._paintedBuildings.length && rng() < 0.6) {
-          bldg = this._paintedBuildings[bi];
+        const roll = rng();
+        if (roll < 0.10) {
+          bldg = generateCastle(rng);       // 10% castle
+        } else if (roll < 0.20) {
+          bldg = generateFence(rng);         // 10% fence
         } else {
-          // Procedural: random size and material
-          const bw = 3 + Math.floor(rng() * 4); // 3-6 wide
-          const bh = 2 + Math.floor(rng() * 3); // 2-4 tall
-          if (rng() < 0.15) {
-            bldg = generateFence(rng, 3 + Math.floor(rng() * 5)); // occasional fence
-          } else {
-            bldg = generateBuilding(rng, bw, bh);
-          }
+          bldg = generateHouse(rng);         // 80% house (varied materials + sizes)
         }
 
         for (let attempt = 0; attempt < 80; attempt++) {
@@ -508,26 +559,53 @@ class V2Engine {
       return true;
     };
 
-    // Place a dense pine cluster (block of 19s with 7s on top)
+    // Place a dense pine cluster with proper edges
+    // Core: 7(top) + 19(body). Edges that don't touch the map boundary
+    // get rounded with edge tiles (single canopy, bush, trunk).
     const placePineCluster = (cx, cy, w, h) => {
-      let placed = 0;
-      // Top row: tile 7 (pine tops)
-      for (let dx = 0; dx < w; dx++) {
-        if (canPlaceFg(cx + dx, cy)) {
-          foreground[this.idx(cx + dx, cy)] = 7;
-          placed++;
-        }
-      }
-      // Body rows: tile 19 (pine dense)
-      for (let dy = 1; dy < h; dy++) {
+      let count = 0;
+      // Lay the core block
+      for (let dy = 0; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
-          if (canPlaceFg(cx + dx, cy + dy)) {
-            foreground[this.idx(cx + dx, cy + dy)] = 19;
-            placed++;
-          }
+          const x = cx + dx, y = cy + dy;
+          if (!canPlaceFg(x, y)) continue;
+          if (dy === 0) foreground[this.idx(x, y)] = 7;  // top row = pine tops
+          else foreground[this.idx(x, y)] = 19;           // body = dense
+          count++;
         }
       }
-      return placed;
+
+      // Round exposed edges (not touching map boundary)
+      const edgeTiles = [20, 32, 17, 28]; // small bushes/shrubs
+      // Bottom edge
+      if (cy + h < this.H - 1) {
+        for (let dx = 0; dx < w; dx++) {
+          const x = cx + dx, y = cy + h;
+          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
+        }
+      }
+      // Left edge
+      if (cx > 0) {
+        for (let dy = 0; dy < h; dy++) {
+          const x = cx - 1, y = cy + dy;
+          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
+        }
+      }
+      // Right edge
+      if (cx + w < this.W - 1) {
+        for (let dy = 0; dy < h; dy++) {
+          const x = cx + w, y = cy + dy;
+          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
+        }
+      }
+      // Top edge (above the pine tops)
+      if (cy > 0) {
+        for (let dx = 0; dx < w; dx++) {
+          const x = cx + dx, y = cy - 1;
+          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
+        }
+      }
+      return count;
     };
 
     // Tree types for single trees (always placed as vertical pairs)
@@ -906,4 +984,4 @@ if (require.main === module) {
   console.log('\nAll self-tests PASSED');
 }
 
-module.exports = { V2Engine, T, MATERIALS, MATERIAL_KEYS, generateBuilding, generateFence, TREE_TYPES, valueNoise };
+module.exports = { V2Engine, T, MATERIALS, MATERIAL_KEYS, generateHouse, generateCastle, generateFence, TREE_TYPES, valueNoise };
