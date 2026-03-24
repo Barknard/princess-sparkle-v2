@@ -452,6 +452,10 @@ fetch('/api/tile-catalog').then(function(r) { return r.json(); }).then(function(
 }).catch(function() {});
 
 function openLightbox() {
+  // Clear flags for fresh inspection of new map
+  flaggedTiles = [];
+  localStorage.setItem('flaggedTiles', JSON.stringify(flaggedTiles));
+
   // Fetch raw map data and render interactive inspector
   fetch('/api/best-map-data').then(function(r) { return r.json(); }).then(function(data) {
     inspectorData = data;
