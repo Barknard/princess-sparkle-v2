@@ -74,12 +74,12 @@ const MATERIALS = {
     door:  80,
   },
   castle: {
-    roof:  { L: 96, M: -1, R: 98 },     // towers as bookends
-    mid:   { L: 120, M: -1, R: 122 },
-    base:  { L: 123, M: -1, R: 124 },
+    roof:  { L: 96, M: 96, R: 98 },     // solid wall top (L fills middle too)
+    mid:   { L: 120, M: 120, R: 122 },   // solid wall mid
+    base:  { L: 123, M: 123, R: 124 },   // solid wall base
     gate:  { L: 111, R: 112 },
     tower: 102,
-    door:  -1, // castles use gate instead
+    door:  -1,
   },
   stone: {
     wall:  { L: 44, M: 45, R: 44 },      // fence/wall segments
@@ -172,7 +172,9 @@ function generateCastle(rng) {
         else if (dy < totalH - 1) row.push(isLeftTower ? mat.mid.L : mat.mid.R);
         else row.push(isLeftTower ? mat.base.L : mat.base.R);
       } else if (isGateL || isGateR) {
-        if (dy < totalH - 2) row.push(-1);           // empty above gate
+        // Gate opening is only at the bottom — solid wall above
+        if (dy === 0) row.push(isGateL ? mat.roof.L : mat.roof.R);
+        else if (dy < totalH - 2) row.push(isGateL ? mat.mid.L : mat.mid.R); // solid wall
         else if (dy === totalH - 2) row.push(isGateL ? mat.gate.L : mat.gate.R);
         else row.push(isGateL ? mat.base.L : mat.base.R);
       } else if (isWall) {
