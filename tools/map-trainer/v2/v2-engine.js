@@ -269,44 +269,65 @@ function generateHouse(rng, wantChimney) {
 // Modeled after user's painted castle: tower caps on corners, solid wall fill between,
 // gate centered at bottom. Every cell is filled — no thin outlines.
 function generateCastle(rng) {
-  const mat = MATERIALS.castle;
+  // Modeled after user's painted castle structure:
+  //   Row 0: [-1, 102, -1, -1, 102, -1]     tower caps with gaps
+  //   Row 1: [-1, 204,  96,  98, 204, -1]    wall fill + side walls
+  //   Row 2: [96, 204, 120, 122, 204,  98]   full width walls
+  //   Row 3: [120, 204, 111, 112, 204, 122]  gate row
+  //   Row 4: [205, 204, 123, 124, 204, 204]  base row
+  //
+  // Key: tile 204 (custom) is the PRIMARY wall fill. Castle-tagged tiles are structural.
   const hasTowers = rng() < 0.7;
-  const wallsPerSide = 1 + Math.floor(rng() * 2); // 1-2 wall columns per side
-  const totalH = 3 + Math.floor(rng() * 2);        // 3-4 tall minimum (thick!)
-
-  // Width: tower(1) + walls + gate(2) + walls + tower(1)
-  const sideW = hasTowers ? 1 + wallsPerSide : wallsPerSide;
-  const totalW = Math.max(4, sideW + 2 + sideW); // min 4 wide
-  const gateCol1 = sideW;
-  const gateCol2 = sideW + 1;
+  const bodyW = 2 + Math.floor(rng() * 2); // 2-3 wide gate area
+  const totalW = hasTowers ? bodyW + 4 : bodyW + 2; // towers add 2 per side
+  const totalH = 4 + Math.floor(rng() * 2); // 4-5 tall
   const rows = [];
+  const towerCol = hasTowers ? 1 : -1;
+  const towerColR = hasTowers ? totalW - 2 : -1;
+  const gateCol1 = Math.floor(totalW / 2) - 1;
+  const gateCol2 = Math.floor(totalW / 2);
 
   for (let dy = 0; dy < totalH; dy++) {
     const row = [];
     for (let dx = 0; dx < totalW; dx++) {
-      const isLeftTower = hasTowers && dx === 0;
-      const isRightTower = hasTowers && dx === totalW - 1;
-      const isGate = dx === gateCol1 || dx === gateCol2;
-      const isLeft = dx < gateCol1;
-      const isRight = dx > gateCol2;
+      const isEdgeL = dx === 0;
+      const isEdgeR = dx === totalW - 1;
+      const isTowerL = dx === towerCol;
+      const isTowerR = dx === towerColR;
+      const isGateL = dx === gateCol1;
+      const isGateR = dx === gateCol2;
 
-      if (isLeftTower || isRightTower) {
-        // Tower column: cap on top, mid walls, base at bottom
-        if (dy === 0) row.push(mat.tower);
-        else if (dy < totalH - 1) row.push(isLeftTower ? mat.mid.L : mat.mid.R);
-        else row.push(isLeftTower ? mat.base.L : mat.base.R);
-      } else if (isGate) {
-        // Gate column: roof on top, mid wall, gate opening, base
-        const gateL = dx === gateCol1;
-        if (dy === 0) row.push(gateL ? mat.roof.L : mat.roof.R);       // roof top
-        else if (dy < totalH - 2) row.push(gateL ? mat.mid.L : mat.mid.R); // mid wall
-        else if (dy === totalH - 2) row.push(gateL ? mat.gate.L : mat.gate.R); // gate
-        else row.push(gateL ? mat.base.L : mat.base.R);                 // base
+      if (dy === 0) {
+        // Top row: tower caps + empty
+        if (isTowerL || isTowerR) row.push(102); // tower cap
+        else row.push(-1); // empty above wall
+      } else if (dy === 1) {
+        // Second row: wall fill + side pieces
+        if (isTowerL || isTowerR) row.push(204); // custom wall fill
+        else if (isGateL) row.push(96);  // left wall piece
+        else if (isGateR) row.push(98);  // right wall piece
+        else if (isEdgeL || isEdgeR) row.push(-1);
+        else row.push(204);
+      } else if (dy === totalH - 2) {
+        // Gate row
+        if (isGateL) row.push(111);  // gate left
+        else if (isGateR) row.push(112); // gate right
+        else if (isEdgeL) row.push(120); // base left edge
+        else if (isEdgeR) row.push(122); // base right edge
+        else row.push(204); // wall fill
+      } else if (dy === totalH - 1) {
+        // Base row
+        if (isGateL) row.push(123);  // gate base left
+        else if (isGateR) row.push(124); // gate base right
+        else if (isEdgeL) row.push(205); // base corner (custom)
+        else row.push(204); // wall fill
       } else {
-        // Regular wall: roof on top row, mid for body, base at bottom
-        if (dy === 0) row.push(isLeft ? mat.roof.L : mat.roof.R);       // roof/battlement
-        else if (dy < totalH - 1) row.push(isLeft ? mat.mid.L : mat.mid.R); // wall body
-        else row.push(isLeft ? mat.base.L : mat.base.R);                 // base
+        // Mid wall rows
+        if (isEdgeL) row.push(96);   // left wall
+        else if (isEdgeR) row.push(98); // right wall
+        else if (isGateL) row.push(120);
+        else if (isGateR) row.push(122);
+        else row.push(204); // wall fill
       }
     }
     rows.push(row);
