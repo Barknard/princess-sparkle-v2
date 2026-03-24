@@ -67,30 +67,34 @@ const TILE_LAYER = {};
 const MATERIALS = {
   gray_wood: {
     // Gray roof + wood mid + wood walls (painted map buildings 2,3)
-    roof:  { L: 48, M: 49, R: 50 },   // gray roof (tag: roof+gray)
-    mid:   { L: 60, M: 63, R: 62 },   // wood mid detail (tag: roof+wood)
-    base:  { L: 72, M: 73, R: 75 },   // wood walls (tag: wall+wood)
-    doors: [74, 78],                    // wood doors (tag: door+wall)
+    roof:  { L: 48, M: 49, R: 50 },   // gray roof
+    mid:   { L: 60, M: 63, R: 62 },   // wood mid detail
+    base:  { L: 72, M: 73, R: 72 },   // wood walls (72=solid, NOT 75=window)
+    window: 75,                         // wood window
+    doors: [74, 78],
   },
   red_stone: {
-    // Red roof + wood mid + stone walls (painted map style)
+    // Red roof + wood mid + stone walls
     roof:  { L: 52, M: 53, R: 54 },   // red roof (tag: roof+red)
-    mid:   { L: 64, M: 65, R: 66 },   // red/stone mid (tag: roof+stone)
-    base:  { L: 84, M: 84, R: 84 },   // stone walls — solid, no accidental doors
-    doors: [85, 86],                    // stone doors (explicitly placed only)
+    mid:   { L: 64, M: 65, R: 66 },   // red/stone mid
+    base:  { L: 76, M: 76, R: 76 },   // stone wall panels (76=solid stone, NOT 84=window!)
+    window: 84,                         // window tile placed intentionally only
+    doors: [85, 86],
   },
   red_wood: {
     // Red roof + wood mid + wood walls
     roof:  { L: 52, M: 53, R: 54 },   // red roof
     mid:   { L: 60, M: 61, R: 62 },   // wood mid
-    base:  { L: 72, M: 73, R: 75 },   // wood walls
+    base:  { L: 72, M: 73, R: 72 },   // wood walls (72=solid, NOT 75=window)
+    window: 75,
     doors: [74, 78],
   },
   gray_stone: {
     // Gray roof + stone walls
     roof:  { L: 48, M: 49, R: 50 },   // gray roof
-    mid:   { L: 76, M: 77, R: 79 },   // stone mid (tag: wall+stone)
-    base:  { L: 88, M: 88, R: 88 },   // stone walls — solid, no accidental doors
+    mid:   { L: 76, M: 77, R: 79 },   // stone mid
+    base:  { L: 76, M: 77, R: 76 },   // stone wall panels (NOT 88=window!)
+    window: 88,                         // window tile placed intentionally only
     doors: [89, 90],
   },
   castle: {
@@ -156,19 +160,16 @@ function generateHouse(rng, wantChimney) {
   }
   rows.push(midRow);
 
-  // ── ROWS 2+: Wall rows — windows placed RANDOMLY, not stacked ──
+  // ── ROWS 2+: Wall rows — max 1 window per row, random placement ──
   const wallRows = 1 + Math.floor(rng() * 2); // 1-2 wall rows
-  // Window tiles from tags: 84 (stone window), 88 (stone window variant)
-  // For wood buildings: 75 (wood window)
-  const windowTiles = mat === MATERIALS.gray_wood || mat === MATERIALS.red_wood ? [75] : [84, 88];
+  // Use the material's dedicated window tile (or wood window 75 as fallback)
+  const windowTile = mat.window || 75;
   for (let wr = 0; wr < wallRows; wr++) {
     const wallRow = makeRow(mat.base);
-    // Randomly place 0-1 windows per wall row (NOT always in same columns)
-    if (w >= 3 && rng() < 0.6) {
-      const wx = 1 + Math.floor(rng() * (w - 2)); // random position, not at edges
-      if (wx !== doorX) {
-        wallRow[wx] = windowTiles[Math.floor(rng() * windowTiles.length)];
-      }
+    // 40% chance of 1 window per wall row — never in same column as door
+    if (w >= 3 && rng() < 0.4) {
+      const wx = 1 + Math.floor(rng() * (w - 2));
+      if (wx !== doorX) wallRow[wx] = windowTile;
     }
     rows.push(wallRow);
   }
@@ -211,37 +212,28 @@ function generateCastle(rng) {
       const isRight = dx > gateCol2;
 
       if (isLeftTower || isRightTower) {
-        // Tower column: cap on top, wall fill below
+        // Tower column: cap on top, mid walls, base at bottom
         if (dy === 0) row.push(mat.tower);
         else if (dy < totalH - 1) row.push(isLeftTower ? mat.mid.L : mat.mid.R);
         else row.push(isLeftTower ? mat.base.L : mat.base.R);
       } else if (isGate) {
-        // Gate column: wall on top rows, gate near bottom, base at very bottom
+        // Gate column: roof on top, mid wall, gate opening, base
         const gateL = dx === gateCol1;
-        if (dy < totalH - 2) {
-          // Solid wall above gate
-          row.push(gateL ? mat.roof.L : mat.roof.R);
-        } else if (dy === totalH - 2) {
-          // Gate opening
-          row.push(gateL ? mat.gate.L : mat.gate.R);
-        } else {
-          // Base
-          row.push(gateL ? mat.base.L : mat.base.R);
-        }
+        if (dy === 0) row.push(gateL ? mat.roof.L : mat.roof.R);       // roof top
+        else if (dy < totalH - 2) row.push(gateL ? mat.mid.L : mat.mid.R); // mid wall
+        else if (dy === totalH - 2) row.push(gateL ? mat.gate.L : mat.gate.R); // gate
+        else row.push(gateL ? mat.base.L : mat.base.R);                 // base
       } else {
-        // Regular wall: solid fill throughout
-        const wallSide = isLeft ? mat.roof.L : mat.roof.R;
-        const wallMid = isLeft ? mat.mid.L : mat.mid.R;
-        const wallBase = isLeft ? mat.base.L : mat.base.R;
-        if (dy === 0) row.push(wallSide);
-        else if (dy < totalH - 1) row.push(wallMid);
-        else row.push(wallBase);
+        // Regular wall: roof on top row, mid for body, base at bottom
+        if (dy === 0) row.push(isLeft ? mat.roof.L : mat.roof.R);       // roof/battlement
+        else if (dy < totalH - 1) row.push(isLeft ? mat.mid.L : mat.mid.R); // wall body
+        else row.push(isLeft ? mat.base.L : mat.base.R);                 // base
       }
     }
     rows.push(row);
   }
 
-  return { w: totalW, h: totalH, rows, tileCount: rows.flat().filter(t => t >= 0).length };
+  return { w: totalW, h: totalH, rows, hasDoor: false, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
 // Generate a fence: L-M-R rail pattern, variable length
