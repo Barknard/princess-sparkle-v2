@@ -187,29 +187,18 @@ function generateCastle(rng) {
   return { w: totalW, h: totalH, rows, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
-// Generate a fence: posts + rails, variable length, optional gate
+// Generate a fence: posts + rails, variable length
+// Fences do NOT have doors — they're just walls/barriers
 function generateFence(rng, width) {
   const mat = MATERIALS.stone;
   const w = width || (3 + Math.floor(rng() * 6)); // 3-8 wide
-  const hasGate = rng() < 0.5;
   const row = [];
 
   for (let i = 0; i < w; i++) {
-    if (i === 0 && hasGate) row.push(mat.door);           // gate at start
-    else if (i === w - 1 && hasGate) row.push(mat.base.M); // gate at end
-    else if (i % 2 === 0) row.push(mat.post);
-    else row.push(mat.wall.M);
+    if (i % 2 === 0) row.push(mat.post); // 81 = fence post
+    else row.push(mat.wall.M);            // 45 = fence rail
   }
-  // Fences can be 1 or 2 tall (with stone base below)
-  if (rng() < 0.3 && w >= 4) {
-    const baseRow = [];
-    for (let i = 0; i < w; i++) {
-      if (row[i] === mat.door || row[i] === mat.base.M) baseRow.push(row[i]); // doors align
-      else baseRow.push(mat.base.L);
-    }
-    return { w, h: 2, rows: [row, baseRow], tileCount: w * 2 };
-  }
-  return { w, h: 1, rows: [row], tileCount: w };
+  return { w, h: 1, rows: [row], tileCount: w, isFence: true };
 }
 
 // ── Tree Pairs (canopyL, canopyR, trunkL, trunkR) ──────────────────────────
@@ -466,16 +455,17 @@ class V2Engine {
           }
           if (overlap) continue;
 
-          // Place building + find doors
+          // Place building + find doors (only real building doors, not fence pieces)
+          const REAL_DOORS = new Set([80, 57]); // wood door, stone door
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;
               const tile = bldg.rows[dy][dx];
               if (tile >= 0) {
                 objects[this.idx(bx + dx, by + dy)] = tile;
-                const isDoor = (tile === 80 || tile === 57 || tile === 82 || tile === 94);
-                collision[this.idx(bx + dx, by + dy)] = isDoor ? 0 : 1;
-                if (isDoor) {
+                collision[this.idx(bx + dx, by + dy)] = REAL_DOORS.has(tile) ? 0 : 1;
+                // Only track actual doors (bottom row of building, not fences)
+                if (REAL_DOORS.has(tile) && !bldg.isFence && dy === bldg.h - 1) {
                   doorPositions.push({ x: bx + dx, y: by + dy });
                 }
               }
