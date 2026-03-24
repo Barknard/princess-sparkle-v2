@@ -217,18 +217,20 @@ function generateHouse(rng, wantChimney) {
   rows.push(roofRow2);
 
   // ── ROWS 2+: Wall rows — 0 for one-story, 1-2 for multi-story ──
-  // Buildings 4+ wide MUST have at least 1 wall row (so they can have a window)
-  const minWallRows = w >= 4 ? 1 : 0;
-  const wallRows = minWallRows + Math.floor(rng() * 2); // 0-2 for small, 1-2 for large
+  // Buildings 3+ wide MUST have at least 1 wall row (so they can have a window)
+  const minWallRows = w >= 3 ? 1 : 0;
+  const wallRows = minWallRows + Math.floor(rng() * 2); // 1-2 for 3+ wide, 0-1 for 2-wide
   const windowTile = mat.window || 75;
   let windowPlaced = false;
   for (let wr = 0; wr < wallRows; wr++) {
     const wallRow = makeRow(mat.base);
-    // At least 1 window in the first wall row (if building is wide enough)
-    // Additional wall rows: 30% chance of another window in a DIFFERENT column
-    const wantWindow = (wr === 0 && w >= 3) || (w >= 4 && rng() < 0.3);
+    // First wall row ALWAYS gets a window (if 3+ wide)
+    // Additional wall rows: 40% chance
+    const wantWindow = (wr === 0 && w >= 3) || (w >= 3 && rng() < 0.4);
     if (wantWindow) {
-      const wx = 1 + Math.floor(rng() * (w - 2));
+      // Pick a column that's not the door and not an edge
+      let wx = 1 + Math.floor(rng() * (w - 2));
+      if (wx === doorX && w >= 4) wx = wx === 1 ? w - 2 : 1; // shift away from door
       if (wx !== doorX) { wallRow[wx] = windowTile; windowPlaced = true; }
     }
     rows.push(wallRow);
