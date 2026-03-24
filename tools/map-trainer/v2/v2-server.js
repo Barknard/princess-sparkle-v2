@@ -47,7 +47,18 @@ for (const arg of args) {
 // ── Load existing modules from parent trainer dir ────────────────────────────
 const { GeneticEvolver } = require(path.join(TRAINER_DIR, 'genetic-evolver'));
 const { V2Engine } = require(path.join(V2_DIR, 'v2-engine'));
-const { auditMap } = require(path.join(TRAINER_DIR, 'self-audit'));
+const { V2Scorer } = require(path.join(V2_DIR, 'v2-scorer'));
+// Create scorer with painted map as reference
+let v2scorer = null;
+function auditMap(map) {
+  if (!v2scorer) {
+    const pm = require('fs').existsSync(path.join(V2_DIR, 'painted-map.json'))
+      ? JSON.parse(require('fs').readFileSync(path.join(V2_DIR, 'painted-map.json'), 'utf8'))
+      : null;
+    v2scorer = new V2Scorer(pm);
+  }
+  return v2scorer.score(map);
+}
 const { loadTargetMap, scoreTileMatch, combinedScore } = require(path.join(TRAINER_DIR, 'tile-match-scorer'));
 const { TileRelationshipLearner } = require(path.join(TRAINER_DIR, 'tile-relationship-learner'));
 
@@ -288,7 +299,7 @@ async function runGeneration() {
     const result = combinedScore(map, targetMap, audit);
     // VARIATION MODE: fitness = design quality ONLY (not tile match to target)
     // We want DIFFERENT maps that are equally GOOD, not copies
-    const fitness = audit.total || result.designQuality || 0;
+    const fitness = audit.design || audit.total || result.designQuality || 0;
 
     scored[i] = { dna, fitness, tileMatch: result.tileMatch, designScore: result.designQuality };
 
