@@ -309,9 +309,9 @@ function generateCastle(rng) {
         else if (isEdgeL || isEdgeR) row.push(-1);
         else row.push(204);
       } else if (dy === totalH - 2) {
-        // Gate row
-        if (isGateL) row.push(111);  // gate left
-        else if (isGateR) row.push(112); // gate right
+        // Gate top row — use 113/114 (castle door top variant)
+        if (isGateL) row.push(113);  // gate top left
+        else if (isGateR) row.push(114); // gate top right
         else if (isEdgeL) row.push(120); // base left edge
         else if (isEdgeR) row.push(122); // base right edge
         else row.push(204); // wall fill
