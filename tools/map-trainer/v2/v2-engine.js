@@ -1030,6 +1030,15 @@ class V2Engine {
           }
         }
 
+        // Fix stacked doors: if a door is directly above another door, replace top with wall
+        if (WALKABLE_DOORS.has(obj) && y + 1 < this.H) {
+          const belowIdx = this.idx(x, y + 1);
+          if (WALKABLE_DOORS.has(objects[belowIdx])) {
+            // Replace THIS door with the material's wall tile
+            objects[i] = (obj === 74) ? 73 : 85; // wood plain or stone plain
+          }
+        }
+
         // Ensure ground is always filled (never -1)
         if (ground[i] < 0) ground[i] = 1; // default to plain grass
       }
