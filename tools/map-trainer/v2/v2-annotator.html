@@ -127,7 +127,7 @@ body {
     <span id="sel-count">0 selected</span>
     <button onclick="clearSelection()">Clear Selection</button>
     <button onclick="selectAll()">Select All</button>
-    <button onclick="saveTags()">Save Tags</button>
+    <span class="saved" id="saved-msg">Saved!</span>
     <button onclick="autoTagFromPaintedMap()" style="background:#065f46;border-color:#047857">Auto-Tag from Painted Map</button>
     <span class="saved" id="saved-msg">Saved!</span>
     <span style="flex:1"></span>
@@ -492,9 +492,8 @@ function saveTags() {
 
 var _autoSaveTimer = null;
 function autoSave() {
-  // Save immediately to server — no delay, real-time
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(saveTags, 300); // 300ms debounce for rapid clicking
+  _autoSaveTimer = setTimeout(saveTags, 150); // 150ms debounce — essentially instant
 }
 
 function loadTags() {
