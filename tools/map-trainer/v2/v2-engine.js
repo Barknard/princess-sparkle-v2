@@ -67,84 +67,85 @@ let MATERIALS = {};
 let MATERIAL_KEYS = [];
 
 function buildMaterialsFromTags(tileTags) {
-  // Build tag→tile lookup from raw tag data
-  const byTag = {};
-  for (const [id, tags] of Object.entries(tileTags)) {
-    if (id === '_customTags') continue;
-    const tid = parseInt(id);
-    for (const t of tags) {
-      if (!byTag[t]) byTag[t] = [];
-      byTag[t].push(tid);
-    }
-  }
   const hasTag = (id, tag) => (tileTags[id] || []).includes(tag);
   const withTags = (...tags) => {
-    let set = byTag[tags[0]] || [];
-    for (let i = 1; i < tags.length; i++) {
-      set = set.filter(id => hasTag(id, tags[i]));
-    }
+    let set = Object.keys(tileTags).filter(k => k !== '_customTags').map(Number);
+    for (const t of tags) set = set.filter(id => hasTag(id, t));
     return set.sort((a, b) => a - b);
   };
-  const pick3 = (arr) => ({ L: arr[0] || 0, M: arr[1] || arr[0] || 0, R: arr[2] || arr[0] || 0 });
 
-  // Derive tile groups from tags
-  const grayRoof = withTags('roof', 'gray').filter(id => !hasTag(id, 'castle'));
-  const redRoof = withTags('roof', 'red').filter(id => !hasTag(id, 'castle'));
+  // Position-aware L-M-R picker: find left, middle/center, right tiles
+  const pickLMR = (tiles) => {
+    const left = tiles.find(id => hasTag(id, 'left')) || tiles[0] || 0;
+    const mid = tiles.find(id => hasTag(id, 'middle') || hasTag(id, 'center')) || tiles[1] || tiles[0] || 0;
+    const right = tiles.find(id => hasTag(id, 'right')) || tiles[2] || tiles[0] || 0;
+    return { L: left, M: mid, R: right };
+  };
+
+  // Derive tile groups from tags + positions
+  const grayRoof = withTags('roof', 'gray').filter(id => !hasTag(id, 'castle') && !hasTag(id, 'wood'));
+  const grayRoofWood = withTags('roof', 'gray', 'wood').filter(id => !hasTag(id, 'castle'));
+  const redRoof = withTags('roof', 'red').filter(id => !hasTag(id, 'castle') && !hasTag(id, 'stone'));
+  const redRoofStone = withTags('roof', 'red', 'stone').filter(id => !hasTag(id, 'castle'));
   const woodWall = withTags('wall', 'wood').filter(id => !hasTag(id, 'door') && !hasTag(id, 'window'));
   const stoneWall = withTags('wall', 'stone').filter(id => !hasTag(id, 'door') && !hasTag(id, 'window') && !hasTag(id, 'castle'));
   const woodDoors = withTags('door', 'wood').filter(id => !hasTag(id, 'castle'));
   const stoneDoors = withTags('door', 'stone').filter(id => !hasTag(id, 'castle'));
-  const allDoors = withTags('door').filter(id => !hasTag(id, 'castle'));
-  const windowTiles = byTag.window || [];
-  const woodWindow = windowTiles.find(id => hasTag(id, 'wood')) || windowTiles[0] || 75;
-  const stoneWindow = windowTiles.find(id => hasTag(id, 'stone') && !hasTag(id, 'castle')) || windowTiles[0] || 84;
+  const woodWindow = withTags('window', 'wood').filter(id => !hasTag(id, 'castle'))[0] || 84;
+  const stoneWindow = withTags('window', 'stone').filter(id => !hasTag(id, 'castle'))[0] || 88;
 
-  // Castle tiles
-  const castleRoof = withTags('castle', 'roof');
-  const castleWall = withTags('castle', 'wall');
-  const castleDoor = withTags('castle', 'door');
+  // Castle: use position tags for top/center/bottom rows
+  const castleTop = withTags('castle', 'wall', 'top');
+  const castleMid = withTags('castle', 'wall').filter(id => hasTag(id, 'center') && !hasTag(id, 'top') && !hasTag(id, 'bottom'));
+  const castleBot = withTags('castle', 'wall', 'bottom');
+  const castleDoorTop = withTags('castle', 'door', 'top');
+  const castleDoorBot = withTags('castle', 'door', 'bottom');
 
   MATERIALS = {
     gray_wood: {
-      roof: pick3(grayRoof.slice(0, 3)),
-      mid:  pick3(grayRoof.slice(0, 3)), // same color as roof for consistency
-      base: pick3(woodWall.slice(0, 3)),
+      roof: pickLMR(grayRoof),                    // gray roof row 1
+      mid:  grayRoofWood.length >= 3 ? pickLMR(grayRoofWood) : pickLMR(grayRoof), // gray roof row 2
+      base: pickLMR(woodWall),                     // wood walls (uses left/right positions)
       window: woodWindow,
-      doors: woodDoors.length ? woodDoors : allDoors.slice(0, 2),
+      doors: woodDoors,
     },
     red_wood: {
-      roof: pick3(redRoof.slice(0, 3)),
-      mid:  pick3(redRoof.slice(4, 7).length ? redRoof.slice(4, 7) : redRoof.slice(0, 3)),
-      base: pick3(woodWall.slice(0, 3)),
+      roof: pickLMR(redRoof),                      // red roof row 1
+      mid:  redRoofStone.length >= 3 ? pickLMR(redRoofStone) : pickLMR(redRoof), // red roof row 2
+      base: pickLMR(woodWall),
       window: woodWindow,
-      doors: woodDoors.length ? woodDoors : allDoors.slice(0, 2),
+      doors: woodDoors,
     },
     red_stone: {
-      roof: pick3(redRoof.slice(0, 3)),
-      mid:  pick3(redRoof.slice(4, 7).length ? redRoof.slice(4, 7) : redRoof.slice(0, 3)),
-      base: pick3(stoneWall.slice(0, 3)),
+      roof: pickLMR(redRoof),
+      mid:  redRoofStone.length >= 3 ? pickLMR(redRoofStone) : pickLMR(redRoof),
+      base: pickLMR(stoneWall),                    // stone walls (uses left/right positions)
       window: stoneWindow,
-      doors: stoneDoors.length ? stoneDoors : allDoors.slice(0, 2),
+      doors: stoneDoors,
     },
     gray_stone: {
-      roof: pick3(grayRoof.slice(0, 3)),
-      mid:  pick3(grayRoof.slice(0, 3)),
-      base: pick3(stoneWall.slice(0, 3)),
+      roof: pickLMR(grayRoof),
+      mid:  grayRoofWood.length >= 3 ? pickLMR(grayRoofWood) : pickLMR(grayRoof),
+      base: pickLMR(stoneWall),
       window: stoneWindow,
-      doors: stoneDoors.length ? stoneDoors : allDoors.slice(0, 2),
+      doors: stoneDoors,
     },
     castle: {
-      roof:  pick3(castleRoof.slice(0, 3)),
-      mid:   pick3(castleRoof.slice(3, 6).length >= 3 ? castleRoof.slice(3, 6) : castleRoof.slice(0, 3)),
-      base:  pick3(castleRoof.slice(6, 9).length >= 3 ? castleRoof.slice(6, 9) : castleRoof.slice(3, 6)),
-      gate:  { L: castleDoor[0] || 111, R: castleDoor[1] || 112 },
-      tower: castleRoof.find(id => hasTag(id, 'top')) || 102,
+      roof:  pickLMR(castleTop),
+      mid:   pickLMR(castleMid.length >= 3 ? castleMid : castleTop),
+      base:  pickLMR(castleBot.length >= 3 ? castleBot : castleMid),
+      gate:  { L: castleDoorTop.find(id => hasTag(id, 'left')) || 111, R: castleDoorTop.find(id => hasTag(id, 'right')) || 112 },
+      tower: castleTop.find(id => hasTag(id, 'center')) || 102,
       doors: [],
     },
   };
   MATERIAL_KEYS = ['gray_wood', 'red_wood', 'red_stone', 'gray_stone'];
 
-  console.log('V2Engine: built materials from tags — gray roof:[' + grayRoof.slice(0,3) + '] red roof:[' + redRoof.slice(0,3) + '] wood wall:[' + woodWall.slice(0,3) + '] stone wall:[' + stoneWall.slice(0,3) + '] doors:[' + allDoors + ']');
+  console.log('V2Engine: materials from tags — grayRoof:' + JSON.stringify(MATERIALS.gray_wood.roof) +
+    ' redRoof:' + JSON.stringify(MATERIALS.red_wood.roof) +
+    ' woodWall:' + JSON.stringify(MATERIALS.gray_wood.base) +
+    ' stoneWall:' + JSON.stringify(MATERIALS.red_stone.base) +
+    ' castle:' + JSON.stringify(MATERIALS.castle.roof) + '/' + JSON.stringify(MATERIALS.castle.mid) + '/' + JSON.stringify(MATERIALS.castle.base));
 }
 
 // Fallback materials if no tags loaded
