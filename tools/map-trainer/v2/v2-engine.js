@@ -742,12 +742,10 @@ class V2Engine {
       for (let bi = 0; bi < numBuildings; bi++) {
         // ~40% of buildings get chimneys, at least 1 guaranteed
         const wantChimney = chimneyCount === 0 ? true : rng() < 0.35;
+        // Houses and fences first — castle placed separately after
         let bldg;
-        const roll = rng();
-        if (roll < 0.08) {
-          bldg = generateCastle(rng);         // 8% castle
-        } else if (roll < 0.15) {
-          bldg = generateFence(rng);          // 7% fence
+        if (rng() < 0.10) {
+          bldg = generateFence(rng);
         } else {
           bldg = generateHouse(rng, wantChimney);
           if (wantChimney) chimneyCount++;
@@ -812,6 +810,36 @@ class V2Engine {
           placed.push({ x: bx, y: by, w: bldg.w, h: bldg.h });
           break;
         }
+      }
+    }
+
+    // Place ONE castle LAST (so nothing overwrites it)
+    if (rng() < 0.3) { // 30% chance of a castle per map
+      const castle = generateCastle(rng);
+      for (let attempt = 0; attempt < 60; attempt++) {
+        const by = Math.floor(rng() * Math.max(1, this.H - castle.h));
+        const bx = Math.floor(rng() * Math.max(1, this.W - castle.w));
+        if (by + castle.h > this.H || bx + castle.w > this.W) continue;
+        let overlap = false;
+        for (let dy = 0; dy < castle.h && !overlap; dy++) {
+          for (let dx = 0; dx < castle.w && !overlap; dx++) {
+            if (!this.inBounds(bx + dx, by + dy)) continue;
+            if (objects[this.idx(bx + dx, by + dy)] !== T.EMPTY) overlap = true;
+          }
+        }
+        if (overlap) continue;
+        for (let dy = 0; dy < castle.h; dy++) {
+          for (let dx = 0; dx < castle.w; dx++) {
+            if (!this.inBounds(bx + dx, by + dy)) continue;
+            const tile = castle.rows[dy][dx];
+            if (tile >= 0) {
+              objects[this.idx(bx + dx, by + dy)] = tile;
+              collision[this.idx(bx + dx, by + dy)] = 1;
+            }
+          }
+        }
+        placed.push({ x: bx, y: by, w: castle.w, h: castle.h });
+        break;
       }
     }
 
