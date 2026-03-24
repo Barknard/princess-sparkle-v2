@@ -1263,6 +1263,7 @@ class V2Engine {
 
         // Fix stacked doors: if a door is directly above another door, replace top with wall
         const DOOR_SET = new Set([74,78,85,86,87,89,90,91,111,112,113,114,123,124]);
+        const obj = objects[i];
         if (DOOR_SET.has(obj) && y + 1 < this.H) {
           if (DOOR_SET.has(objects[this.idx(x, y + 1)])) {
             objects[i] = 73; // replace with plain wood wall
