@@ -11,23 +11,30 @@
  *   Decorations:     0-10    Village Feel:   0-5
  *   Tile Match:      0-30 (only when target provided)
  */
-// Tile ID Sets
-const PATH_TILES = new Set([39, 40, 41]);
-const COBBLE_TILES = new Set([44, 45]);
-const GRASS_TILES = new Set([1, 2, 43]);
-const ROOF_TILES = new Set([63, 64, 65, 66, 67]);
+// Tile ID Sets — calibrated to user's painted map tile vocabulary
+// Paths: user uses 25 (cobblestone) + 13,14,24,36,37,38 as ground variation near paths
+const PATH_TILES = new Set([25, 39, 40, 41, 13, 14, 24, 36, 37, 38]);
+const COBBLE_TILES = new Set([25, 44, 45]);
+const GRASS_TILES = new Set([0, 1, 2, 43]); // tile 0 (sparkle) is user's primary ground
+// Roofs: user uses blue (51-55), red (63-67), brick (60-62)
+const ROOF_TILES = new Set([48, 49, 50, 51, 52, 53, 54, 55, 60, 61, 62, 63, 64, 65, 66, 67]);
 const WALL_TILES = new Set();
-for (let i = 72; i <= 87; i++) WALL_TILES.add(i);
-const DOOR_TILES = new Set([74, 86]);
-const FENCE_TILES = new Set([96, 97, 98]);
+for (let i = 72; i <= 89; i++) WALL_TILES.add(i); // extended: includes 88,89 (interior tiles user uses)
+[44, 45, 56, 57, 68, 76, 79, 80, 81, 82, 83, 84, 85].forEach(t => WALL_TILES.add(t)); // stone/arch tiles
+const DOOR_TILES = new Set([57, 74, 80, 86]); // 57=arch base, 80=dark archway
+const FENCE_TILES = new Set([96, 97, 98, 99, 100, 101]);
+// Trees/vegetation on FOREGROUND layer (user's style)
 const CANOPY_TILES = new Set([4, 5, 7, 8, 10, 11]);
 const TRUNK_TILES = new Set([12, 13, 22, 23, 24, 25]);
 const SMALL_TREES = new Set([6, 9, 16, 17]);
-const DECO_TILES = new Set([15, 18, 19, 28, 29, 107, 93]);
-const WATER_TILES = new Set([109, 110, 111, 112, 113, 120, 121, 122, 123]);
+// Decorations — user puts these on FOREGROUND layer, not objects
+const DECO_TILES = new Set([3, 15, 18, 19, 20, 27, 28, 29, 31, 32, 34, 93, 102, 103, 107]);
+const WATER_TILES = new Set([109, 110, 111, 112, 113, 120, 121, 122, 123, 124]);
 const WATER_EDGE = new Set([109, 110, 111, 112, 113, 120, 121, 123]);
 const WELL_TILES = new Set([92, 104]);
-const LANTERN_BARREL = new Set([93, 107]);
+const LANTERN_BARREL = new Set([93, 94, 95, 102, 107]);
+// ALL vegetation/decoration on foreground (user's layer choice)
+const FG_VEGETATION = new Set([3, 4, 6, 7, 15, 16, 17, 18, 19, 20, 27, 28, 29, 31, 32, 34, 103]);
 
 class V2Scorer {
   constructor(targetMap) {
@@ -48,11 +55,11 @@ class V2Scorer {
     breakdown.pathNetwork = this._scorePaths(ground, W, H, details, violations);
     breakdown.buildings = this._scoreBuildings(ground, objects, W, H, details, violations);
     breakdown.treeQuality = this._scoreTrees(objects, foreground, W, H, details, violations);
-    breakdown.decorations = this._scoreDecorations(objects, W, H, details);
+    breakdown.decorations = this._scoreDecorations(objects, foreground, W, H, details);
     breakdown.groundTexture = this._scoreGround(ground, W, H, details);
-    breakdown.composition = this._scoreComposition(ground, objects, W, H, details);
+    breakdown.composition = this._scoreComposition(ground, objects, foreground, W, H, details);
     breakdown.waterFeature = this._scoreWater(objects, W, H, details);
-    breakdown.villageFeel = this._scoreVillageFeel(ground, objects, W, H, details);
+    breakdown.villageFeel = this._scoreVillageFeel(ground, objects, foreground, W, H, details);
     let tileMatch = 0;
     if (this.target) {
       tileMatch = this._scoreTileMatch(mapData, this.target);
@@ -244,13 +251,15 @@ class V2Scorer {
     return Math.min(10, score);
   }
 
-  _scoreDecorations(objects, W, H, details) {
+  _scoreDecorations(objects, foreground, W, H, details) {
     let decoCount = 0;
     let fenceRuns = 0;
     let inFence = false;
     const decoTypes = new Set();
+    // Check BOTH objects and foreground for decorations (user puts deco on foreground)
     for (let i = 0; i < objects.length; i++) {
       if (DECO_TILES.has(objects[i])) { decoCount++; decoTypes.add(objects[i]); }
+      if (foreground && FG_VEGETATION.has(foreground[i])) { decoCount++; decoTypes.add(foreground[i]); }
       if (FENCE_TILES.has(objects[i])) {
         if (!inFence) { fenceRuns++; inFence = true; }
       } else {
@@ -260,12 +269,13 @@ class V2Scorer {
 
     details.push(`Decorations: ${decoCount} items, ${decoTypes.size} types, ${fenceRuns} fence runs`);
     let score = 0;
-    if (decoCount >= 10) score += 3;
+    if (decoCount >= 20) score += 4;
+    else if (decoCount >= 10) score += 3;
     else if (decoCount >= 4) score += 2;
     else if (decoCount >= 1) score += 1;
     score += Math.min(3, decoTypes.size); // variety
     score += Math.min(2, fenceRuns); // fence runs
-    score += decoCount > 0 && fenceRuns > 0 ? 2 : 0; // both present
+    if (decoCount > 5) score += 1; // good density
     return Math.min(10, score);
   }
 
@@ -307,7 +317,7 @@ class V2Scorer {
     return Math.min(10, score);
   }
 
-  _scoreComposition(ground, objects, W, H, details) {
+  _scoreComposition(ground, objects, foreground, W, H, details) {
     const qw = Math.floor(W / 2), qh = Math.floor(H / 2);
     const quadrants = [
       { x: 0, y: 0, w: qw, h: qh },
@@ -369,31 +379,31 @@ class V2Scorer {
     return Math.min(5, score);
   }
 
-  _scoreVillageFeel(ground, objects, W, H, details) {
-    let hasWell = false, hasCobble = false, hasLantern = false, hasBarrel = false;
-    let materialTypes = new Set(); // wood vs stone buildings
+  _scoreVillageFeel(ground, objects, foreground, W, H, details) {
+    let hasWell = false, hasCobble = false, hasItems = false, hasVegetation = false;
+    let materialTypes = new Set();
+    let buildingTiles = 0;
     for (let i = 0; i < objects.length; i++) {
       if (WELL_TILES.has(objects[i])) hasWell = true;
-      if (LANTERN_BARREL.has(objects[i])) {
-        if (objects[i] === 93) hasLantern = true;
-        if (objects[i] === 107) hasBarrel = true;
-      }
+      if (LANTERN_BARREL.has(objects[i])) hasItems = true;
       if (objects[i] >= 72 && objects[i] <= 75) materialTypes.add('wood');
-      if (objects[i] >= 84 && objects[i] <= 87) materialTypes.add('stone');
+      if (objects[i] >= 84 && objects[i] <= 89) materialTypes.add('stone');
+      if (objects[i] >= 48 && objects[i] <= 55) materialTypes.add('blue-stone');
+      if (objects[i] >= 60 && objects[i] <= 62) materialTypes.add('brick');
+      if (ROOF_TILES.has(objects[i]) || WALL_TILES.has(objects[i])) buildingTiles++;
     }
-    for (const t of ground) {
-      if (COBBLE_TILES.has(t)) { hasCobble = true; break; }
+    for (const t of ground) { if (COBBLE_TILES.has(t)) { hasCobble = true; break; } }
+    if (foreground) {
+      for (const t of foreground) { if (FG_VEGETATION.has(t)) { hasVegetation = true; break; } }
     }
 
-    const features = [hasWell, hasCobble, hasLantern || hasBarrel, materialTypes.size >= 2];
-    const featureCount = features.filter(Boolean).length;
-    details.push(`Village features: well=${hasWell} cobble=${hasCobble} lantern=${hasLantern} barrel=${hasBarrel} materials=${materialTypes.size}`);
+    details.push(`Village: well=${hasWell} cobble=${hasCobble} items=${hasItems} veg=${hasVegetation} materials=${materialTypes.size} bldgTiles=${buildingTiles}`);
     let score = 0;
     score += hasWell ? 1 : 0;
     score += hasCobble ? 1 : 0;
-    score += (hasLantern || hasBarrel) ? 1 : 0;
+    score += hasItems ? 1 : 0;
+    score += hasVegetation ? 1 : 0;
     score += materialTypes.size >= 2 ? 1 : 0;
-    score += featureCount >= 3 ? 1 : 0; // bonus for having most features
     return Math.min(5, score);
   }
 
