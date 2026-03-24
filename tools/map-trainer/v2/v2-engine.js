@@ -305,29 +305,41 @@ function generateCastle(rng) {
 // Generate a fence: L-M-R rail pattern, variable length
 // Fences do NOT have doors — they're just walls/barriers
 function generateFence(rng, width) {
-  // Build from tags: fence-end(left) for L, fence-rail for M, fence-end(right) for R, fence-post for posts
-  const ends = [], rails = [], posts = [];
+  // Build from tags: fence tiles have top/center/bottom rows
+  // Top row: 44(L), 45(post), 46(R)  Center: 56(L), 59(post), 58(R)  Bottom: 68(L), 69(post), 70(R)
+  // Single row: 80(L), 81(rail), 82(R)
+  const byPos = { top: {}, center: {}, bottom: {}, single: {} };
   for (const [id, tags] of Object.entries(_tileTags)) {
     if (!tags.includes('fence')) continue;
     const tid = parseInt(id);
-    if (tags.includes('fence-end')) ends.push(tid);
-    if (tags.includes('fence-rail')) rails.push(tid);
-    if (tags.includes('fence-post')) posts.push(tid);
+    const vpos = tags.includes('top') ? 'top' : tags.includes('bottom') ? 'bottom' : tags.includes('center') ? 'center' : 'single';
+    const hpos = tags.includes('left') ? 'L' : tags.includes('right') ? 'R' : tags.includes('fence-post') ? 'post' : tags.includes('fence-rail') ? 'M' : tags.includes('fence-end') ? 'end' : 'M';
+    if (!byPos[vpos][hpos]) byPos[vpos][hpos] = [];
+    byPos[vpos][hpos].push(tid);
   }
-  const L = ends.length ? ends[Math.floor(rng() * ends.length)] : 44;
-  const M = rails.length ? rails[Math.floor(rng() * rails.length)] : 81;
-  const R = ends.length ? ends[Math.floor(rng() * ends.length)] : 46;
-  const post = posts.length ? posts[Math.floor(rng() * posts.length)] : 45;
+  const pick = (arr) => arr && arr.length ? arr[Math.floor(rng() * arr.length)] : 81;
 
   const w = width || (3 + Math.floor(rng() * 6));
-  const row = [];
-  for (let i = 0; i < w; i++) {
-    if (i === 0) row.push(L);
-    else if (i === w - 1) row.push(R);
-    else if (i % 3 === 0) row.push(post);
-    else row.push(M);
+  const isTall = rng() < 0.4 && byPos.top.L; // 40% chance of tall fence
+
+  const makeRow = (pos) => {
+    const p = byPos[pos] || byPos.single;
+    const row = [];
+    for (let i = 0; i < w; i++) {
+      if (i === 0) row.push(pick(p.L || p.end));
+      else if (i === w - 1) row.push(pick(p.R || p.end));
+      else if (i % 3 === 0) row.push(pick(p.post || p.M));
+      else row.push(pick(p.M || p.post));
+    }
+    return row;
+  };
+
+  if (isTall) {
+    const rows = [makeRow('top'), makeRow('bottom')];
+    return { w, h: 2, rows, tileCount: w * 2, isFence: true, hasDoor: false };
+  } else {
+    return { w, h: 1, rows: [makeRow('single')], tileCount: w, isFence: true, hasDoor: false };
   }
-  return { w, h: 1, rows: [row], tileCount: w, isFence: true, hasDoor: false };
 }
 
 // ── Tree Pairs (canopyL, canopyR, trunkL, trunkR) ──────────────────────────

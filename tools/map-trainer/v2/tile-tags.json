@@ -318,7 +318,8 @@
     "solid",
     "fence",
     "fence-end",
-    "wood"
+    "wood",
+    "top"
   ],
   "48": [
     "objects",
@@ -419,7 +420,8 @@
     "solid",
     "fence",
     "fence-post",
-    "wood"
+    "wood",
+    "center"
   ],
   "60": [
     "objects",
@@ -533,7 +535,8 @@
     "solid",
     "fence",
     "fence-end",
-    "wood"
+    "wood",
+    "bottom"
   ],
   "72": [
     "objects",
@@ -603,7 +606,8 @@
     "solid",
     "fence",
     "fence-end",
-    "wood"
+    "wood",
+    "left"
   ],
   "81": [
     "objects",
@@ -617,7 +621,8 @@
     "solid",
     "fence",
     "fence-end",
-    "wood"
+    "wood",
+    "right"
   ],
   "83": [
     "objects",
