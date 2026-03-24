@@ -73,10 +73,10 @@ const MATERIALS = {
     door:  80,                          // Dark Archway Opening (the REAL door)
   },
   style_b: {
-    // Blue-roofed house with colored mid and gray walls (building 1 in painted map)
+    // Blue-roofed house with stone mid and gray walls (building 1 in painted map)
     roof:  { L: 52, M: 53, R: 54 },   // blue roof L/M/R
-    mid:   { L: 64, M: 65, R: 66 },   // red roof tiles as wall detail
-    base:  { L: 76, M: 85, R: 79 },   // gray panels (85=dark stone center, not 88=interior fill)
+    mid:   { L: 48, M: 49, R: 50 },   // stone walls as mid detail (matches blue aesthetic)
+    base:  { L: 76, M: 85, R: 79 },   // gray panels
     door:  80,
   },
   style_c: {
@@ -934,6 +934,36 @@ class V2Engine {
 
       const tt = singlePool[Math.floor(rng() * singlePool.length)];
       if (placeTree(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
+    }
+
+    // PHASE B2: Edge repair — scan every dense tile (19) and ensure all exposed edges have closure
+    // This catches gaps where cluster placement was partial
+    const DENSE_TILE = 19;
+    const EDGE_TOP = [7, 7, 7, 6];
+    const EDGE_BOT = [32, 31, 28];
+    const EDGE_LEFT = [6, 18, 28];
+    const EDGE_RIGHT = [20, 20, 32];
+    for (let y = 0; y < this.H; y++) {
+      for (let x = 0; x < this.W; x++) {
+        if (foreground[this.idx(x, y)] !== DENSE_TILE) continue;
+        // Check each neighbor — if it's empty foreground AND placeable, add edge tile
+        // Top
+        if (y > 0 && foreground[this.idx(x, y - 1)] === T.EMPTY && canPlaceFg(x, y - 1)) {
+          foreground[this.idx(x, y - 1)] = EDGE_TOP[Math.floor(rng() * EDGE_TOP.length)];
+        }
+        // Bottom
+        if (y < this.H - 1 && foreground[this.idx(x, y + 1)] === T.EMPTY && canPlaceFg(x, y + 1)) {
+          foreground[this.idx(x, y + 1)] = EDGE_BOT[Math.floor(rng() * EDGE_BOT.length)];
+        }
+        // Left
+        if (x > 0 && foreground[this.idx(x - 1, y)] === T.EMPTY && canPlaceFg(x - 1, y)) {
+          foreground[this.idx(x - 1, y)] = EDGE_LEFT[Math.floor(rng() * EDGE_LEFT.length)];
+        }
+        // Right
+        if (x < this.W - 1 && foreground[this.idx(x + 1, y)] === T.EMPTY && canPlaceFg(x + 1, y)) {
+          foreground[this.idx(x + 1, y)] = EDGE_RIGHT[Math.floor(rng() * EDGE_RIGHT.length)];
+        }
+      }
     }
 
     // PHASE C: Small bushes/decorations to fill remaining foreground budget
