@@ -1261,23 +1261,26 @@ class V2Engine {
     const EDGE_BOT = [32, 31, 28];
     const EDGE_LEFT = [6, 18, 28];
     const EDGE_RIGHT = [20, 20, 32];
+    const edgePlaced = new Set(); // track edge placements to prevent chaining
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
-        if (!CLUSTER_BODY.has(foreground[this.idx(x, y)])) continue;
-        // Check each neighbor — if empty, add directional edge tile
-        // canPlaceCanopy allows edges over paths (foreground overlaps player)
-        if (y > 0 && foreground[this.idx(x, y - 1)] === T.EMPTY && canPlaceCanopy(x, y - 1)) {
-          foreground[this.idx(x, y - 1)] = EDGE_TOP[Math.floor(rng() * EDGE_TOP.length)];
-        }
-        if (y < this.H - 1 && foreground[this.idx(x, y + 1)] === T.EMPTY && canPlaceCanopy(x, y + 1)) {
-          foreground[this.idx(x, y + 1)] = EDGE_BOT[Math.floor(rng() * EDGE_BOT.length)];
-        }
-        if (x > 0 && foreground[this.idx(x - 1, y)] === T.EMPTY && canPlaceCanopy(x - 1, y)) {
-          foreground[this.idx(x - 1, y)] = EDGE_LEFT[Math.floor(rng() * EDGE_LEFT.length)];
-        }
-        if (x < this.W - 1 && foreground[this.idx(x + 1, y)] === T.EMPTY && canPlaceCanopy(x + 1, y)) {
-          foreground[this.idx(x + 1, y)] = EDGE_RIGHT[Math.floor(rng() * EDGE_RIGHT.length)];
-        }
+        const ci = this.idx(x, y);
+        if (!CLUSTER_BODY.has(foreground[ci])) continue;
+        if (edgePlaced.has(ci)) continue; // this was an edge, not original body
+        // Only place edge if the target cell is truly empty (not already an edge)
+        const tryEdge = (ex, ey, tiles) => {
+          if (!this.inBounds(ex, ey)) return;
+          const ei = this.idx(ex, ey);
+          if (foreground[ei] !== T.EMPTY) return; // already filled
+          if (edgePlaced.has(ei)) return; // already an edge
+          if (!canPlaceCanopy(ex, ey)) return;
+          foreground[ei] = tiles[Math.floor(rng() * tiles.length)];
+          edgePlaced.add(ei);
+        };
+        tryEdge(x, y - 1, EDGE_TOP);
+        tryEdge(x, y + 1, EDGE_BOT);
+        tryEdge(x - 1, y, EDGE_LEFT);
+        tryEdge(x + 1, y, EDGE_RIGHT);
       }
     }
 
