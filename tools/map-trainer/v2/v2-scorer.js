@@ -269,7 +269,8 @@ class V2Scorer {
   _scoreTrees(objects, foreground, W, H, details, violations) {
     // Trees are on FOREGROUND layer. Canopy tile above, trunk tile below.
     // Valid pairs: 4→16 (green), 7→19 (pine), 3→15 (autumn), 6→18 (dark)
-    const VALID_PAIRS = { 4: 16, 7: 19, 3: 15, 6: 18 };
+    // Dense pine: 7 on top, 19 fills body — 19 above 19 is also valid (dense block)
+    const VALID_PAIRS = { 4: 16, 7: 19, 3: 15, 6: 18, 19: 19 };
     let canopyCount = 0, trunkCount = 0, smallCount = 0;
     let validPairs = 0, orphanCanopies = 0, orphanTrunks = 0;
     const treeTypes = new Set();

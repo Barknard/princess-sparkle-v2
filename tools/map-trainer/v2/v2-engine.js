@@ -332,47 +332,14 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 2: Paths — learned from row layout (building rows get paths nearby)
     // ═══════════════════════════════════════════════════════════════════
-    const pathCells = new Set();
-    const pcx = Math.round((d.pathCenter || [0.5, 0.5])[0] * this.W);
-    const pcy = Math.round((d.pathCenter || [0.5, 0.5])[1] * this.H);
-
-    // Each map picks a primary path material: rock (cobblestone) or dirt
-    const ROCK_PATH = 25;  // cobblestone
-    const DIRT_PATH = 43;  // dirt
+    // Path material — each map picks rock or dirt majority
+    const ROCK_PATH = 25;
+    const DIRT_PATH = 43;
     const pathMaterial = rng() < (d.rockPathChance || 0.6) ? ROCK_PATH : DIRT_PATH;
-    const altMaterial = pathMaterial === ROCK_PATH ? DIRT_PATH : ROCK_PATH;
+    const pathCells = new Set();
 
-    // Horizontal path — single row through center
-    for (let x = 0; x < this.W; x++) {
-      if (this.inBounds(x, pcy)) {
-        ground[this.idx(x, pcy)] = rng() < 0.85 ? pathMaterial : altMaterial;
-        pathCells.add(this.idx(x, pcy));
-      }
-    }
-    // Vertical path — single column
-    for (let y = 0; y < this.H; y++) {
-      if (this.inBounds(pcx, y)) {
-        ground[this.idx(pcx, y)] = rng() < 0.85 ? pathMaterial : altMaterial;
-        pathCells.add(this.idx(pcx, y));
-      }
-    }
-    // Path edge tiles (transitions between path and grass)
-    const pathEdgeTiles = pathMaterial === ROCK_PATH
-      ? [24, 36, 37, 38, 13, 14]   // rock edges
-      : [1, 2, 43];                  // dirt edges
-    for (const pi of pathCells) {
-      const px = pi % this.W, py = Math.floor(pi / this.W);
-      for (const [nx, ny] of [[px-1,py],[px+1,py],[px,py-1],[px,py+1]]) {
-        if (!this.inBounds(nx, ny)) continue;
-        const ni = this.idx(nx, ny);
-        if (!pathCells.has(ni) && ground[ni] !== 25) {
-          // 30% chance of a path edge tile
-          if (rng() < 0.3) {
-            ground[ni] = pathEdgeTiles[Math.floor(rng() * pathEdgeTiles.length)];
-          }
-        }
-      }
-    }
+    // Paths are laid AFTER buildings, connecting doors.
+    // For now, just store the material. Actual path routing happens in STEP 3b.
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 3: Buildings — mix of painted templates + procedurally generated
@@ -419,11 +386,13 @@ class V2Engine {
           }
           if (tooClose) continue;
 
-          // Check not overlapping existing objects
+          // Check not overlapping existing objects (with 1-tile buffer)
           let overlap = false;
-          for (let dy = 0; dy < bldg.h && !overlap; dy++) {
-            for (let dx = 0; dx < bldg.w && !overlap; dx++) {
-              if (objects[this.idx(bx + dx, by + dy)] !== T.EMPTY) overlap = true;
+          for (let dy = -1; dy <= bldg.h && !overlap; dy++) {
+            for (let dx = -1; dx <= bldg.w && !overlap; dx++) {
+              const cx = bx + dx, cy = by + dy;
+              if (!this.inBounds(cx, cy)) continue;
+              if (objects[this.idx(cx, cy)] !== T.EMPTY) overlap = true;
             }
           }
           if (overlap) continue;
@@ -450,57 +419,78 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 3b: Door clearance — keep 2 tiles below each door clear, connect to nearest path
+    // STEP 3b: Path network — connect all doors with paths
+    // Strategy: every door gets a clear exit, then doors connect to a
+    // shared backbone path that runs through the village.
     // ═══════════════════════════════════════════════════════════════════
-    const doorClearZone = new Set(); // cells that must stay clear of trees/objects
+    const doorClearZone = new Set();
+
+    // Helper: lay a path tile at (x,y)
+    const layPath = (x, y) => {
+      if (!this.inBounds(x, y)) return;
+      const ci = this.idx(x, y);
+      ground[ci] = pathMaterial;
+      pathCells.add(ci);
+      doorClearZone.add(ci);
+    };
+
+    // 1. Clear 2 tiles below each door
     for (const door of doorPositions) {
-      // Clear 2 tiles directly below the door (exit space)
       for (let dy = 1; dy <= 2; dy++) {
         if (this.inBounds(door.x, door.y + dy)) {
           const ci = this.idx(door.x, door.y + dy);
-          objects[ci] = T.EMPTY; // clear any accidental objects
+          objects[ci] = T.EMPTY;
           foreground[ci] = T.EMPTY;
           collision[ci] = 0;
           doorClearZone.add(ci);
         }
       }
-      // Connect door to nearest path — walk down from door until hitting a path cell
-      let py = door.y + 1;
-      while (py < this.H && !pathCells.has(this.idx(door.x, py))) {
-        const ci = this.idx(door.x, py);
-        if (!pathCells.has(ci)) {
-          ground[ci] = pathMaterial;
-          pathCells.add(ci);
-          doorClearZone.add(ci);
+    }
+
+    // 2. Find the backbone Y — the row where most doors exit to
+    //    (typically the middle-ish row between building clusters)
+    const doorExitYs = doorPositions.map(d => Math.min(d.y + 2, this.H - 1));
+    const backboneY = doorExitYs.length > 0
+      ? Math.round(doorExitYs.reduce((a, b) => a + b, 0) / doorExitYs.length)
+      : Math.round(this.H * 0.5);
+
+    // 3. Lay horizontal backbone path
+    for (let x = 0; x < this.W; x++) {
+      layPath(x, backboneY);
+    }
+
+    // 4. Connect each door down to the backbone via vertical path segments
+    for (const door of doorPositions) {
+      const startY = door.y + 1;
+      const endY = backboneY;
+      const dir = endY >= startY ? 1 : -1;
+      for (let y = startY; y !== endY + dir; y += dir) {
+        layPath(door.x, y);
+      }
+    }
+
+    // 5. If buildings are spread wide, add a secondary vertical connector
+    if (placed.length > 0) {
+      const avgX = Math.round(placed.reduce((s, p) => s + p.x + p.w / 2, 0) / placed.length);
+      for (let y = 0; y < this.H; y++) {
+        // Only lay vertical path in open areas (not through buildings)
+        if (objects[this.idx(avgX, y)] === T.EMPTY) {
+          layPath(avgX, y);
         }
-        py++;
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 4: Trees & Foreground — proper canopy/trunk pairs + clusters
-    // Learned from painted map: trees are 2-cell vertical pairs on foreground
-    //   canopy (top): 4,7,3,6,19,28 | trunk (bottom): 16,19,15,18,20,32
-    // Dense clusters: 3-8 trees packed together (corners, edges)
-    // Single trees: scattered in open areas
+    // STEP 4: Trees & Foreground
+    // From painted map analysis:
+    //   Green tree:  4(canopy) above 16(trunk) — always vertical pair
+    //   Pine tree:   7(top) above 19(body) — always vertical pair
+    //   Dense pine:  block of 19s (2x2, 3x2, etc) with 7s on top row
+    //   Autumn tree: 3(canopy) above 15(trunk) — always vertical pair
+    //   Dark pine:   6(top) above 18(trunk)
+    //   Bushes:      28, 20, 32, 17, 27, 31, 34 — standalone singles
+    // ALL on foreground layer. Every "tall" tile MUST have its partner.
     // ═══════════════════════════════════════════════════════════════════
-
-    // Tree type definitions: [canopy, trunk] pairs (both foreground layer)
-    const TREE_TYPES = [
-      { canopy: 4, trunk: 16, weight: 7 },    // green tree (most common)
-      { canopy: 7, trunk: 19, weight: 5 },     // pine tree
-      { canopy: 3, trunk: 15, weight: 4 },     // autumn tree
-      { canopy: 28, trunk: -1, weight: 3 },    // bush/shrub (no trunk)
-      { canopy: 20, trunk: -1, weight: 2 },    // small bush
-      { canopy: 6, trunk: 18, weight: 1 },     // dark pine
-      { canopy: 27, trunk: -1, weight: 1 },    // flower bush
-      { canopy: 17, trunk: -1, weight: 1 },    // autumn bush
-    ];
-    // Build weighted pool
-    const treePool = [];
-    for (const tt of TREE_TYPES) {
-      for (let i = 0; i < tt.weight; i++) treePool.push(tt);
-    }
 
     // Helper: can place foreground at (x,y)?
     const canPlaceFg = (x, y) => {
@@ -510,85 +500,101 @@ class V2Engine {
         && !pathCells.has(i) && !doorClearZone.has(i);
     };
 
-    // Helper: place a single tree (canopy at x,y — trunk at x,y+1)
-    const placeTree = (x, y, treeType) => {
-      const ci = this.idx(x, y);
-      foreground[ci] = treeType.canopy;
-      if (treeType.trunk >= 0 && this.inBounds(x, y + 1)) {
-        const ti = this.idx(x, y + 1);
-        if (foreground[ti] === T.EMPTY && objects[ti] === T.EMPTY && !pathCells.has(ti)) {
-          foreground[ti] = treeType.trunk;
-        }
-      }
+    // Place a complete tree (canopy + trunk, both cells guaranteed)
+    const placeTreePair = (x, y, canopyTile, trunkTile) => {
+      if (!canPlaceFg(x, y) || !canPlaceFg(x, y + 1)) return false;
+      foreground[this.idx(x, y)] = canopyTile;
+      foreground[this.idx(x, y + 1)] = trunkTile;
+      return true;
     };
 
-    // PHASE A: Dense forest clusters (2-4 clusters in corners/edges)
-    const numClusters = Math.max(2, Math.round((d.treeClusters || 3) + (rng() - 0.5) * 2));
-    const clusterZones = []; // track for spacing
+    // Place a dense pine cluster (block of 19s with 7s on top)
+    const placePineCluster = (cx, cy, w, h) => {
+      let placed = 0;
+      // Top row: tile 7 (pine tops)
+      for (let dx = 0; dx < w; dx++) {
+        if (canPlaceFg(cx + dx, cy)) {
+          foreground[this.idx(cx + dx, cy)] = 7;
+          placed++;
+        }
+      }
+      // Body rows: tile 19 (pine dense)
+      for (let dy = 1; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          if (canPlaceFg(cx + dx, cy + dy)) {
+            foreground[this.idx(cx + dx, cy + dy)] = 19;
+            placed++;
+          }
+        }
+      }
+      return placed;
+    };
+
+    // Tree types for single trees (always placed as vertical pairs)
+    const SINGLE_TREES = [
+      { canopy: 4, trunk: 16, weight: 7 },   // green
+      { canopy: 3, trunk: 15, weight: 4 },   // autumn
+      { canopy: 6, trunk: 18, weight: 1 },   // dark pine
+    ];
+    const singlePool = [];
+    for (const tt of SINGLE_TREES) {
+      for (let i = 0; i < tt.weight; i++) singlePool.push(tt);
+    }
+
+    // PHASE A: Dense pine clusters in corners/edges (like painted map)
+    const numClusters = 2 + Math.floor(rng() * 3); // 2-4 clusters
+    const clusterZones = [];
     for (let ci = 0; ci < numClusters; ci++) {
-      // Prefer edges/corners for dense clusters (like the painted map)
       let cx, cy;
-      if (rng() < 0.6) {
-        // Corner bias
-        cx = rng() < 0.5 ? Math.floor(rng() * 3) : this.W - 1 - Math.floor(rng() * 3);
-        cy = rng() < 0.5 ? Math.floor(rng() * 3) : this.H - 1 - Math.floor(rng() * 3);
+      if (rng() < 0.7) {
+        // Corner/edge bias
+        cx = rng() < 0.5 ? Math.floor(rng() * 3) : this.W - 1 - Math.floor(rng() * 4);
+        cy = rng() < 0.5 ? Math.floor(rng() * 2) : this.H - 1 - Math.floor(rng() * 3);
       } else {
         cx = Math.floor(rng() * this.W);
         cy = Math.floor(rng() * this.H);
       }
-
-      // Check not overlapping buildings
+      // Check not inside a building
       let blocked = false;
       for (const p of placed) {
-        if (cx >= p.x - 1 && cx <= p.x + p.w && cy >= p.y - 1 && cy <= p.y + p.h) { blocked = true; break; }
+        if (cx >= p.x - 2 && cx <= p.x + p.w + 1 && cy >= p.y - 1 && cy <= p.y + p.h) { blocked = true; break; }
       }
       if (blocked) continue;
 
-      // Pick a primary tree type for this cluster (clusters tend to be same species)
-      const primaryType = treePool[Math.floor(rng() * treePool.length)];
-      const clusterSize = 3 + Math.floor(rng() * 5); // 3-7 trees per cluster
-
-      for (let ti = 0; ti < clusterSize; ti++) {
-        const tx = cx + Math.floor((rng() - 0.5) * 4);
-        const ty = cy + Math.floor((rng() - 0.5) * 3);
-        if (!canPlaceFg(tx, ty)) continue;
-        // 70% primary type, 30% variety
-        const ttype = rng() < 0.7 ? primaryType : treePool[Math.floor(rng() * treePool.length)];
-        placeTree(tx, ty, ttype);
-      }
-      clusterZones.push({ x: cx, y: cy });
+      const cw = 2 + Math.floor(rng() * 3); // 2-4 wide
+      const ch = 2 + Math.floor(rng() * 2); // 2-3 tall
+      placePineCluster(cx, cy, cw, ch);
+      clusterZones.push({ x: cx, y: cy, w: cw, h: ch });
     }
 
-    // PHASE B: Single scattered trees in open areas
-    const singleCount = Math.round(this.size * (d.singleTreeDensity || 0.04));
-    for (let attempt = 0; attempt < singleCount * 5; attempt++) {
+    // PHASE B: Single trees scattered (always as complete canopy+trunk pairs)
+    const singleCount = 4 + Math.floor(rng() * 6); // 4-9 single trees
+    let singlesPlaced = 0;
+    for (let attempt = 0; attempt < singleCount * 8 && singlesPlaced < singleCount; attempt++) {
       const x = Math.floor(rng() * this.W);
-      const y = Math.floor(rng() * (this.H - 1)); // leave room for trunk below
-      if (!canPlaceFg(x, y)) continue;
+      const y = Math.floor(rng() * (this.H - 1)); // room for trunk below
 
-      // Not too close to a cluster
+      // Not inside a cluster zone
       let nearCluster = false;
       for (const cz of clusterZones) {
-        if (Math.abs(x - cz.x) < 3 && Math.abs(y - cz.y) < 3) { nearCluster = true; break; }
+        if (x >= cz.x - 1 && x <= cz.x + cz.w && y >= cz.y - 1 && y <= cz.y + cz.h) { nearCluster = true; break; }
       }
       if (nearCluster) continue;
 
-      const ttype = treePool[Math.floor(rng() * treePool.length)];
-      placeTree(x, y, ttype);
+      const tt = singlePool[Math.floor(rng() * singlePool.length)];
+      if (placeTreePair(x, y, tt.canopy, tt.trunk)) singlesPlaced++;
     }
 
-    // PHASE C: Fill remaining foreground budget with small decorations
-    const gToFg = crossLayer.groundToForeground || {};
+    // PHASE C: Small bushes/decorations to fill remaining foreground budget
     const targetFg = Math.round(this.size * (d.fgDensity || 0.19));
     let currentFg = 0;
     for (let i = 0; i < this.size; i++) { if (foreground[i] !== T.EMPTY) currentFg++; }
-    const remaining = targetFg - currentFg;
-    const smallDecor = [28, 31, 32, 34, 27, 17, 20]; // bushes, flowers, small plants
-    for (let attempt = 0; attempt < remaining * 4 && currentFg < targetFg; attempt++) {
+    const bushTypes = [28, 20, 32, 17, 27, 31, 34]; // all standalone
+    for (let attempt = 0; attempt < (targetFg - currentFg) * 4 && currentFg < targetFg; attempt++) {
       const x = Math.floor(rng() * this.W);
       const y = Math.floor(rng() * this.H);
       if (!canPlaceFg(x, y)) continue;
-      foreground[this.idx(x, y)] = smallDecor[Math.floor(rng() * smallDecor.length)];
+      foreground[this.idx(x, y)] = bushTypes[Math.floor(rng() * bushTypes.length)];
       currentFg++;
     }
 
