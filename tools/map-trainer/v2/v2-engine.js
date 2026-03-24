@@ -298,16 +298,15 @@ function generateCastle(rng) {
       const isGateR = dx === gateCol2;
 
       if (dy === 0) {
-        // Top row: tower caps + empty
+        // Top row: tower caps + wall fill (solid, no gaps)
         if (isTowerL || isTowerR) row.push(102); // tower cap
-        else row.push(-1); // empty above wall
+        else row.push(204); // wall fill (was -1, caused overlap)
       } else if (dy === 1) {
         // Second row: wall fill + side pieces
-        if (isTowerL || isTowerR) row.push(204); // custom wall fill
-        else if (isGateL) row.push(96);  // left wall piece
-        else if (isGateR) row.push(98);  // right wall piece
-        else if (isEdgeL || isEdgeR) row.push(-1);
-        else row.push(204);
+        if (isTowerL || isTowerR) row.push(204);
+        else if (isGateL) row.push(96);
+        else if (isGateR) row.push(98);
+        else row.push(204); // all filled (was -1 at edges)
       } else if (dy === totalH - 2) {
         // Gate top row — use 113/114 (castle door top variant)
         if (isGateL) row.push(113);  // gate top left
