@@ -297,18 +297,13 @@ function generateCastle(rng) {
       const isEdgeR = dx === totalW - 1;
 
       if (dy === 0) {
-        // Top: tower caps + thin walls (96/98) at edges, 204 only at non-tower/non-edge
-        if (isTower) row.push(102);
-        else if (isEdgeL) row.push(96);
-        else if (isEdgeR) row.push(98);
-        else row.push(204);
+        // Top: tower caps only, everything else is 204 (compact top)
+        row.push(isTower ? 102 : 204);
       } else if (dy === 1) {
-        // Row 1: 204 at towers, 96/98 at gate, thin walls at edges
+        // Row 1: 204 everywhere except gate center (96/98)
         if (isTower) row.push(204);
         else if (isGateL) row.push(96);
         else if (isGateR) row.push(98);
-        else if (isEdgeL) row.push(96);
-        else if (isEdgeR) row.push(98);
         else row.push(204);
       } else if (dy === 2) {
         // Row 2: structural walls + 204 at towers
