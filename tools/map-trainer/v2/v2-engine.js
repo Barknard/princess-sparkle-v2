@@ -203,6 +203,16 @@ class V2Engine {
       }
     }
 
+    // Load full knowledge file if it exists
+    const knowledgePath = require('path').join(__dirname, 'learned-knowledge-v2.json');
+    if (require('fs').existsSync(knowledgePath)) {
+      this._knowledge = JSON.parse(require('fs').readFileSync(knowledgePath, 'utf8'));
+      console.log('V2Engine: loaded knowledge (adj:' + Object.keys(this._knowledge.adjacency || {}).length +
+        ' patterns:' + Object.keys(this._knowledge.patterns?.vertical || {}).length + 'v/' +
+        Object.keys(this._knowledge.patterns?.horizontal || {}).length + 'h' +
+        ' cross-layer:' + Object.keys(this._knowledge.crossLayer?.groundToObjects || {}).length + ')');
+    }
+
     // Learn ground tile frequency distribution (weighted)
     const gFreq = {};
     painted.ground.forEach(t => { if (t >= 0) gFreq[t] = (gFreq[t] || 0) + 1; });
@@ -235,76 +245,105 @@ class V2Engine {
     const foreground = new Array(this.size).fill(T.EMPTY);
     const collision = new Array(this.size).fill(0);
 
-    // Learned frequencies from painted map
+    // Load knowledge
     const groundTiles = this._groundFreq || [0, 0, 0, 0, 1, 43];
     const fgTiles = this._fgFreq || [19, 28, 4, 16, 7, 3, 15, 17, 20];
+    const knowledge = this._knowledge || {};
+    const rowLayout = knowledge.layoutRules?.rowDensity || [];
+    const adjRules = knowledge.adjacency || {};
+    const layerAdj = knowledge.layerAdj || {};
+    const crossLayer = knowledge.crossLayer || {};
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 1: Ground layer — noise-based using LEARNED tile frequencies
+    // STEP 1: Ground — noise with adjacency-aware tile selection
     // ═══════════════════════════════════════════════════════════════════
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
+        const i = this.idx(x, y);
         const n = valueNoise(x + (seed || 0) * 7, y + (seed || 0) * 13, 4);
-        ground[this.idx(x, y)] = groundTiles[Math.floor(n * groundTiles.length)];
+        let tile = groundTiles[Math.floor(n * groundTiles.length)];
+        // Check adjacency: if left neighbor exists, prefer tiles that go next to it
+        if (x > 0 && layerAdj.ground) {
+          const leftTile = String(ground[this.idx(x - 1, y)]);
+          const allowed = layerAdj.ground[leftTile]?.east;
+          if (allowed) {
+            const keys = Object.keys(allowed);
+            if (keys.length > 0 && rng() < 0.7) { // 70% follow adjacency
+              tile = parseInt(keys[Math.floor(rng() * keys.length)]);
+            }
+          }
+        }
+        ground[i] = tile;
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 2: Paths — 2-wide cross/L/loop based on DNA
+    // STEP 2: Paths — learned from row layout (building rows get paths nearby)
     // ═══════════════════════════════════════════════════════════════════
+    const pathCells = new Set();
     const pcx = Math.round((d.pathCenter || [0.5, 0.5])[0] * this.W);
     const pcy = Math.round((d.pathCenter || [0.5, 0.5])[1] * this.H);
-    const pathCells = new Set();
+    // Paths in the mixed/open rows (rows 4-6, 10-13 from layout)
+    for (let y = 0; y < this.H; y++) {
+      const rowInfo = rowLayout[y];
+      const isOpenRow = !rowInfo || rowInfo.type === 'open' || rowInfo.type === 'mixed';
+      if (isOpenRow || y === pcy || y === pcy + 1) {
+        // Horizontal path through open/mixed rows
+        if (Math.abs(y - pcy) <= 1) {
+          for (let x = 0; x < this.W; x++) {
+            ground[this.idx(x, y)] = 25; // cobblestone
+            pathCells.add(this.idx(x, y));
+          }
+        }
+      }
+    }
     // Vertical path
     for (let y = 0; y < this.H; y++) {
       for (let dx = 0; dx < 2; dx++) {
         if (this.inBounds(pcx + dx, y)) {
-          ground[this.idx(pcx + dx, y)] = 25; // cobblestone path (tile 25 from your map)
+          ground[this.idx(pcx + dx, y)] = 25;
           pathCells.add(this.idx(pcx + dx, y));
         }
       }
     }
-    // Horizontal path
-    for (let x = 0; x < this.W; x++) {
-      for (let dy = 0; dy < 2; dy++) {
-        if (this.inBounds(x, pcy + dy)) {
-          ground[this.idx(x, pcy + dy)] = 25;
-          pathCells.add(this.idx(x, pcy + dy));
-        }
-      }
-    }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 3: Place buildings at RANDOM positions near paths
-    // Uses learned building templates from painted map
+    // STEP 3: Buildings — placed in BUILDING rows, using learned templates
     // ═══════════════════════════════════════════════════════════════════
     if (this._paintedBuildings && this._paintedBuildings.length > 0) {
-      const numBuildings = Math.min(d.buildingCount || 4, this._paintedBuildings.length);
+      const numBuildings = d.buildingCount || this._paintedBuildings.length;
       const placed = [];
+      // Find building rows from layout
+      const buildingRows = rowLayout.filter(r => r.type === 'building').map(r => r.row);
 
       for (let bi = 0; bi < numBuildings; bi++) {
         const bldg = this._paintedBuildings[bi % this._paintedBuildings.length];
 
-        // Try random positions near paths
-        for (let attempt = 0; attempt < 50; attempt++) {
-          const bx = Math.floor(rng() * (this.W - bldg.w));
-          const by = Math.floor(rng() * (this.H - bldg.h));
+        for (let attempt = 0; attempt < 80; attempt++) {
+          // Place in a building row (learned from layout)
+          const by = buildingRows.length > 0
+            ? buildingRows[Math.floor(rng() * buildingRows.length)]
+            : Math.floor(rng() * (this.H - bldg.h));
+          const bx = Math.floor(rng() * Math.max(1, this.W - bldg.w));
 
-          // Check spacing from other buildings
+          // Check bounds
+          if (by + bldg.h > this.H || bx + bldg.w > this.W) continue;
+
+          // Check spacing
           let tooClose = false;
           for (const p of placed) {
-            if (Math.abs(bx - p.x) < (d.buildingSpacing || 6) && Math.abs(by - p.y) < 4) { tooClose = true; break; }
+            if (Math.abs(bx - p.x) < (d.buildingSpacing || 5) && Math.abs(by - p.y) < 3) { tooClose = true; break; }
           }
           if (tooClose) continue;
 
-          // Check near a path (within 3 tiles)
-          let nearPath = false;
-          for (let dy = 0; dy < bldg.h + 3 && !nearPath; dy++) {
-            for (let dx = 0; dx < bldg.w && !nearPath; dx++) {
-              if (this.inBounds(bx + dx, by + dy) && pathCells.has(this.idx(bx + dx, by + dy))) nearPath = true;
+          // Check not overlapping existing objects
+          let overlap = false;
+          for (let dy = 0; dy < bldg.h && !overlap; dy++) {
+            for (let dx = 0; dx < bldg.w && !overlap; dx++) {
+              if (objects[this.idx(bx + dx, by + dy)] !== T.EMPTY) overlap = true;
             }
           }
-          if (!nearPath) continue;
+          if (overlap) continue;
 
           // Place building
           for (let dy = 0; dy < bldg.h; dy++) {
@@ -317,24 +356,36 @@ class V2Engine {
               }
             }
           }
-          placed.push({ x: bx, y: by });
+          placed.push({ x: bx, y: by, w: bldg.w, h: bldg.h });
           break;
         }
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 4: Foreground vegetation — random positions, learned tiles
+    // STEP 4: Foreground — placed in non-building, non-path areas
+    // Uses cross-layer rules: only place on ground tiles that support it
     // ═══════════════════════════════════════════════════════════════════
     const fgCount = Math.round(this.size * (d.fgDensity || 0.19));
+    const gToFg = crossLayer.groundToForeground || {};
     let fgPlaced = 0;
-    for (let attempt = 0; attempt < fgCount * 3 && fgPlaced < fgCount; attempt++) {
+    for (let attempt = 0; attempt < fgCount * 4 && fgPlaced < fgCount; attempt++) {
       const x = Math.floor(rng() * this.W);
       const y = Math.floor(rng() * this.H);
       const i = this.idx(x, y);
       if (foreground[i] !== T.EMPTY || objects[i] !== T.EMPTY) continue;
       if (pathCells.has(i)) continue;
-      foreground[i] = fgTiles[Math.floor(rng() * fgTiles.length)];
+      // Cross-layer: check what foreground tiles go on this ground tile
+      const gTile = String(ground[i]);
+      const allowedFg = gToFg[gTile];
+      let fgTile;
+      if (allowedFg && rng() < 0.6) {
+        const keys = Object.keys(allowedFg);
+        fgTile = parseInt(keys[Math.floor(rng() * keys.length)]);
+      } else {
+        fgTile = fgTiles[Math.floor(rng() * fgTiles.length)];
+      }
+      foreground[i] = fgTile;
       fgPlaced++;
     }
 
