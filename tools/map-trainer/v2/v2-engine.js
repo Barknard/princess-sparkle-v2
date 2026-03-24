@@ -558,10 +558,10 @@ class V2Engine {
           }
           if (tooClose) continue;
 
-          // Check not overlapping existing objects (with 1-tile buffer)
+          // Check not overlapping existing objects (exact footprint only — adjacent is OK)
           let overlap = false;
-          for (let dy = -1; dy <= bldg.h && !overlap; dy++) {
-            for (let dx = -1; dx <= bldg.w && !overlap; dx++) {
+          for (let dy = 0; dy < bldg.h && !overlap; dy++) {
+            for (let dx = 0; dx < bldg.w && !overlap; dx++) {
               const cx = bx + dx, cy = by + dy;
               if (!this.inBounds(cx, cy)) continue;
               if (objects[this.idx(cx, cy)] !== T.EMPTY) overlap = true;
