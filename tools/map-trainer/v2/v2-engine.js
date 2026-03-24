@@ -1116,73 +1116,58 @@ class V2Engine {
     //   Row 2: 19 19 19 19 (dense body)
     //   Edge:  32 20 31 32 (closed border of ground-level bushes/stones)
 
-    // Build dense tree species from tags (dense1 and dense2)
-    const dense1 = { top: [], left: [], center: [], right: [], bottom: [] };
-    const dense2 = { topL: [], topR: [], botL: [], botR: [] };
-    for (const [id, tags] of Object.entries(_tileTags)) {
-      const tid = parseInt(id);
-      if (tags.includes('dense1')) {
-        if (tags.includes('top') && tags.includes('canopy')) dense1.top.push(tid);
-        else if (tags.includes('left')) dense1.left.push(tid);
-        else if (tags.includes('center') || tags.includes('middle')) dense1.center.push(tid);
-        else if (tags.includes('right')) dense1.right.push(tid);
-        else if (tags.includes('bottom')) dense1.bottom.push(tid);
-      }
-      if (tags.includes('dense2')) {
-        if (tags.includes('top') && tags.includes('left')) dense2.topL.push(tid);
-        else if (tags.includes('top') && tags.includes('right')) dense2.topR.push(tid);
-        else if (tags.includes('bottom') && tags.includes('left')) dense2.botL.push(tid);
-        else if (tags.includes('bottom') && tags.includes('right')) dense2.botR.push(tid);
-      }
-    }
+    // Build dense tree color groups from tags
+    // Dense1 has 2 color groups: A (cols 6-8: tiles 7,18,19,20,31) and B (cols 9-11: tiles 10,21,22,23,34)
+    // Dense2 has 2 color groups: A (cols 6,8: tiles 6,8,30,32) and B (cols 9,11: tiles 9,11,33,35)
+    // Each cluster picks ONE color group to avoid mixing
+    const dense1_A = { top: 7, left: 18, center: 19, right: 20, bottom: 31 };
+    const dense1_B = { top: 10, left: 21, center: 22, right: 23, bottom: 34 };
+    const dense2_A = { topL: 6, topR: 8, botL: 30, botR: 32 };
+    const dense2_B = { topL: 9, topR: 11, botL: 33, botR: 35 };
     const pickArr = (arr, fb) => arr.length ? arr[Math.floor(rng() * arr.length)] : fb;
 
     const placeTreeCluster = (cx, cy, w, h) => {
       let count = 0;
-      const isDense2 = rng() < 0.3; // 30% chance of dense2 style
+      const isDense2 = rng() < 0.3;
 
-      if (isDense2 && dense2.topL.length) {
-        // Dense2: 2x2 tree blocks (topL+topR over botL+botR)
+      if (isDense2) {
+        // Dense2: 2x2 tree blocks — pick ONE color group (A or B)
+        const d2 = rng() < 0.5 ? dense2_A : dense2_B;
         for (let dy = 0; dy < h - 1; dy += 2) {
           for (let dx = 0; dx < w - 1; dx += 2) {
             if (canPlaceFg(cx+dx, cy+dy) && canPlaceFg(cx+dx+1, cy+dy) &&
                 canPlaceFg(cx+dx, cy+dy+1) && canPlaceFg(cx+dx+1, cy+dy+1)) {
-              foreground[this.idx(cx+dx, cy+dy)] = pickArr(dense2.topL, 6);
-              foreground[this.idx(cx+dx+1, cy+dy)] = pickArr(dense2.topR, 8);
-              foreground[this.idx(cx+dx, cy+dy+1)] = pickArr(dense2.botL, 30);
-              foreground[this.idx(cx+dx+1, cy+dy+1)] = pickArr(dense2.botR, 32);
+              foreground[this.idx(cx+dx, cy+dy)] = d2.topL;
+              foreground[this.idx(cx+dx+1, cy+dy)] = d2.topR;
+              foreground[this.idx(cx+dx, cy+dy+1)] = d2.botL;
+              foreground[this.idx(cx+dx+1, cy+dy+1)] = d2.botR;
               count += 4;
             }
           }
         }
       } else {
-        // Dense1: body fills with center tile, edges use L/R/top/bottom
-        const bodyTile = pickArr(dense1.center, 19);
+        // Dense1: pick ONE color group (A or B) — no mixing!
+        const d1 = rng() < 0.5 ? dense1_A : dense1_B;
         for (let dy = 0; dy < h; dy++) {
           for (let dx = 0; dx < w; dx++) {
             if (canPlaceFg(cx + dx, cy + dy)) {
-              foreground[this.idx(cx + dx, cy + dy)] = bodyTile;
+              foreground[this.idx(cx + dx, cy + dy)] = d1.center;
               count++;
             }
           }
         }
-        // Directional edges from dense1 tags
+        // Directional edges — same color group
         const placeEdge = (x, y, tile) => {
           if (canPlaceCanopy(x, y)) { foreground[this.idx(x, y)] = tile; count++; }
         };
-        // Top: canopy tiles
-        if (cy > 0) for (let dx = 0; dx < w; dx++) placeEdge(cx+dx, cy-1, pickArr(dense1.top, 7));
-        // Bottom: trunk/ground tiles
-        if (cy+h < this.H) for (let dx = 0; dx < w; dx++) placeEdge(cx+dx, cy+h, pickArr(dense1.bottom, 31));
-        // Left
-        if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdge(cx-1, cy+dy, pickArr(dense1.left, 18));
-        // Right
-        if (cx+w < this.W) for (let dy = 0; dy < h; dy++) placeEdge(cx+w, cy+dy, pickArr(dense1.right, 20));
-        // Corners
-        if (cy > 0 && cx > 0) placeEdge(cx-1, cy-1, pickArr(dense1.top, 7));
-        if (cy > 0 && cx+w < this.W) placeEdge(cx+w, cy-1, pickArr(dense1.top, 7));
-        if (cy+h < this.H && cx > 0) placeEdge(cx-1, cy+h, pickArr(dense1.bottom, 31));
-        if (cy+h < this.H && cx+w < this.W) placeEdge(cx+w, cy+h, pickArr(dense1.bottom, 31));
+        if (cy > 0) for (let dx = 0; dx < w; dx++) placeEdge(cx+dx, cy-1, d1.top);
+        if (cy+h < this.H) for (let dx = 0; dx < w; dx++) placeEdge(cx+dx, cy+h, d1.bottom);
+        if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdge(cx-1, cy+dy, d1.left);
+        if (cx+w < this.W) for (let dy = 0; dy < h; dy++) placeEdge(cx+w, cy+dy, d1.right);
+        if (cy > 0 && cx > 0) placeEdge(cx-1, cy-1, d1.top);
+        if (cy > 0 && cx+w < this.W) placeEdge(cx+w, cy-1, d1.top);
+        if (cy+h < this.H && cx > 0) placeEdge(cx-1, cy+h, d1.bottom);
+        if (cy+h < this.H && cx+w < this.W) placeEdge(cx+w, cy+h, d1.bottom);
       }
       return count;
     };
@@ -1273,19 +1258,22 @@ class V2Engine {
 
     // PHASE B2: Edge repair — ONLY for dense cluster body tiles (19)
     // Do NOT trigger edges from edge tiles themselves (prevents cascading)
-    const CLUSTER_BODY = new Set([19]);
-    // Edge tiles from dense1 tags (with fallbacks)
-    const EDGE_TOP = dense1.top.length ? dense1.top : [7, 7, 7, 6];
-    const EDGE_BOT = dense1.bottom.length ? dense1.bottom : [31, 34, 28];
-    const EDGE_LEFT = dense1.left.length ? dense1.left : [18, 21, 28];
-    const EDGE_RIGHT = dense1.right.length ? dense1.right : [20, 23, 32];
+    const CLUSTER_BODY = new Set([19, 22]); // dense1 center tiles (A=19, B=22)
+    // Edge repair: determine color group from the body tile (19=A, 22=B)
+    // Then use matching edges from that group
     const edgePlaced = new Set(); // track edge placements to prevent chaining
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
         const ci = this.idx(x, y);
         if (!CLUSTER_BODY.has(foreground[ci])) continue;
-        if (edgePlaced.has(ci)) continue; // this was an edge, not original body
-        // Only place edge if the target cell is truly empty (not already an edge)
+        if (edgePlaced.has(ci)) continue;
+        // Determine color group from body tile: 19=A, 22=B
+        const isGroupB = foreground[ci] === 22;
+        const d1 = isGroupB ? dense1_B : dense1_A;
+        const EDGE_TOP = [d1.top];
+        const EDGE_BOT = [d1.bottom];
+        const EDGE_LEFT = [d1.left];
+        const EDGE_RIGHT = [d1.right];
         const tryEdge = (ex, ey, tiles) => {
           if (!this.inBounds(ex, ey)) return;
           const ei = this.idx(ex, ey);
