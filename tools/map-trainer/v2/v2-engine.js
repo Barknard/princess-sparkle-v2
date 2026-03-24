@@ -697,39 +697,49 @@ class V2Engine {
       }
     }
 
-    // 2. Find the backbone Y — the row where most doors exit to
-    //    (typically the middle-ish row between building clusters)
-    const doorExitYs = doorPositions.map(d => Math.min(d.y + 2, this.H - 1));
-    const backboneY = doorExitYs.length > 0
-      ? Math.round(doorExitYs.reduce((a, b) => a + b, 0) / doorExitYs.length)
-      : Math.round(this.H * 0.5);
-
-    // 3. Lay horizontal backbone path - ONLY between leftmost and rightmost doors
-    //    Narrow paths like the reference, not spanning the entire map width
-    if (doorPositions.length > 0) {
-      const doorXs = doorPositions.map(d => d.x);
-      const minDoorX = Math.max(0, Math.min(...doorXs) - 1);
-      const maxDoorX = Math.min(this.W - 1, Math.max(...doorXs) + 1);
-      for (let x = minDoorX; x <= maxDoorX; x++) {
-        layPath(x, backboneY);
+    // 2. Organic paths: connect doors to each other with wandering lines
+    //    Like the painted map: imperfect, 1-wide, with random jogs
+    //    NOT grid lines or full-width backbones
+    if (doorPositions.length >= 2) {
+      // Sort doors by position to create a logical route
+      const sorted = [...doorPositions].sort((a, b) => a.x + a.y * 0.5 - b.x - b.y * 0.5);
+      // Connect each door to the next with a wandering path
+      for (let di = 0; di < sorted.length - 1; di++) {
+        let cx = sorted[di].x, cy = sorted[di].y + 1; // start below door
+        const tx = sorted[di + 1].x, ty = sorted[di + 1].y + 1;
+        // Walk toward target with random jogs
+        let steps = 0;
+        while ((cx !== tx || cy !== ty) && steps < 80) {
+          layPath(cx, cy);
+          // 70% move toward target, 30% random jog (creates organic feel)
+          if (rng() < 0.7) {
+            if (cx !== tx) cx += cx < tx ? 1 : -1;
+            else if (cy !== ty) cy += cy < ty ? 1 : -1;
+          } else {
+            // Random jog perpendicular to direction
+            if (Math.abs(cx - tx) > Math.abs(cy - ty)) {
+              cy += rng() < 0.5 ? 1 : -1;
+            } else {
+              cx += rng() < 0.5 ? 1 : -1;
+            }
+          }
+          cx = Math.max(0, Math.min(this.W - 1, cx));
+          cy = Math.max(0, Math.min(this.H - 1, cy));
+          steps++;
+        }
+        layPath(cx, cy);
+      }
+    } else if (doorPositions.length === 1) {
+      // Single door: short path downward
+      const d = doorPositions[0];
+      for (let dy = 1; dy <= 3; dy++) {
+        layPath(d.x, d.y + dy);
+        if (rng() < 0.3) layPath(d.x + (rng() < 0.5 ? 1 : -1), d.y + dy); // occasional width
       }
     }
 
-    // 4. Connect each door down to the backbone via vertical path segments
-    for (const door of doorPositions) {
-      const startY = door.y + 1;
-      const endY = backboneY;
-      const dir = endY >= startY ? 1 : -1;
-      for (let y = startY; y !== endY + dir; y += dir) {
-        layPath(door.x, y);
-      }
-    }
-
-    // 5. Finalize paths with proper edge tiles
+    // 3. Finalize paths with proper edge tiles
     finalizePaths();
-    
-    // 6. NO full-height vertical connector - paths should be minimal
-    //    Only add short connectors if buildings are very far apart
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 4: Trees & Foreground
