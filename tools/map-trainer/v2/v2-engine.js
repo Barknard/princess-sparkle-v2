@@ -603,66 +603,54 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 3a: Fences — property boundaries near buildings
-    // Reference map has fences running alongside buildings and paths
+    // Build a buffer zone around buildings — nothing should be directly adjacent
+    // This prevents fences, decorations, and trees from visually merging with buildings
     // ═══════════════════════════════════════════════════════════════════
-    const FENCE_TILES = { white: { L: 96, M: 97, R: 98 }, wood: { L: 99, M: 100, R: 101 } };
-    
-    // Place 2-4 fence runs near building sides
-    const numFences = 2 + Math.floor(rng() * 3);
-    for (let fi = 0; fi < numFences && placed.length > 0; fi++) {
-      const bldg = placed[Math.floor(rng() * placed.length)];
-      const fenceType = rng() < 0.5 ? FENCE_TILES.white : FENCE_TILES.wood;
-      const side = Math.floor(rng() * 2); // 0=left, 1=right (vertical fences alongside)
-      
-      // Fence runs vertically alongside a building
-      const fx = side === 0 ? bldg.x - 1 : bldg.x + bldg.w;
-      if (fx < 0 || fx >= this.W) continue;
-      
-      const fenceLen = Math.min(bldg.h + 1, 4); // max 4 tiles
-      let canPlace = true;
-      for (let dy = 0; dy < fenceLen && canPlace; dy++) {
-        const fy = bldg.y + dy;
-        if (!this.inBounds(fx, fy) || objects[this.idx(fx, fy)] !== T.EMPTY) canPlace = false;
-      }
-      if (!canPlace) continue;
-      
-      // Place vertical fence run (using M tiles for vertical run)
-      for (let dy = 0; dy < fenceLen; dy++) {
-        const fy = bldg.y + dy;
-        objects[this.idx(fx, fy)] = fenceType.M;
-        collision[this.idx(fx, fy)] = 1;
+    const buildingBuffer = new Set();
+    for (const p of placed) {
+      for (let dy = -1; dy <= p.h; dy++) {
+        for (let dx = -1; dx <= p.w; dx++) {
+          const bx = p.x + dx, by = p.y + dy;
+          if (this.inBounds(bx, by)) buildingBuffer.add(this.idx(bx, by));
+        }
       }
     }
-    
-    // Place horizontal fence runs along path edges (1-2 runs)
-    const hFenceCount = 1 + Math.floor(rng() * 2);
-    for (let hfi = 0; hfi < hFenceCount; hfi++) {
-      // Find a good y position (below a building row or along bottom)
-      const hfy = placed.length > 0 
-        ? placed[Math.floor(rng() * placed.length)].y + placed[0].h + 2
-        : Math.floor(this.H * 0.6);
-      if (hfy >= this.H - 1) continue;
-      
-      const startX = 2 + Math.floor(rng() * (this.W / 3));
-      const fenceLen = 4 + Math.floor(rng() * 6); // 4-9 tiles wide
-      const fenceType = rng() < 0.5 ? FENCE_TILES.white : FENCE_TILES.wood;
-      
+
+    // Helper: is this cell safely away from buildings?
+    const awayFromBuildings = (x, y) => {
+      if (!this.inBounds(x, y)) return false;
+      return !buildingBuffer.has(this.idx(x, y));
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3a: Fences — horizontal runs with proper L-M-R, 2+ tiles from buildings
+    // ═══════════════════════════════════════════════════════════════════
+    const FENCE_STYLES = [
+      { L: 96, M: 97, R: 98 },   // white fence
+      { L: 99, M: 100, R: 101 }, // wood fence
+    ];
+
+    const numFences = 1 + Math.floor(rng() * 2); // 1-2 fence runs
+    for (let fi = 0; fi < numFences; fi++) {
+      const fenceType = FENCE_STYLES[Math.floor(rng() * FENCE_STYLES.length)];
+      const fy = 2 + Math.floor(rng() * (this.H - 4));
+      const startX = 1 + Math.floor(rng() * (this.W / 2));
+      const fenceLen = 4 + Math.floor(rng() * 5); // 4-8 tiles
+
       let canPlace = true;
       for (let dx = 0; dx < fenceLen && canPlace; dx++) {
-        const hfx = startX + dx;
-        if (!this.inBounds(hfx, hfy) || objects[this.idx(hfx, hfy)] !== T.EMPTY) canPlace = false;
+        const fx = startX + dx;
+        if (!this.inBounds(fx, fy)) { canPlace = false; break; }
+        if (objects[this.idx(fx, fy)] !== T.EMPTY) { canPlace = false; break; }
+        if (buildingBuffer.has(this.idx(fx, fy))) { canPlace = false; break; }
       }
       if (!canPlace) continue;
-      
-      // Place horizontal L-M-R fence
+
       for (let dx = 0; dx < fenceLen; dx++) {
-        const hfx = startX + dx;
-        let tile = fenceType.M;
-        if (dx === 0) tile = fenceType.L;
-        if (dx === fenceLen - 1) tile = fenceType.R;
-        objects[this.idx(hfx, hfy)] = tile;
-        collision[this.idx(hfx, hfy)] = 1;
+        const fx = startX + dx;
+        const tile = dx === 0 ? fenceType.L : dx === fenceLen - 1 ? fenceType.R : fenceType.M;
+        objects[this.idx(fx, fy)] = tile;
+        collision[this.idx(fx, fy)] = 1;
       }
     }
 
@@ -764,19 +752,19 @@ class V2Engine {
     // ALL on foreground layer. Every "tall" tile MUST have its partner.
     // ═══════════════════════════════════════════════════════════════════
 
-    // Helper: can place foreground at (x,y)?
+    // Helper: can place foreground at (x,y)? Must be away from buildings.
     const canPlaceFg = (x, y) => {
       if (!this.inBounds(x, y)) return false;
       const i = this.idx(x, y);
       return foreground[i] === T.EMPTY && objects[i] === T.EMPTY
-        && !pathCells.has(i) && !doorClearZone.has(i);
+        && !pathCells.has(i) && !doorClearZone.has(i) && !buildingBuffer.has(i);
     };
 
-    // Helper: can place on objects layer at (x,y)?
+    // Helper: can place on objects layer at (x,y)? Must be away from buildings.
     const canPlaceObj = (x, y) => {
       if (!this.inBounds(x, y)) return false;
       const i = this.idx(x, y);
-      return objects[i] === T.EMPTY && !pathCells.has(i) && !doorClearZone.has(i);
+      return objects[i] === T.EMPTY && !pathCells.has(i) && !doorClearZone.has(i) && !buildingBuffer.has(i);
     };
 
     // Place a tree: BOTH canopy and trunk on FOREGROUND layer
@@ -934,38 +922,35 @@ class V2Engine {
       barrel: 107, lantern: 93, sign: 94
     };
     
-    // Place 1-2 wells near buildings (wells are 2-tall: top at y, base at y+1)
+    // Place 1-2 wells near buildings (2+ tiles away, not touching)
     const wellCount = 1 + Math.floor(rng() * 2);
     let wellsPlaced = 0;
     for (let attempt = 0; attempt < 60 && wellsPlaced < wellCount; attempt++) {
-      // Pick a random building and place well 2-3 tiles away from its side
       if (placed.length === 0) break;
       const bldg = placed[Math.floor(rng() * placed.length)];
-      const side = Math.floor(rng() * 4);
-      let wx, wy;
-      if (side === 0) { wx = bldg.x - 2; wy = bldg.y + Math.floor(rng() * bldg.h); }       // left
-      else if (side === 1) { wx = bldg.x + bldg.w + 1; wy = bldg.y + Math.floor(rng() * bldg.h); } // right
-      else if (side === 2) { wx = bldg.x + Math.floor(rng() * bldg.w); wy = bldg.y - 2; }  // above
-      else { wx = bldg.x + Math.floor(rng() * bldg.w); wy = bldg.y + bldg.h + 1; }          // below
-      
-      // Well needs 2 vertical tiles (top and base)
+      // Place well 3-4 tiles from building edge
+      const side = Math.floor(rng() * 2); // left or right only
+      const wx = side === 0 ? bldg.x - 3 - Math.floor(rng() * 2) : bldg.x + bldg.w + 2 + Math.floor(rng() * 2);
+      const wy = bldg.y + Math.floor(rng() * bldg.h);
+
       if (!this.inBounds(wx, wy) || !this.inBounds(wx, wy + 1)) continue;
-      if (!canPlaceObj(wx, wy) || !canPlaceObj(wx, wy + 1)) continue;
-      
+      if (objects[this.idx(wx, wy)] !== T.EMPTY || objects[this.idx(wx, wy + 1)] !== T.EMPTY) continue;
+      if (buildingBuffer.has(this.idx(wx, wy)) || buildingBuffer.has(this.idx(wx, wy + 1))) continue;
+
       objects[this.idx(wx, wy)] = DECORATION_TILES.well_top;
       objects[this.idx(wx, wy + 1)] = DECORATION_TILES.well_base;
       collision[this.idx(wx, wy)] = 1;
       collision[this.idx(wx, wy + 1)] = 1;
       wellsPlaced++;
     }
-    
-    // Place barrels and lanterns near doors
+
+    // Place barrels and lanterns near doors (2 tiles below, not adjacent)
     for (const door of doorPositions) {
-      if (rng() < 0.6) { // 60% chance of decoration near this door
-        const offsets = [[-1, 1], [1, 1], [-2, 1], [2, 1]]; // positions relative to door
+      if (rng() < 0.5) {
+        const offsets = [[-2, 2], [2, 2], [-1, 3], [1, 3]]; // 2-3 tiles from door, not touching
         const offset = offsets[Math.floor(rng() * offsets.length)];
         const dx = door.x + offset[0], dy = door.y + offset[1];
-        if (this.inBounds(dx, dy) && canPlaceObj(dx, dy)) {
+        if (this.inBounds(dx, dy) && objects[this.idx(dx, dy)] === T.EMPTY && !buildingBuffer.has(this.idx(dx, dy))) {
           objects[this.idx(dx, dy)] = rng() < 0.7 ? DECORATION_TILES.barrel : DECORATION_TILES.lantern;
           collision[this.idx(dx, dy)] = 1;
         }
@@ -973,7 +958,52 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 5: Repair pass (best practice: fix structural defects)
+    // STEP 5: Water feature (small pond, 30% chance)
+    // Reference map style: 3x2 or 4x3 water area with proper edge tiles
+    // ═══════════════════════════════════════════════════════════════════
+    if (rng() < 0.3) {
+      const ww = 2 + Math.floor(rng() * 3); // 2-4 wide
+      const wh = 2 + Math.floor(rng() * 2); // 2-3 tall
+      // Try to place in an open area
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const wx = 3 + Math.floor(rng() * (this.W - ww - 6));
+        const wy = 3 + Math.floor(rng() * (this.H - wh - 6));
+        let canPlace = true;
+        for (let dy = -1; dy <= wh && canPlace; dy++) {
+          for (let dx = -1; dx <= ww && canPlace; dx++) {
+            const cx = wx + dx, cy = wy + dy;
+            if (!this.inBounds(cx, cy)) { canPlace = false; break; }
+            const ci = this.idx(cx, cy);
+            if (objects[ci] !== T.EMPTY || buildingBuffer.has(ci) || pathCells.has(ci)) canPlace = false;
+          }
+        }
+        if (!canPlace) continue;
+        // Place water with proper edge tiles (9-tile system)
+        for (let dy = 0; dy < wh; dy++) {
+          for (let dx = 0; dx < ww; dx++) {
+            const ci = this.idx(wx + dx, wy + dy);
+            const isTop = dy === 0, isBot = dy === wh - 1;
+            const isLeft = dx === 0, isRight = dx === ww - 1;
+            let tile;
+            if (isTop && isLeft) tile = T.WATER_NW;
+            else if (isTop && isRight) tile = T.WATER_NE;
+            else if (isBot && isLeft) tile = T.WATER_SW;
+            else if (isBot && isRight) tile = T.WATER_SE;
+            else if (isTop) tile = T.WATER_N;
+            else if (isBot) tile = T.WATER_S;
+            else if (isLeft) tile = T.WATER_W;
+            else if (isRight) tile = T.WATER_E;
+            else tile = T.WATER_CENTER;
+            objects[ci] = tile;
+            collision[ci] = 1;
+          }
+        }
+        break; // placed successfully
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: Repair pass (best practice: fix structural defects)
     // ═══════════════════════════════════════════════════════════════════
     const CANOPY_TO_TRUNK = { 4: 12, 5: 13, 7: 24, 8: 25, 10: 22, 11: 23 };
     const TRUNK_TO_CANOPY = { 12: 4, 13: 5, 24: 7, 25: 8, 22: 10, 23: 11 };
