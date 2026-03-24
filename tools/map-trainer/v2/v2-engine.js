@@ -105,7 +105,7 @@ const MATERIALS = {
     door:  -1,
   },
 };
-const MATERIAL_KEYS = ['red', 'blue', 'gray']; // house materials
+const MATERIAL_KEYS = ['red', 'blue'];  // house materials (gray removed - no proper roof tiles) // house materials
 
 // ── Procedural Building Generators ──────────────────────────────────────────
 // Every building is uniquely generated from rules. Painted templates are
@@ -149,7 +149,7 @@ function generateHouse(rng) {
   rows.push(midRow);
 
   // Extra wall rows for taller buildings (0-1 additional)
-  const extraWalls = Math.floor(rng() * 2); // 0-1
+  const extraWalls = 1 + Math.floor(rng() * 2); // 1-2 extra wall rows for taller buildings
   for (let i = 0; i < extraWalls; i++) rows.push(makeRow(mat.base));
 
   // Base row with door
@@ -429,8 +429,8 @@ class V2Engine {
     // STEP 2: Paths — learned from row layout (building rows get paths nearby)
     // ═══════════════════════════════════════════════════════════════════
     // Path material — each map picks rock or dirt majority
-    const ROCK_PATH = 25;
-    const DIRT_PATH = 43;
+    const ROCK_PATH = 44;  // Light Cobblestone (was 25=autumn trunk - WRONG!)
+    const DIRT_PATH = 40;  // Dirt Path Center (was 43=grass flowers - WRONG!)
     const pathMaterial = rng() < (d.rockPathChance || 0.6) ? ROCK_PATH : DIRT_PATH;
     const pathCells = new Set();
 
@@ -455,10 +455,10 @@ class V2Engine {
         // ALL buildings are procedurally generated from rules — never copied
         let bldg;
         const roll = rng();
-        if (roll < 0.12) {
+        if (false) { // fences disabled
           bldg = generateFence(rng);         // 12% fence
-        } else if (roll < 0.18) {
-          bldg = generateCastle(rng);        // 6% castle (rare, 1 per village)
+        } else if (false) { // fences disabled // castle DISABLED - tiles are wrong (fence/water tiles labeled as castle)
+          bldg = generateFence(rng);  // was: castle (broken)
         } else {
           bldg = generateHouse(rng);         // 82% house
         }
@@ -476,7 +476,7 @@ class V2Engine {
           // Check spacing
           let tooClose = false;
           for (const p of placed) {
-            if (Math.abs(bx - p.x) < (d.buildingSpacing || 3) && Math.abs(by - p.y) < 2) { tooClose = true; break; }
+            if (Math.abs(bx - p.x) < (d.buildingSpacing || 4) && Math.abs(by - p.y) < 2) { tooClose = true; break; }
           }
           if (tooClose) continue;
 
@@ -549,9 +549,15 @@ class V2Engine {
       ? Math.round(doorExitYs.reduce((a, b) => a + b, 0) / doorExitYs.length)
       : Math.round(this.H * 0.5);
 
-    // 3. Lay horizontal backbone path
-    for (let x = 0; x < this.W; x++) {
-      layPath(x, backboneY);
+    // 3. Lay horizontal backbone path - ONLY between leftmost and rightmost doors
+    //    Narrow paths like the reference, not spanning the entire map width
+    if (doorPositions.length > 0) {
+      const doorXs = doorPositions.map(d => d.x);
+      const minDoorX = Math.max(0, Math.min(...doorXs) - 1);
+      const maxDoorX = Math.min(this.W - 1, Math.max(...doorXs) + 1);
+      for (let x = minDoorX; x <= maxDoorX; x++) {
+        layPath(x, backboneY);
+      }
     }
 
     // 4. Connect each door down to the backbone via vertical path segments
@@ -564,16 +570,8 @@ class V2Engine {
       }
     }
 
-    // 5. If buildings are spread wide, add a secondary vertical connector
-    if (placed.length > 0) {
-      const avgX = Math.round(placed.reduce((s, p) => s + p.x + p.w / 2, 0) / placed.length);
-      for (let y = 0; y < this.H; y++) {
-        // Only lay vertical path in open areas (not through buildings)
-        if (objects[this.idx(avgX, y)] === T.EMPTY) {
-          layPath(avgX, y);
-        }
-      }
-    }
+    // 5. NO full-height vertical connector - paths should be minimal
+    //    Only add short connectors if buildings are very far apart
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 4: Trees & Foreground
@@ -603,52 +601,43 @@ class V2Engine {
       return true;
     };
 
-    // Place a dense pine cluster with proper edges
-    // Core: 7(top) + 19(body). Edges that don't touch the map boundary
-    // get rounded with edge tiles (single canopy, bush, trunk).
+    // Place a tree cluster as individual trees with proper canopy+trunk pairs
+    // This creates a natural-looking grove, not a solid block
     const placePineCluster = (cx, cy, w, h) => {
       let count = 0;
-      // Lay the core block
-      for (let dy = 0; dy < h; dy++) {
-        for (let dx = 0; dx < w; dx++) {
-          const x = cx + dx, y = cy + dy;
-          if (!canPlaceFg(x, y)) continue;
-          if (dy === 0) foreground[this.idx(x, y)] = 7;  // top row = pine tops
-          else foreground[this.idx(x, y)] = 19;           // body = dense
+      // Tree types: green (4,12), autumn (7,24), pine (10,22)
+      const treeTypes = [
+        { canopy: 4, trunk: 12 },   // green tree (4=canopy TL, 12=trunk TL)
+        { canopy: 7, trunk: 24 },   // autumn (7=canopy TL, 24=trunk TL)
+        { canopy: 10, trunk: 22 },  // pine (10=top, 22=trunk)
+      ];
+      
+      // Place 2-4 individual trees in the cluster area
+      const treesToPlace = 2 + Math.floor(rng() * 3);
+      for (let i = 0; i < treesToPlace; i++) {
+        const x = cx + Math.floor(rng() * w);
+        const y = cy + Math.floor(rng() * Math.max(1, h - 1));  // leave room for trunk
+        
+        if (!canPlaceFg(x, y) || !canPlaceFg(x, y + 1)) continue;
+        
+        const tt = treeTypes[Math.floor(rng() * treeTypes.length)];
+        foreground[this.idx(x, y)] = tt.canopy;
+        foreground[this.idx(x, y + 1)] = tt.trunk;
+        count += 2;
+      }
+      
+      // Add some bushes around the edges
+      const bushTypes = [28, 20, 17]; // bush, flower bush, tulip
+      const bushCount = 1 + Math.floor(rng() * 3);
+      for (let i = 0; i < bushCount; i++) {
+        const bx = cx + Math.floor(rng() * (w + 2)) - 1;
+        const by = cy + Math.floor(rng() * (h + 1));
+        if (canPlaceFg(bx, by)) {
+          foreground[this.idx(bx, by)] = bushTypes[Math.floor(rng() * bushTypes.length)];
           count++;
         }
       }
-
-      // Round exposed edges (not touching map boundary)
-      const edgeTiles = [20, 32, 17, 28]; // small bushes/shrubs
-      // Bottom edge
-      if (cy + h < this.H - 1) {
-        for (let dx = 0; dx < w; dx++) {
-          const x = cx + dx, y = cy + h;
-          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
-        }
-      }
-      // Left edge
-      if (cx > 0) {
-        for (let dy = 0; dy < h; dy++) {
-          const x = cx - 1, y = cy + dy;
-          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
-        }
-      }
-      // Right edge
-      if (cx + w < this.W - 1) {
-        for (let dy = 0; dy < h; dy++) {
-          const x = cx + w, y = cy + dy;
-          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
-        }
-      }
-      // Top edge (above the pine tops)
-      if (cy > 0) {
-        for (let dx = 0; dx < w; dx++) {
-          const x = cx + dx, y = cy - 1;
-          if (canPlaceFg(x, y)) { foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)]; count++; }
-        }
-      }
+      
       return count;
     };
 
@@ -664,11 +653,11 @@ class V2Engine {
     }
 
     // PHASE A: Dense pine clusters in corners/edges (like painted map)
-    const numClusters = 2 + Math.floor(rng() * 3); // 2-4 clusters
+    const numClusters = 3 + Math.floor(rng() * 3);  // 3-5 clusters
     const clusterZones = [];
     for (let ci = 0; ci < numClusters; ci++) {
       let cx, cy;
-      if (rng() < 0.7) {
+      if (rng() < 0.4) { // reduced corner bias
         // Corner/edge bias
         cx = rng() < 0.5 ? Math.floor(rng() * 3) : this.W - 1 - Math.floor(rng() * 4);
         cy = rng() < 0.5 ? Math.floor(rng() * 2) : this.H - 1 - Math.floor(rng() * 3);
@@ -683,14 +672,14 @@ class V2Engine {
       }
       if (blocked) continue;
 
-      const cw = 2 + Math.floor(rng() * 3); // 2-4 wide
-      const ch = 2 + Math.floor(rng() * 2); // 2-3 tall
+      const cw = 3 + Math.floor(rng() * 4);  // 3-6 wide clusters
+      const ch = 3 + Math.floor(rng() * 2);  // 3-4 tall clusters
       placePineCluster(cx, cy, cw, ch);
       clusterZones.push({ x: cx, y: cy, w: cw, h: ch });
     }
 
     // PHASE B: Single trees scattered (always as complete canopy+trunk pairs)
-    const singleCount = 4 + Math.floor(rng() * 6); // 4-9 single trees
+    const singleCount = 6 + Math.floor(rng() * 7); // 6-12 single trees // 4-9 single trees
     let singlesPlaced = 0;
     for (let attempt = 0; attempt < singleCount * 8 && singlesPlaced < singleCount; attempt++) {
       const x = Math.floor(rng() * this.W);
