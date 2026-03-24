@@ -1,0 +1,3779 @@
+[
+  {
+    "time": "2026-03-24T15:52:04.885Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:52:17.192Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:52:24.098Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      },
+      {
+        "x": 4,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window oon the roof",
+        "time": "2026-03-24T15:52:24.095Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:52:32.873Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      },
+      {
+        "x": 4,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window oon the roof",
+        "time": "2026-03-24T15:52:24.095Z"
+      },
+      {
+        "x": 3,
+        "y": 10,
+        "ground": 1,
+        "objects": 88,
+        "foreground": -1,
+        "note": "wrong background window",
+        "time": "2026-03-24T15:52:32.868Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:52:41.088Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      },
+      {
+        "x": 4,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window oon the roof",
+        "time": "2026-03-24T15:52:24.095Z"
+      },
+      {
+        "x": 3,
+        "y": 10,
+        "ground": 1,
+        "objects": 88,
+        "foreground": -1,
+        "note": "wrong background window",
+        "time": "2026-03-24T15:52:32.868Z"
+      },
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 4,
+        "x2": 20,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 4,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "too many windows",
+        "time": "2026-03-24T15:52:41.084Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:52:56.110Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      },
+      {
+        "x": 4,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window oon the roof",
+        "time": "2026-03-24T15:52:24.095Z"
+      },
+      {
+        "x": 3,
+        "y": 10,
+        "ground": 1,
+        "objects": 88,
+        "foreground": -1,
+        "note": "wrong background window",
+        "time": "2026-03-24T15:52:32.868Z"
+      },
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 4,
+        "x2": 20,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 4,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "too many windows",
+        "time": "2026-03-24T15:52:41.084Z"
+      },
+      {
+        "x": 20,
+        "y": 5,
+        "ground": 1,
+        "objects": 86,
+        "foreground": -1,
+        "note": "wrong dor for the side of a building",
+        "time": "2026-03-24T15:52:56.104Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:53:19.000Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      },
+      {
+        "x": 4,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window oon the roof",
+        "time": "2026-03-24T15:52:24.095Z"
+      },
+      {
+        "x": 3,
+        "y": 10,
+        "ground": 1,
+        "objects": 88,
+        "foreground": -1,
+        "note": "wrong background window",
+        "time": "2026-03-24T15:52:32.868Z"
+      },
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 4,
+        "x2": 20,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 4,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "too many windows",
+        "time": "2026-03-24T15:52:41.084Z"
+      },
+      {
+        "x": 20,
+        "y": 5,
+        "ground": 1,
+        "objects": 86,
+        "foreground": -1,
+        "note": "wrong dor for the side of a building",
+        "time": "2026-03-24T15:52:56.104Z"
+      },
+      {
+        "type": "area",
+        "x1": 16,
+        "y1": 2,
+        "x2": 18,
+        "y2": 3,
+        "tiles": [
+          {
+            "x": 16,
+            "y": 2,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 2,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 18
+          },
+          {
+            "x": 18,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 3,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 3,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 32
+          },
+          {
+            "x": 18,
+            "y": 3,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees lack the proper edges. there should be no flat edges for trees",
+        "time": "2026-03-24T15:53:18.997Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T15:53:49.238Z",
+    "generation": 50000,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 10,
+        "x2": 4,
+        "y2": 11,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 10,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 10,
+            "ground": 1,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 10,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 0,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 11,
+            "ground": 2,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 11,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "so many windows. why?",
+        "time": "2026-03-24T15:52:04.873Z"
+      },
+      {
+        "x": 0,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window on the roof",
+        "time": "2026-03-24T15:52:17.188Z"
+      },
+      {
+        "x": 4,
+        "y": 9,
+        "ground": 1,
+        "objects": 84,
+        "foreground": -1,
+        "note": "window oon the roof",
+        "time": "2026-03-24T15:52:24.095Z"
+      },
+      {
+        "x": 3,
+        "y": 10,
+        "ground": 1,
+        "objects": 88,
+        "foreground": -1,
+        "note": "wrong background window",
+        "time": "2026-03-24T15:52:32.868Z"
+      },
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 4,
+        "x2": 20,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": 84,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 4,
+            "ground": 43,
+            "objects": 84,
+            "foreground": -1
+          }
+        ],
+        "note": "too many windows",
+        "time": "2026-03-24T15:52:41.084Z"
+      },
+      {
+        "x": 20,
+        "y": 5,
+        "ground": 1,
+        "objects": 86,
+        "foreground": -1,
+        "note": "wrong dor for the side of a building",
+        "time": "2026-03-24T15:52:56.104Z"
+      },
+      {
+        "type": "area",
+        "x1": 16,
+        "y1": 2,
+        "x2": 18,
+        "y2": 3,
+        "tiles": [
+          {
+            "x": 16,
+            "y": 2,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 2,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 18
+          },
+          {
+            "x": 18,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 3,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 3,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 32
+          },
+          {
+            "x": 18,
+            "y": 3,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees lack the proper edges. there should be no flat edges for trees",
+        "time": "2026-03-24T15:53:18.997Z"
+      },
+      {
+        "type": "area",
+        "x1": 5,
+        "y1": 2,
+        "x2": 12,
+        "y2": 5,
+        "tiles": [
+          {
+            "x": 5,
+            "y": 2,
+            "ground": 1,
+            "objects": 102,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 2,
+            "ground": 2,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 7,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 8,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 9,
+            "y": 2,
+            "ground": 2,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 10,
+            "y": 2,
+            "ground": 2,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 2,
+            "ground": 43,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 2,
+            "ground": 1,
+            "objects": 102,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 7,
+            "y": 3,
+            "ground": 2,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 8,
+            "y": 3,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 9,
+            "y": 3,
+            "ground": 43,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 10,
+            "y": 3,
+            "ground": 1,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 3,
+            "ground": 2,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 3,
+            "ground": 1,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 4,
+            "ground": 2,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 4,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 7,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 8,
+            "y": 4,
+            "ground": 1,
+            "objects": 111,
+            "foreground": -1
+          },
+          {
+            "x": 9,
+            "y": 4,
+            "ground": 43,
+            "objects": 112,
+            "foreground": -1
+          },
+          {
+            "x": 10,
+            "y": 4,
+            "ground": 1,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 4,
+            "ground": 2,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 4,
+            "ground": 2,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 5,
+            "ground": 1,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 5,
+            "ground": 1,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 7,
+            "y": 5,
+            "ground": 43,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 8,
+            "y": 5,
+            "ground": 43,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 9,
+            "y": 5,
+            "ground": 1,
+            "objects": 122,
+            "foreground": -1
+          },
+          {
+            "x": 10,
+            "y": 5,
+            "ground": 1,
+            "objects": 122,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 5,
+            "ground": 2,
+            "objects": 122,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 5,
+            "ground": 1,
+            "objects": 122,
+            "foreground": -1
+          }
+        ],
+        "note": "i smostly roof tiles. where are the sides? the building blocks of the castle",
+        "time": "2026-03-24T15:53:49.234Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:20:30.711Z",
+    "generation": 2660,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 1,
+        "x2": 19,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 1,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees cut off. need rounded edges",
+        "time": "2026-03-24T16:20:30.691Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:21:21.284Z",
+    "generation": 3940,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 1,
+        "x2": 19,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 1,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees cut off. need rounded edges",
+        "time": "2026-03-24T16:20:30.691Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 9,
+        "x2": 16,
+        "y2": 10,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 15,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 16,
+            "y": 9,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 14,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 15,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "either move up the trees or remove the path. the canopy only is not ok. could move down canopy too, as it'd go 'over' the path' in layer way. that'd be cool",
+        "time": "2026-03-24T16:21:21.270Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:21:41.329Z",
+    "generation": 7020,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 1,
+        "x2": 19,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 1,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees cut off. need rounded edges",
+        "time": "2026-03-24T16:20:30.691Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 9,
+        "x2": 16,
+        "y2": 10,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 15,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 16,
+            "y": 9,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 14,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 15,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "either move up the trees or remove the path. the canopy only is not ok. could move down canopy too, as it'd go 'over' the path' in layer way. that'd be cool",
+        "time": "2026-03-24T16:21:21.270Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 2,
+        "x2": 13,
+        "y2": 5,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 2,
+            "ground": 1,
+            "objects": 97,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 2,
+            "ground": 2,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 4,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 5,
+            "ground": 43,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 5,
+            "ground": 1,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 5,
+            "ground": 2,
+            "objects": 120,
+            "foreground": -1
+          }
+        ],
+        "note": "corect side, but loks odd. where are the bulding blocks?",
+        "time": "2026-03-24T16:21:41.322Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:21:59.817Z",
+    "generation": 8427,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 1,
+        "x2": 19,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 1,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees cut off. need rounded edges",
+        "time": "2026-03-24T16:20:30.691Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 9,
+        "x2": 16,
+        "y2": 10,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 15,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 16,
+            "y": 9,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 14,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 15,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "either move up the trees or remove the path. the canopy only is not ok. could move down canopy too, as it'd go 'over' the path' in layer way. that'd be cool",
+        "time": "2026-03-24T16:21:21.270Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 2,
+        "x2": 13,
+        "y2": 5,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 2,
+            "ground": 1,
+            "objects": 97,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 2,
+            "ground": 2,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 4,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 5,
+            "ground": 43,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 5,
+            "ground": 1,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 5,
+            "ground": 2,
+            "objects": 120,
+            "foreground": -1
+          }
+        ],
+        "note": "corect side, but loks odd. where are the bulding blocks?",
+        "time": "2026-03-24T16:21:41.322Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 4,
+        "x2": 4,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 4,
+            "ground": 1,
+            "objects": 90,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 4,
+            "ground": 2,
+            "objects": 91,
+            "foreground": -1
+          }
+        ],
+        "note": "massive doors, small house",
+        "time": "2026-03-24T16:21:59.806Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:22:21.051Z",
+    "generation": 9320,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 19,
+        "y1": 1,
+        "x2": 19,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 19,
+            "y": 1,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 2,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 1,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "trees cut off. need rounded edges",
+        "time": "2026-03-24T16:20:30.691Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 9,
+        "x2": 16,
+        "y2": 10,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 15,
+            "y": 9,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 16,
+            "y": 9,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 7
+          },
+          {
+            "x": 14,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 15,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 10,
+            "ground": 40,
+            "objects": -1,
+            "foreground": -1
+          }
+        ],
+        "note": "either move up the trees or remove the path. the canopy only is not ok. could move down canopy too, as it'd go 'over' the path' in layer way. that'd be cool",
+        "time": "2026-03-24T16:21:21.270Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 2,
+        "x2": 13,
+        "y2": 5,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 2,
+            "ground": 1,
+            "objects": 97,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 2,
+            "ground": 2,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 4,
+            "ground": 43,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 4,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 11,
+            "y": 5,
+            "ground": 43,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 12,
+            "y": 5,
+            "ground": 1,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 13,
+            "y": 5,
+            "ground": 2,
+            "objects": 120,
+            "foreground": -1
+          }
+        ],
+        "note": "corect side, but loks odd. where are the bulding blocks?",
+        "time": "2026-03-24T16:21:41.322Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 4,
+        "x2": 4,
+        "y2": 4,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 4,
+            "ground": 1,
+            "objects": 90,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 4,
+            "ground": 2,
+            "objects": 91,
+            "foreground": -1
+          }
+        ],
+        "note": "massive doors, small house",
+        "time": "2026-03-24T16:21:59.806Z"
+      },
+      {
+        "type": "area",
+        "x1": 18,
+        "y1": 9,
+        "x2": 22,
+        "y2": 13,
+        "tiles": [
+          {
+            "x": 18,
+            "y": 9,
+            "ground": 2,
+            "objects": 52,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 9,
+            "ground": 1,
+            "objects": 53,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 9,
+            "ground": 1,
+            "objects": 53,
+            "foreground": -1
+          },
+          {
+            "x": 21,
+            "y": 9,
+            "ground": 1,
+            "objects": 53,
+            "foreground": -1
+          },
+          {
+            "x": 22,
+            "y": 9,
+            "ground": 43,
+            "objects": 54,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 10,
+            "ground": 40,
+            "objects": 64,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 10,
+            "ground": 41,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 10,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 21,
+            "y": 10,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 22,
+            "y": 10,
+            "ground": 1,
+            "objects": 66,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 11,
+            "ground": 1,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 11,
+            "ground": 40,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 11,
+            "ground": 43,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 21,
+            "y": 11,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 22,
+            "y": 11,
+            "ground": 43,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 12,
+            "ground": 43,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 12,
+            "ground": 39,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 12,
+            "ground": 40,
+            "objects": 88,
+            "foreground": -1
+          },
+          {
+            "x": 21,
+            "y": 12,
+            "ground": 41,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 22,
+            "y": 12,
+            "ground": 43,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 13,
+            "ground": 39,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 13,
+            "ground": 40,
+            "objects": 78,
+            "foreground": -1
+          },
+          {
+            "x": 20,
+            "y": 13,
+            "ground": 40,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 21,
+            "y": 13,
+            "ground": 41,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 22,
+            "y": 13,
+            "ground": 1,
+            "objects": 79,
+            "foreground": -1
+          }
+        ],
+        "note": "gigantic house. small door. no himney. no over door perched roof",
+        "time": "2026-03-24T16:22:21.047Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:09.474Z",
+    "generation": 3120,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:17.333Z",
+    "generation": 3723,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 6,
+        "x2": 3,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 6,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 3,
+            "y": 7,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:17.325Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:26.250Z",
+    "generation": 4206,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 6,
+        "x2": 3,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 6,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 3,
+            "y": 7,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:17.325Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 6,
+        "x2": 11,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 6,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 4
+          },
+          {
+            "x": 11,
+            "y": 7,
+            "ground": 43,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:26.233Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:36.885Z",
+    "generation": 4818,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 6,
+        "x2": 3,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 6,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 3,
+            "y": 7,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:17.325Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 6,
+        "x2": 11,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 6,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 4
+          },
+          {
+            "x": 11,
+            "y": 7,
+            "ground": 43,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:26.233Z"
+      },
+      {
+        "type": "area",
+        "x1": 13,
+        "y1": 2,
+        "x2": 13,
+        "y2": 3,
+        "tiles": [
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 92,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong color and wrong center tree used",
+        "time": "2026-03-24T16:26:36.873Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:44.608Z",
+    "generation": 5540,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 6,
+        "x2": 3,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 6,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 3,
+            "y": 7,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:17.325Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 6,
+        "x2": 11,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 6,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 4
+          },
+          {
+            "x": 11,
+            "y": 7,
+            "ground": 43,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:26.233Z"
+      },
+      {
+        "type": "area",
+        "x1": 13,
+        "y1": 2,
+        "x2": 13,
+        "y2": 3,
+        "tiles": [
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 92,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong color and wrong center tree used",
+        "time": "2026-03-24T16:26:36.873Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 5,
+        "x2": 14,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 5,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 14,
+            "y": 6,
+            "ground": 1,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:44.604Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:52.025Z",
+    "generation": 5901,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 6,
+        "x2": 3,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 6,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 3,
+            "y": 7,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:17.325Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 6,
+        "x2": 11,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 6,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 4
+          },
+          {
+            "x": 11,
+            "y": 7,
+            "ground": 43,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:26.233Z"
+      },
+      {
+        "type": "area",
+        "x1": 13,
+        "y1": 2,
+        "x2": 13,
+        "y2": 3,
+        "tiles": [
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 92,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong color and wrong center tree used",
+        "time": "2026-03-24T16:26:36.873Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 5,
+        "x2": 14,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 5,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 14,
+            "y": 6,
+            "ground": 1,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:44.604Z"
+      },
+      {
+        "type": "area",
+        "x1": 17,
+        "y1": 5,
+        "x2": 17,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 17,
+            "y": 5,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 17,
+            "y": 6,
+            "ground": 1,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:52.010Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:26:58.687Z",
+    "generation": 6383,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 0,
+        "y1": 7,
+        "x2": 0,
+        "y2": 8,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 7,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 0,
+            "y": 8,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:09.462Z"
+      },
+      {
+        "type": "area",
+        "x1": 3,
+        "y1": 6,
+        "x2": 3,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 3,
+            "y": 6,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 3,
+            "y": 7,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:17.325Z"
+      },
+      {
+        "type": "area",
+        "x1": 11,
+        "y1": 6,
+        "x2": 11,
+        "y2": 7,
+        "tiles": [
+          {
+            "x": 11,
+            "y": 6,
+            "ground": 1,
+            "objects": -1,
+            "foreground": 4
+          },
+          {
+            "x": 11,
+            "y": 7,
+            "ground": 43,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:26.233Z"
+      },
+      {
+        "type": "area",
+        "x1": 13,
+        "y1": 2,
+        "x2": 13,
+        "y2": 3,
+        "tiles": [
+          {
+            "x": 13,
+            "y": 2,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 3
+          },
+          {
+            "x": 13,
+            "y": 3,
+            "ground": 1,
+            "objects": 92,
+            "foreground": 15
+          }
+        ],
+        "note": "wrong color and wrong center tree used",
+        "time": "2026-03-24T16:26:36.873Z"
+      },
+      {
+        "type": "area",
+        "x1": 14,
+        "y1": 5,
+        "x2": 14,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 14,
+            "y": 5,
+            "ground": 2,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 14,
+            "y": 6,
+            "ground": 1,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:44.604Z"
+      },
+      {
+        "type": "area",
+        "x1": 17,
+        "y1": 5,
+        "x2": 17,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 17,
+            "y": 5,
+            "ground": 1,
+            "objects": 24,
+            "foreground": 4
+          },
+          {
+            "x": 17,
+            "y": 6,
+            "ground": 1,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:52.010Z"
+      },
+      {
+        "type": "area",
+        "x1": 16,
+        "y1": 0,
+        "x2": 16,
+        "y2": 1,
+        "tiles": [
+          {
+            "x": 16,
+            "y": 0,
+            "ground": 2,
+            "objects": -1,
+            "foreground": 4
+          },
+          {
+            "x": 16,
+            "y": 1,
+            "ground": 2,
+            "objects": 12,
+            "foreground": 16
+          }
+        ],
+        "note": "wrong center tree used",
+        "time": "2026-03-24T16:26:58.679Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:41:25.241Z",
+    "generation": 1333,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 16,
+        "y1": 2,
+        "x2": 19,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 16,
+            "y": 2,
+            "ground": 1,
+            "objects": 52,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 2,
+            "ground": 43,
+            "objects": 55,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 2,
+            "ground": 1,
+            "objects": 53,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 43,
+            "objects": 54,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 3,
+            "ground": 1,
+            "objects": 64,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 3,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 3,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": 66,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 4,
+            "ground": 43,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 4,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 4,
+            "ground": 43,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 43,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 5,
+            "ground": 2,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 5,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 5,
+            "ground": 0,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 5,
+            "ground": 1,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 6,
+            "ground": 2,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 6,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 6,
+            "ground": 43,
+            "objects": 90,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 6,
+            "ground": 43,
+            "objects": 91,
+            "foreground": -1
+          }
+        ],
+        "note": "building of this size must hav al teast 1 window",
+        "time": "2026-03-24T16:41:25.231Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:41:43.131Z",
+    "generation": 2343,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 16,
+        "y1": 2,
+        "x2": 19,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 16,
+            "y": 2,
+            "ground": 1,
+            "objects": 52,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 2,
+            "ground": 43,
+            "objects": 55,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 2,
+            "ground": 1,
+            "objects": 53,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 43,
+            "objects": 54,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 3,
+            "ground": 1,
+            "objects": 64,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 3,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 3,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": 66,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 4,
+            "ground": 43,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 4,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 4,
+            "ground": 43,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 43,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 5,
+            "ground": 2,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 5,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 5,
+            "ground": 0,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 5,
+            "ground": 1,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 6,
+            "ground": 2,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 6,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 6,
+            "ground": 43,
+            "objects": 90,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 6,
+            "ground": 43,
+            "objects": 91,
+            "foreground": -1
+          }
+        ],
+        "note": "building of this size must hav al teast 1 window",
+        "time": "2026-03-24T16:41:25.231Z"
+      },
+      {
+        "type": "area",
+        "x1": 1,
+        "y1": 2,
+        "x2": 6,
+        "y2": 5,
+        "tiles": [
+          {
+            "x": 1,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 2,
+            "ground": 2,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 2,
+            "ground": 1,
+            "objects": 96,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 2,
+            "ground": 2,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 2,
+            "ground": 2,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 2,
+            "ground": 1,
+            "objects": 98,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 3,
+            "ground": 2,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 3,
+            "ground": 1,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 3,
+            "ground": 2,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 3,
+            "ground": 1,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 3,
+            "ground": 1,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 3,
+            "ground": 2,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 4,
+            "ground": 2,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 4,
+            "ground": 2,
+            "objects": 108,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 4,
+            "ground": 1,
+            "objects": 111,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 4,
+            "ground": 1,
+            "objects": 112,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 4,
+            "ground": 2,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 4,
+            "ground": 2,
+            "objects": 110,
+            "foreground": -1
+          },
+          {
+            "x": 1,
+            "y": 5,
+            "ground": 2,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 2,
+            "y": 5,
+            "ground": 2,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 3,
+            "y": 5,
+            "ground": 2,
+            "objects": 120,
+            "foreground": -1
+          },
+          {
+            "x": 4,
+            "y": 5,
+            "ground": 2,
+            "objects": 122,
+            "foreground": -1
+          },
+          {
+            "x": 5,
+            "y": 5,
+            "ground": 1,
+            "objects": 122,
+            "foreground": -1
+          },
+          {
+            "x": 6,
+            "y": 5,
+            "ground": 2,
+            "objects": 122,
+            "foreground": -1
+          }
+        ],
+        "note": "this is only oof tiles. a castle must consist of more than only roof tiles",
+        "time": "2026-03-24T16:41:43.128Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:46:32.529Z",
+    "generation": 10998,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 16,
+        "y1": 2,
+        "x2": 19,
+        "y2": 6,
+        "tiles": [
+          {
+            "x": 16,
+            "y": 2,
+            "ground": 1,
+            "objects": 52,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 2,
+            "ground": 43,
+            "objects": 55,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 2,
+            "ground": 1,
+            "objects": 53,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 2,
+            "ground": 43,
+            "objects": 54,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 3,
+            "ground": 1,
+            "objects": 64,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 3,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 3,
+            "ground": 1,
+            "objects": 65,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 3,
+            "ground": 43,
+            "objects": 66,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 4,
+            "ground": 43,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 4,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 4,
+            "ground": 43,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 4,
+            "ground": 43,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 5,
+            "ground": 2,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 5,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 5,
+            "ground": 0,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 5,
+            "ground": 1,
+            "objects": 79,
+            "foreground": -1
+          },
+          {
+            "x": 16,
+            "y": 6,
+            "ground": 2,
+            "objects": 76,
+            "foreground": -1
+          },
+          {
+            "x": 17,
+            "y": 6,
+            "ground": 1,
+            "objects": 77,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 6,
+            "ground": 43,
+            "objects": 90,
+            "foreground": -1
+          },
+          {
+            "x": 19,
+            "y": 6,
+            "ground": 43,
+            "objects": 91,
+            "foreground": -1
+          }
+        ],
+        "note": "needs at least 1 window for a buildin this size",
+        "time": "2026-03-24T16:46:32.519Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:58:06.473Z",
+    "generation": 34745,
+    "flags": [
+      {
+        "x": 6,
+        "y": 7,
+        "ground": 1,
+        "objects": 68,
+        "foreground": -1,
+        "note": "end post should be used. not corner end",
+        "time": "2026-03-24T16:58:06.453Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T16:58:15.559Z",
+    "generation": 36665,
+    "flags": [
+      {
+        "x": 6,
+        "y": 7,
+        "ground": 1,
+        "objects": 68,
+        "foreground": -1,
+        "note": "end post should be used. not corner end",
+        "time": "2026-03-24T16:58:06.453Z"
+      },
+      {
+        "x": 9,
+        "y": 7,
+        "ground": 1,
+        "objects": 70,
+        "foreground": -1,
+        "note": "end post shuold be used. not corner end",
+        "time": "2026-03-24T16:58:15.554Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T18:09:56.800Z",
+    "generation": 22467,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 17,
+        "y1": 5,
+        "x2": 18,
+        "y2": 5,
+        "tiles": [
+          {
+            "x": 17,
+            "y": 5,
+            "ground": 43,
+            "objects": 73,
+            "foreground": -1
+          },
+          {
+            "x": 18,
+            "y": 5,
+            "ground": 1,
+            "objects": 73,
+            "foreground": -1
+          }
+        ],
+        "note": "these are wood bottom building. not gate top tiles",
+        "time": "2026-03-24T18:09:56.788Z"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-24T18:11:48.460Z",
+    "generation": 3212,
+    "flags": [
+      {
+        "type": "area",
+        "x1": 12,
+        "y1": 1,
+        "x2": 12,
+        "y2": 2,
+        "tiles": [
+          {
+            "x": 12,
+            "y": 1,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 3
+          },
+          {
+            "x": 12,
+            "y": 2,
+            "ground": 43,
+            "objects": -1,
+            "foreground": 15
+          }
+        ],
+        "note": "this tree is in the center of dencse trees and should not be. it's a stand alone tree with trunk and canopy",
+        "time": "2026-03-24T18:11:48.441Z"
+      }
+    ]
+  }
+]
