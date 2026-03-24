@@ -1398,11 +1398,12 @@ class V2Engine {
           }
         }
 
-        // Fix stacked doors: if a door is directly above another door, replace top with wall
-        const DOOR_SET = new Set([74,78,85,86,87,89,90,91,111,112,113,114,123,124]);
+        // Fix stacked doors: if a HOUSE door is directly above another HOUSE door, replace top with wall
+        // EXCLUDE castle gate tiles (111/112 above 123/124 is intentional — that's the gate!)
+        const HOUSE_DOORS = new Set([74,78,85,86,87,89,90,91]);
         const obj = objects[i];
-        if (DOOR_SET.has(obj) && y + 1 < this.H) {
-          if (DOOR_SET.has(objects[this.idx(x, y + 1)])) {
+        if (HOUSE_DOORS.has(obj) && y + 1 < this.H) {
+          if (HOUSE_DOORS.has(objects[this.idx(x, y + 1)])) {
             objects[i] = 73; // replace with plain wood wall
           }
         }
