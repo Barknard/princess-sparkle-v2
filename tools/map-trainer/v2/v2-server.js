@@ -407,50 +407,33 @@ async function runGeneration() {
     return;
   }
 
-  // Check for plateau — escalating response
+  // ── Best Practice: Continuous adaptive mutation (heavy-tailed) ──────────
+  // Research: Doerr et al. (2022) — draw mutation rate from log-scaled
+  // distribution based on stagnation. Replaces 3-tier nudge/shake/cataclysm.
   const staleGens = status.generation - status.bestGeneration;
+  const baseMutRate = 0.12;
+  const baseMutStrength = 0.15;
 
-  if (staleGens > 500) {
-    // CATACLYSM: nuke 90% of population, replace with completely random organisms
-    addLog(`🌋 CATACLYSM at gen ${status.generation}! Stale for ${staleGens} gens. Nuking 90% of population.`);
-    const eliteCount = Math.max(2, Math.floor(population.length * 0.1));
-    const newPop = population.slice(0, eliteCount); // keep top 10%
-    while (newPop.length < population.length) {
-      // Create random organism by heavily mutating default DNA
-      const rnd = JSON.parse(JSON.stringify(population[0]));
-      for (const k of Object.keys(rnd)) {
-        if (typeof rnd[k] === 'number') rnd[k] = rnd[k] + (Math.random() - 0.5) * rnd[k] * 2;
-        if (typeof rnd[k] === 'boolean') rnd[k] = Math.random() > 0.5;
+  // Continuous scaling: mutation grows with log of stagnation
+  const staleMultiplier = 1 + Math.log2(1 + staleGens / 30);
+  evolver.mutationRate = Math.min(0.5, baseMutRate * staleMultiplier);
+  evolver.mutationStrength = Math.min(0.6, baseMutStrength * staleMultiplier);
+
+  // At extreme stagnation (>300), inject fresh random individuals
+  if (staleGens > 300 && staleGens % 100 === 0) {
+    const injectCount = Math.floor(population.length * 0.3);
+    addLog(`🔄 Injecting ${injectCount} fresh individuals at gen ${status.generation} (stale ${staleGens})`);
+    for (let i = population.length - injectCount; i < population.length; i++) {
+      const fresh = JSON.parse(JSON.stringify(population[0]));
+      for (const k of Object.keys(fresh)) {
+        if (typeof fresh[k] === 'number') fresh[k] += (Math.random() - 0.5) * fresh[k] * 1.5;
       }
-      newPop.push(rnd);
+      population[i] = fresh;
     }
-    population = newPop;
-    evolver.mutationRate = 0.3;
-    evolver.mutationStrength = 0.5;
-    status.bestGeneration = status.generation;
-  } else if (staleGens > 200) {
-    // SHAKE: randomize 50% of population, boost mutation heavily
-    addLog(`⚡ SHAKE at gen ${status.generation}! Stale for ${staleGens} gens. Randomizing 50%.`);
-    const keep = Math.floor(population.length * 0.5);
-    const newPop = population.slice(0, keep);
-    while (newPop.length < population.length) {
-      // Heavily mutate the best organism instead of pure random
-      const mutated = evolver.mutate(JSON.parse(JSON.stringify(population[0])));
-      newPop.push(mutated);
-    }
-    population = newPop;
-    evolver.mutationRate = Math.min(0.4, evolver.mutationRate + 0.1);
-    evolver.mutationStrength = Math.min(0.5, evolver.mutationStrength + 0.1);
-    status.bestGeneration = status.generation;
-  } else if (staleGens > 100) {
-    // NUDGE: increase mutation
-    if (staleGens === 101) addLog(`📈 Nudge: increasing mutation after ${staleGens} stale gens`);
-    evolver.mutationRate = Math.min(0.3, 0.15 + (staleGens - 100) * 0.001);
-    evolver.mutationStrength = Math.min(0.4, 0.2 + (staleGens - 100) * 0.001);
-  } else {
-    // Normal: reset mutation to defaults
-    evolver.mutationRate = 0.15;
-    evolver.mutationStrength = 0.2;
+  }
+
+  if (staleGens > 0 && staleGens % 50 === 0) {
+    addLog(`📊 Stale ${staleGens}: mutation=${evolver.mutationRate.toFixed(3)} strength=${evolver.mutationStrength.toFixed(3)}`);
   }
 
   // Evolve next generation — optimizing for DESIGN QUALITY (variety mode)

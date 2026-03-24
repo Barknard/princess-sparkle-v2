@@ -57,9 +57,41 @@ if (TILE_CATALOG) {
   TILE_CATALOG.forEach(t => { TILE_TAGS[t.id] = new Set(t.tags || []); });
 }
 
+// Load learned adjacency rules for compliance scoring
+let ADJACENCY_RULES = null;
+try {
+  const adjPath = require('path').join(__dirname, 'learned-knowledge-v2.json');
+  if (require('fs').existsSync(adjPath)) {
+    const knowledge = JSON.parse(require('fs').readFileSync(adjPath, 'utf8'));
+    ADJACENCY_RULES = knowledge.adjacency || null;
+  }
+} catch (e) { /* adjacency rules optional */ }
+
 class V2Scorer {
   constructor(targetMap) {
     this.target = targetMap || null;
+    // Pre-compute target tile frequencies for JSD scoring
+    if (targetMap) {
+      this._targetFreqs = {};
+      for (const layer of ['ground', 'objects', 'foreground']) {
+        const freq = {};
+        (targetMap[layer] || []).forEach(t => { if (t >= 0) freq[t] = (freq[t] || 0) + 1; });
+        const sum = Object.values(freq).reduce((a, b) => a + b, 0) || 1;
+        for (const k of Object.keys(freq)) freq[k] /= sum;
+        this._targetFreqs[layer] = freq;
+      }
+      // Pre-compute target 2x2 patterns
+      this._target2x2 = new Set();
+      const W = targetMap.width;
+      for (let y = 0; y < targetMap.height - 1; y++) {
+        for (let x = 0; x < W - 1; x++) {
+          for (const arr of [targetMap.ground, targetMap.objects, targetMap.foreground]) {
+            if (!arr) continue;
+            this._target2x2.add([arr[y*W+x], arr[y*W+x+1], arr[(y+1)*W+x], arr[(y+1)*W+x+1]].join(','));
+          }
+        }
+      }
+    }
   }
 
   /** Score a generated map. Returns { total, tileMatch, design, breakdown, violations, details } */
@@ -81,21 +113,30 @@ class V2Scorer {
     breakdown.composition = this._scoreComposition(ground, objects, foreground, W, H, details);
     breakdown.waterFeature = this._scoreWater(objects, W, H, details);
     breakdown.villageFeel = this._scoreVillageFeel(ground, objects, foreground, W, H, details);
+
+    // Best practice: adjacency compliance + frequency match + pattern coverage
+    if (this.target) {
+      breakdown.freqMatch = this._scoreFrequencyMatch(ground, objects, foreground, W, H, details);
+      breakdown.patternCoverage = this._scorePatternCoverage(ground, objects, foreground, W, H, details);
+    }
+    if (ADJACENCY_RULES) {
+      breakdown.adjCompliance = this._scoreAdjacencyCompliance(ground, W, H, details);
+    }
+
     let tileMatch = 0;
     if (this.target) {
       tileMatch = this._scoreTileMatch(mapData, this.target);
-      details.push(`Tile match: ${tileMatch.toFixed(1)}% → ${(tileMatch * 0.3).toFixed(1)}/30 pts`);
+      details.push(`Tile match: ${tileMatch.toFixed(1)}%`);
     }
 
     const designScore = breakdown.pathNetwork + breakdown.buildings +
       breakdown.treeQuality + breakdown.decorations + breakdown.groundTexture +
-      breakdown.composition + breakdown.waterFeature + breakdown.villageFeel;
-    const tileMatchPts = this.target ? tileMatch * 0.3 : 0;
-    const maxDesign = this.target ? 70 : 100;
-    const scaledDesign = this.target ? designScore : (designScore / 70 * 100);
+      breakdown.composition + breakdown.waterFeature + breakdown.villageFeel +
+      (breakdown.freqMatch || 0) + (breakdown.patternCoverage || 0) + (breakdown.adjCompliance || 0);
+    const tileMatchPts = this.target ? tileMatch * 0.2 : 0; // reduced from 0.3 since freq+pattern cover some of this
     const total = this.target
       ? Math.min(100, Math.round(designScore + tileMatchPts))
-      : Math.min(100, Math.round(scaledDesign));
+      : Math.min(100, Math.round(designScore / 85 * 100));
     return {
       total,
       tileMatch: this.target ? +tileMatch.toFixed(1) : null,
@@ -583,6 +624,96 @@ class V2Scorer {
       }
     }
     return maxComponent;
+  }
+
+  // ── Best Practice: Tile frequency divergence (Jensen-Shannon) ──────────
+  // How closely do generated tile frequencies match the target? (0-5 pts)
+  _scoreFrequencyMatch(ground, objects, foreground, W, H, details) {
+    if (!this._targetFreqs) return 0;
+    const size = W * H;
+    let totalJSD = 0;
+    for (const [layer, arr] of [['ground', ground], ['objects', objects], ['foreground', foreground]]) {
+      const freq = {};
+      let count = 0;
+      arr.forEach(t => { if (t >= 0) { freq[t] = (freq[t] || 0) + 1; count++; } });
+      if (count === 0) continue;
+      for (const k of Object.keys(freq)) freq[k] /= count;
+      // JSD between target and generated
+      const target = this._targetFreqs[layer] || {};
+      const allKeys = new Set([...Object.keys(target), ...Object.keys(freq)]);
+      let jsd = 0;
+      for (const k of allKeys) {
+        const p = target[k] || 0.001;
+        const q = freq[k] || 0.001;
+        const m = (p + q) / 2;
+        if (p > 0) jsd += p * Math.log2(p / m) / 2;
+        if (q > 0) jsd += q * Math.log2(q / m) / 2;
+      }
+      totalJSD += jsd;
+    }
+    // JSD ranges 0 (identical) to 1 (completely different), avg across 3 layers
+    const avgJSD = totalJSD / 3;
+    const score = Math.round((1 - Math.min(1, avgJSD)) * 5);
+    details.push(`Freq match: JSD=${avgJSD.toFixed(3)} → ${score}/5`);
+    return score;
+  }
+
+  // ── Best Practice: 2x2 pattern coverage ────────────────────────────────
+  // What % of target's 2x2 patterns appear in the generated map? (0-5 pts)
+  _scorePatternCoverage(ground, objects, foreground, W, H, details) {
+    if (!this._target2x2 || this._target2x2.size === 0) return 0;
+    const genPatterns = new Set();
+    for (let y = 0; y < H - 1; y++) {
+      for (let x = 0; x < W - 1; x++) {
+        for (const arr of [ground, objects, foreground]) {
+          if (!arr) continue;
+          genPatterns.add([arr[y*W+x], arr[y*W+x+1], arr[(y+1)*W+x], arr[(y+1)*W+x+1]].join(','));
+        }
+      }
+    }
+    let covered = 0;
+    for (const p of this._target2x2) {
+      if (genPatterns.has(p)) covered++;
+    }
+    const coverage = covered / this._target2x2.size;
+    const score = Math.round(coverage * 5);
+    details.push(`Pattern coverage: ${(coverage * 100).toFixed(1)}% (${covered}/${this._target2x2.size}) → ${score}/5`);
+    return score;
+  }
+
+  // ── Best Practice: Adjacency rule compliance ───────────────────────────
+  // What % of tile adjacencies match learned rules? (0-5 pts)
+  _scoreAdjacencyCompliance(ground, W, H, details) {
+    if (!ADJACENCY_RULES) return 0;
+    let valid = 0, total = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const t = ground[y * W + x];
+        if (t < 0) continue;
+        const rules = ADJACENCY_RULES[String(t)];
+        if (!rules) continue;
+        // Check east neighbor
+        if (x + 1 < W) {
+          const east = ground[y * W + x + 1];
+          if (east >= 0) {
+            total++;
+            if (rules.east && rules.east[String(east)]) valid++;
+          }
+        }
+        // Check south neighbor
+        if (y + 1 < H) {
+          const south = ground[(y + 1) * W + x];
+          if (south >= 0) {
+            total++;
+            if (rules.south && rules.south[String(south)]) valid++;
+          }
+        }
+      }
+    }
+    const compliance = total > 0 ? valid / total : 0;
+    const score = Math.round(compliance * 5);
+    details.push(`Adjacency compliance: ${(compliance * 100).toFixed(1)}% (${valid}/${total}) → ${score}/5`);
+    return score;
   }
 }
 

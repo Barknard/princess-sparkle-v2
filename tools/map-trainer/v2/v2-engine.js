@@ -384,6 +384,44 @@ class V2Engine {
     for (const [tile, count] of Object.entries(fFreq)) {
       for (let i = 0; i < Math.ceil(count / 3); i++) this._fgFreq.push(parseInt(tile));
     }
+
+    // ── Best Practice: Extract tile frequency targets per layer ─────────
+    // Used for frequency-divergence scoring (JSD match)
+    this._targetFreqs = { ground: {}, objects: {}, foreground: {} };
+    const total = W * H;
+    painted.ground.forEach(t => { if (t >= 0) this._targetFreqs.ground[t] = (this._targetFreqs.ground[t] || 0) + 1; });
+    painted.objects.forEach(t => { if (t >= 0) this._targetFreqs.objects[t] = (this._targetFreqs.objects[t] || 0) + 1; });
+    painted.foreground.forEach(t => { if (t >= 0) this._targetFreqs.foreground[t] = (this._targetFreqs.foreground[t] || 0) + 1; });
+    // Normalize to probabilities
+    for (const layer of ['ground', 'objects', 'foreground']) {
+      const sum = Object.values(this._targetFreqs[layer]).reduce((a, b) => a + b, 0) || 1;
+      for (const k of Object.keys(this._targetFreqs[layer])) {
+        this._targetFreqs[layer][k] /= sum;
+      }
+    }
+
+    // ── Best Practice: Extract cross-layer column patterns ──────────────
+    // Each (x,y) → (ground, objects, foreground) triple
+    this._columnPatterns = {};
+    for (let i = 0; i < W * H; i++) {
+      const g = painted.ground[i], o = painted.objects[i], f = painted.foreground[i];
+      const key = g + ',' + o + ',' + f;
+      this._columnPatterns[key] = (this._columnPatterns[key] || 0) + 1;
+    }
+
+    // ── Best Practice: Extract 2x2 patterns per layer ───────────────────
+    // Used for pattern coverage scoring
+    this._patterns2x2 = { ground: new Set(), objects: new Set(), foreground: new Set() };
+    for (let y = 0; y < H - 1; y++) {
+      for (let x = 0; x < W - 1; x++) {
+        for (const [layer, arr] of [['ground', painted.ground], ['objects', painted.objects], ['foreground', painted.foreground]]) {
+          const p = [arr[y*W+x], arr[y*W+x+1], arr[(y+1)*W+x], arr[(y+1)*W+x+1]].join(',');
+          this._patterns2x2[layer].add(p);
+        }
+      }
+    }
+    console.log('V2Engine: loaded ' + Object.keys(this._columnPatterns).length + ' column patterns, ' +
+      this._patterns2x2.ground.size + '/' + this._patterns2x2.objects.size + '/' + this._patterns2x2.foreground.size + ' 2x2 patterns (g/o/f)');
   }
 
   /** Generate a map from DNA parameters. Returns { width, height, ground[], objects[], foreground[], collision[] } */
@@ -935,10 +973,44 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 5: Collision
+    // STEP 5: Repair pass (best practice: fix structural defects)
     // ═══════════════════════════════════════════════════════════════════
+    const CANOPY_TO_TRUNK = { 4: 12, 5: 13, 7: 24, 8: 25, 10: 22, 11: 23 };
+    const TRUNK_TO_CANOPY = { 12: 4, 13: 5, 24: 7, 25: 8, 22: 10, 23: 11 };
+
+    for (let y = 0; y < this.H; y++) {
+      for (let x = 0; x < this.W; x++) {
+        const i = this.idx(x, y);
+        const fg = foreground[i];
+        const obj = objects[i];
+
+        // Repair orphan canopy: add trunk below if space
+        if (CANOPY_TO_TRUNK[fg] !== undefined && y + 1 < this.H) {
+          const bi = this.idx(x, y + 1);
+          if (objects[bi] === T.EMPTY && !pathCells.has(bi)) {
+            objects[bi] = CANOPY_TO_TRUNK[fg];
+          }
+        }
+
+        // Repair orphan trunk: add canopy above if space
+        if (TRUNK_TO_CANOPY[obj] !== undefined && y > 0) {
+          const ai = this.idx(x, y - 1);
+          if (foreground[ai] === T.EMPTY) {
+            foreground[ai] = TRUNK_TO_CANOPY[obj];
+          }
+        }
+
+        // Ensure ground is always filled (never -1)
+        if (ground[i] < 0) ground[i] = 1; // default to plain grass
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: Collision
+    // ═══════════════════════════════════════════════════════════════════
+    const WALKABLE_DOORS = new Set([74, 86]); // Wood Door, Stone Door
     for (let i = 0; i < this.size; i++) {
-      if (objects[i] !== T.EMPTY && objects[i] !== 80 && objects[i] !== 57) {
+      if (objects[i] !== T.EMPTY && !WALKABLE_DOORS.has(objects[i])) {
         collision[i] = 1;
       }
     }
