@@ -247,17 +247,21 @@ function generateCastle(rng) {
 // Generate a fence: L-M-R rail pattern, variable length
 // Fences do NOT have doors — they're just walls/barriers
 function generateFence(rng, width) {
-  const fenceMat = rng() < 0.5 ? MATERIALS.fence_white : MATERIALS.fence_wood;
+  // Fence tiles from user tags: 44-47, 68-71, 80-82
+  const FENCE_SETS = [
+    { L: 44, M: 45, R: 46 },
+    { L: 68, M: 69, R: 70 },
+    { L: 80, M: 81, R: 82 },
+  ];
+  const fenceSet = FENCE_SETS[Math.floor(rng() * FENCE_SETS.length)];
   const w = width || (3 + Math.floor(rng() * 6)); // 3-8 wide
   const row = [];
-
-  // Proper L-M-R pattern: left end, middles, right end
   for (let i = 0; i < w; i++) {
-    if (i === 0) row.push(fenceMat.rail.L);
-    else if (i === w - 1) row.push(fenceMat.rail.R);
-    else row.push(fenceMat.rail.M);
+    if (i === 0) row.push(fenceSet.L);
+    else if (i === w - 1) row.push(fenceSet.R);
+    else row.push(fenceSet.M);
   }
-  return { w, h: 1, rows: [row], tileCount: w, isFence: true };
+  return { w, h: 1, rows: [row], tileCount: w, isFence: true, hasDoor: false };
 }
 
 // ── Tree Pairs (canopyL, canopyR, trunkL, trunkR) ──────────────────────────
