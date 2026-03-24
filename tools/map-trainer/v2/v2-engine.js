@@ -206,9 +206,14 @@ function generateHouse(rng, wantChimney) {
   }
   rows.push(roofRow);
 
-  // ── ROW 1: Bottom roof — full width, same roof color (overhang/eave) ──
-  // This is the second roof row spanning the full building width
-  const roofRow2 = makeRow(mat.mid); // mid = same color as roof
+  // ── ROW 1: Bottom roof — full width, with pitched roof above door ──
+  const roofRow2 = makeRow(mat.mid);
+  // Pitched roof tile above the door column (tags: pitched-roof)
+  // Gray pitched = 63, Red pitched = 67
+  if (w >= 3) {
+    const isGrayRoof = mat.roof.L === 48 || mat.roof.L === 49 || mat.roof.L === 50;
+    roofRow2[doorX] = isGrayRoof ? 63 : 67;
+  }
   rows.push(roofRow2);
 
   // ── ROWS 2+: Wall rows — 0 for one-story, 1-2 for multi-story ──
