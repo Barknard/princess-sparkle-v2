@@ -778,40 +778,6 @@ class V2Engine {
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 3a: Fences — horizontal runs with proper L-M-R, 2+ tiles from buildings
-    // ═══════════════════════════════════════════════════════════════════
-    // Fence tiles from user tags: 44-47 (set A), 68-71 (set B), 80-82 (set C)
-    const FENCE_STYLES = [
-      { L: 44, M: 45, R: 46 },   // fence set A
-      { L: 68, M: 69, R: 70 },   // fence set B
-      { L: 80, M: 81, R: 82 },   // fence set C
-    ];
-
-    const numFences = 1 + Math.floor(rng() * 2); // 1-2 fence runs
-    for (let fi = 0; fi < numFences; fi++) {
-      const fenceType = FENCE_STYLES[Math.floor(rng() * FENCE_STYLES.length)];
-      const fy = 2 + Math.floor(rng() * (this.H - 4));
-      const startX = 1 + Math.floor(rng() * (this.W / 2));
-      const fenceLen = 4 + Math.floor(rng() * 5); // 4-8 tiles
-
-      let canPlace = true;
-      for (let dx = 0; dx < fenceLen && canPlace; dx++) {
-        const fx = startX + dx;
-        if (!this.inBounds(fx, fy)) { canPlace = false; break; }
-        if (objects[this.idx(fx, fy)] !== T.EMPTY) { canPlace = false; break; }
-        if (buildingBuffer.has(this.idx(fx, fy))) { canPlace = false; break; }
-      }
-      if (!canPlace) continue;
-
-      for (let dx = 0; dx < fenceLen; dx++) {
-        const fx = startX + dx;
-        const tile = dx === 0 ? fenceType.L : dx === fenceLen - 1 ? fenceType.R : fenceType.M;
-        objects[this.idx(fx, fy)] = tile;
-        collision[this.idx(fx, fy)] = 1;
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
     // STEP 3b: Path network — connect all doors with paths
     // Strategy: every door gets a clear exit, then doors connect to a
     // shared backbone path that runs through the village.
@@ -906,6 +872,43 @@ class V2Engine {
 
     // 3. Finalize paths with proper edge tiles
     finalizePaths();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3c: Fences — placed AFTER paths so they don't cross
+    // ═══════════════════════════════════════════════════════════════════
+    const FENCE_STYLES = [
+      { L: 44, M: 45, R: 46, post: 47 },
+      { L: 68, M: 69, R: 70, post: 71 },
+      { L: 80, M: 81, R: 82, post: 81 },
+    ];
+    const numFences = 1 + Math.floor(rng() * 2);
+    for (let fi = 0; fi < numFences; fi++) {
+      const fenceType = FENCE_STYLES[Math.floor(rng() * FENCE_STYLES.length)];
+      const fy = 2 + Math.floor(rng() * (this.H - 4));
+      const startX = 1 + Math.floor(rng() * (this.W / 2));
+      const fenceLen = 4 + Math.floor(rng() * 5);
+
+      let canPlace = true;
+      for (let dx = 0; dx < fenceLen && canPlace; dx++) {
+        const fx = startX + dx;
+        if (!this.inBounds(fx, fy)) { canPlace = false; break; }
+        if (objects[this.idx(fx, fy)] !== T.EMPTY) { canPlace = false; break; }
+        if (buildingBuffer.has(this.idx(fx, fy))) { canPlace = false; break; }
+        if (pathCells.has(this.idx(fx, fy))) { canPlace = false; break; }
+      }
+      if (!canPlace) continue;
+
+      for (let dx = 0; dx < fenceLen; dx++) {
+        const fx = startX + dx;
+        let tile;
+        if (dx === 0) tile = fenceType.L;
+        else if (dx === fenceLen - 1) tile = fenceType.R;
+        else if (dx % 3 === 0) tile = fenceType.post;
+        else tile = fenceType.M;
+        objects[this.idx(fx, fy)] = tile;
+        collision[this.idx(fx, fy)] = 1;
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 4: Trees & Foreground
