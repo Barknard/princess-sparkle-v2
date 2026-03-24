@@ -76,11 +76,12 @@ const MATERIALS = {
     base:  { L: 84, M: 85, R: 87 },
     door:  86, // catalog: "Dark Stone Door"
   },
-  stone: {
-    // Stone/gray building (no colored roof — flat stone top)
-    roof:  { L: 56, M: 58, R: 57 },  // Gray stone arch top / dark gray stone wall
-    mid:   { L: 76, M: 81, R: 79 },  // Blue-gray panel / medium gray / gray wall
-    base:  { L: 82, M: 81, R: 82 },  // Dark stone wall
+  gray: {
+    // Gray/stone building — uses stone wall tiles (48-50) as "roof"
+    // and darker stone for walls below
+    roof:  { L: 48, M: 49, R: 50 },  // Stone wall top row (these look like gray roof)
+    mid:   { L: 84, M: 85, R: 87 },  // Dark stone wall L/Center/Window
+    base:  { L: 84, M: 85, R: 87 },  // Same dark stone for base
     door:  86, // Dark Stone Door
   },
   fence_white: {
@@ -94,17 +95,17 @@ const MATERIALS = {
     post:  108,
   },
   castle: {
-    // Castle uses stone-family tiles in a specific pattern
-    // Towers are optional bookends, walls fill solid between
-    roof:  { L: 56, M: 58, R: 57 },    // stone arch / dark stone (top row)
-    mid:   { L: 84, M: 85, R: 87 },    // dark stone walls (mid rows)
-    base:  { L: 82, M: 81, R: 82 },    // dark stone base
-    gate:  { L: 86, R: 86 },           // stone doors as gate
-    tower: 56,                           // stone arch top as tower cap
+    // Castle tiles from user's painted map (Kenney Tiny Town castle set)
+    // Note: tile-catalog.json misidentifies these as water/fence — they ARE castle tiles
+    roof:  { L: 96, M: 96, R: 98 },    // 96=castle wall L, 98=castle wall R
+    mid:   { L: 120, M: 120, R: 122 }, // 120=castle mid L, 122=castle mid R
+    base:  { L: 123, M: 123, R: 124 }, // 123=castle base L, 124=castle base R
+    gate:  { L: 111, R: 112 },          // 111=gate L, 112=gate R
+    tower: 102,                          // tower cap piece
     door:  -1,
   },
 };
-const MATERIAL_KEYS = ['red', 'blue', 'stone']; // house materials
+const MATERIAL_KEYS = ['red', 'blue', 'gray']; // house materials
 
 // ── Procedural Building Generators ──────────────────────────────────────────
 // Every building is uniquely generated from rules. Painted templates are
@@ -159,19 +160,20 @@ function generateHouse(rng) {
   return { w, h: rows.length, rows, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
-// Generate a castle: towers (optional), walls, gate
+// Generate a castle: thick solid walls with towers and gate
+// Modeled after user's painted castle: tower caps on corners, solid wall fill between,
+// gate centered at bottom. Every cell is filled — no thin outlines.
 function generateCastle(rng) {
   const mat = MATERIALS.castle;
-  const hasTowers = rng() < 0.7;         // 70% chance of towers
-  const gateWidth = 2;                     // gate is always 2 wide (L+R)
+  const hasTowers = rng() < 0.7;
   const wallsPerSide = 1 + Math.floor(rng() * 2); // 1-2 wall columns per side
-  const towerH = hasTowers ? (2 + Math.floor(rng() * 2)) : 0; // 2-3 tall towers
-  const bodyH = 2 + Math.floor(rng() * 2); // 2-3 tall body
+  const totalH = 3 + Math.floor(rng() * 2);        // 3-4 tall minimum (thick!)
 
   // Width: tower(1) + walls + gate(2) + walls + tower(1)
   const sideW = hasTowers ? 1 + wallsPerSide : wallsPerSide;
-  const totalW = sideW + gateWidth + sideW;
-  const totalH = Math.max(towerH, bodyH);
+  const totalW = Math.max(4, sideW + 2 + sideW); // min 4 wide
+  const gateCol1 = sideW;
+  const gateCol2 = sideW + 1;
   const rows = [];
 
   for (let dy = 0; dy < totalH; dy++) {
@@ -179,24 +181,36 @@ function generateCastle(rng) {
     for (let dx = 0; dx < totalW; dx++) {
       const isLeftTower = hasTowers && dx === 0;
       const isRightTower = hasTowers && dx === totalW - 1;
-      const isGateL = dx === sideW;
-      const isGateR = dx === sideW + 1;
-      const isWall = !isLeftTower && !isRightTower && !isGateL && !isGateR;
+      const isGate = dx === gateCol1 || dx === gateCol2;
+      const isLeft = dx < gateCol1;
+      const isRight = dx > gateCol2;
 
       if (isLeftTower || isRightTower) {
-        if (dy === 0) row.push(mat.tower);           // tower cap
+        // Tower column: cap on top, wall fill below
+        if (dy === 0) row.push(mat.tower);
         else if (dy < totalH - 1) row.push(isLeftTower ? mat.mid.L : mat.mid.R);
         else row.push(isLeftTower ? mat.base.L : mat.base.R);
-      } else if (isGateL || isGateR) {
-        // Gate opening is only at the bottom — solid wall above
-        if (dy === 0) row.push(isGateL ? mat.roof.L : mat.roof.R);
-        else if (dy < totalH - 2) row.push(isGateL ? mat.mid.L : mat.mid.R); // solid wall
-        else if (dy === totalH - 2) row.push(isGateL ? mat.gate.L : mat.gate.R);
-        else row.push(isGateL ? mat.base.L : mat.base.R);
-      } else if (isWall) {
-        if (dy === 0) row.push(dx < sideW ? mat.roof.L : mat.roof.R);
-        else if (dy < totalH - 1) row.push(dx < sideW ? mat.mid.L : mat.mid.R);
-        else row.push(dx < sideW ? mat.base.L : mat.base.R);
+      } else if (isGate) {
+        // Gate column: wall on top rows, gate near bottom, base at very bottom
+        const gateL = dx === gateCol1;
+        if (dy < totalH - 2) {
+          // Solid wall above gate
+          row.push(gateL ? mat.roof.L : mat.roof.R);
+        } else if (dy === totalH - 2) {
+          // Gate opening
+          row.push(gateL ? mat.gate.L : mat.gate.R);
+        } else {
+          // Base
+          row.push(gateL ? mat.base.L : mat.base.R);
+        }
+      } else {
+        // Regular wall: solid fill throughout
+        const wallSide = isLeft ? mat.roof.L : mat.roof.R;
+        const wallMid = isLeft ? mat.mid.L : mat.mid.R;
+        const wallBase = isLeft ? mat.base.L : mat.base.R;
+        if (dy === 0) row.push(wallSide);
+        else if (dy < totalH - 1) row.push(wallMid);
+        else row.push(wallBase);
       }
     }
     rows.push(row);
