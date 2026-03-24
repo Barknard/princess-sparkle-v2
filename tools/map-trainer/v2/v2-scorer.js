@@ -23,10 +23,13 @@ for (let i = 72; i <= 89; i++) WALL_TILES.add(i); // extended: includes 88,89 (i
 [44, 45, 56, 57, 68, 76, 79, 80, 81, 82, 83, 84, 85].forEach(t => WALL_TILES.add(t)); // stone/arch tiles
 const DOOR_TILES = new Set([57, 74, 80, 86]); // 57=arch base, 80=dark archway
 const FENCE_TILES = new Set([96, 97, 98, 99, 100, 101]);
-// Trees/vegetation on FOREGROUND layer (user's style)
-const CANOPY_TILES = new Set([4, 5, 7, 8, 10, 11]);
-const TRUNK_TILES = new Set([12, 13, 22, 23, 24, 25]);
-const SMALL_TREES = new Set([6, 9, 16, 17]);
+// Trees/vegetation — ALL on FOREGROUND layer (user's style)
+// Canopy tops: green(4), pine(7), autumn(3), dark(6), bush-canopy(28,20)
+const CANOPY_TILES = new Set([3, 4, 6, 7, 28, 20]);
+// Trunk bottoms: green(16), pine(19), autumn(15), dark(18)
+const TRUNK_TILES = new Set([15, 16, 18, 19]);
+// Small standalone trees/bushes (no trunk needed)
+const SMALL_TREES = new Set([17, 27, 31, 32, 34]);
 // Decorations — user puts these on FOREGROUND layer, not objects
 const DECO_TILES = new Set([3, 15, 18, 19, 20, 27, 28, 29, 31, 32, 34, 93, 102, 103, 107]);
 const WATER_TILES = new Set([109, 110, 111, 112, 113, 120, 121, 122, 123, 124]);
@@ -53,7 +56,7 @@ class V2Scorer {
     const violations = [];
     const details = [];
     breakdown.pathNetwork = this._scorePaths(ground, W, H, details, violations);
-    breakdown.buildings = this._scoreBuildings(ground, objects, W, H, details, violations);
+    breakdown.buildings = this._scoreBuildings(ground, objects, foreground, W, H, details, violations);
     breakdown.treeQuality = this._scoreTrees(objects, foreground, W, H, details, violations);
     breakdown.decorations = this._scoreDecorations(objects, foreground, W, H, details);
     breakdown.groundTexture = this._scoreGround(ground, W, H, details);
@@ -134,29 +137,42 @@ class V2Scorer {
     return Math.min(10, score);
   }
 
-  _scoreBuildings(ground, objects, W, H, details, violations) {
+  _scoreBuildings(ground, objects, foreground, W, H, details, violations) {
+    // Material sets for consistency checking
+    const RED_SET = new Set([48,49,50,60,62,63,72,75,85,80]);
+    const GRAY_SET = new Set([52,53,54,64,65,66,67,76,79,88,89,57]);
+    const BLUE_SET = new Set([51,55,61,84]);
+    const CASTLE_SET = new Set([92,96,98,102,104,111,112,120,122,123,124]);
+    const STONE_SET = new Set([44,45,56,57,68,81,82,94]);
+    const DOOR_SET = new Set([57, 80, 82, 94]);
+
+    // Flood-fill to find connected object structures
     const buildings = [];
     const visited = new Set();
-    for (let y = 0; y < H - 1; y++) {
+    for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        if (visited.has(`${x},${y}`)) continue;
-        if (!ROOF_TILES.has(objects[y * W + x])) continue;
-        // Scan roof width
-        let endX = x;
-        while (endX + 1 < W && ROOF_TILES.has(objects[y * W + endX + 1])) endX++;
-        const bw = endX - x + 1;
-        // Mark visited
-        for (let dx = 0; dx < bw; dx++) visited.add(`${x + dx},${y}`);
-        // Check wall below
-        let hasWall = true;
-        let hasDoor = false;
-        for (let dx = 0; dx < bw; dx++) {
-          const wt = objects[(y + 1) * W + x + dx];
-          if (!WALL_TILES.has(wt)) hasWall = false;
-          if (DOOR_TILES.has(wt)) hasDoor = true;
+        const k = `${x},${y}`;
+        if (visited.has(k)) continue;
+        const t = objects[y * W + x];
+        if (t < 0) continue;
+        const tiles = [];
+        const queue = [{ x, y }];
+        let minX = W, maxX = 0, minY = H, maxY = 0;
+        while (queue.length) {
+          const { x: cx, y: cy } = queue.shift();
+          const kk = `${cx},${cy}`;
+          if (visited.has(kk) || cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+          const tt = objects[cy * W + cx];
+          if (tt < 0) continue;
+          visited.add(kk);
+          tiles.push({ x: cx, y: cy, tile: tt });
+          minX = Math.min(minX, cx); maxX = Math.max(maxX, cx);
+          minY = Math.min(minY, cy); maxY = Math.max(maxY, cy);
+          queue.push({ x: cx + 1, y: cy }, { x: cx - 1, y: cy }, { x: cx, y: cy + 1 }, { x: cx, y: cy - 1 });
         }
-
-        buildings.push({ x, y, w: bw, hasWall, hasDoor });
+        if (tiles.length >= 3) {
+          buildings.push({ minX, minY, maxX, maxY, tiles, w: maxX - minX + 1, h: maxY - minY + 1 });
+        }
       }
     }
 
@@ -164,90 +180,184 @@ class V2Scorer {
     if (buildings.length === 0) { violations.push('No buildings found'); return 0; }
 
     let score = 0;
-    if (buildings.length >= 2 && buildings.length <= 6) score += 2;
+    // Count
+    if (buildings.length >= 2 && buildings.length <= 8) score += 2;
     else if (buildings.length >= 1) score += 1;
-    const structurallySound = buildings.filter(b => b.hasWall).length;
-    score += Math.min(3, Math.round((structurallySound / buildings.length) * 3));
-    if (structurallySound < buildings.length) {
-      violations.push(`${buildings.length - structurallySound} buildings missing walls below roof`);
-    }
 
-    const withDoors = buildings.filter(b => b.hasDoor).length;
-    score += Math.min(2, Math.round((withDoors / buildings.length) * 2));
-    let doorsNearPath = 0;
+    // Structural validation per building
+    let soundCount = 0, materialConsistent = 0, doorClearCount = 0, roofOnTopCount = 0;
     for (const b of buildings) {
-      if (!b.hasDoor) continue;
-      let nearPath = false;
-      for (let dy = 1; dy <= 5; dy++) {
-        for (let dx = -1; dx <= b.w; dx++) {
-          const px = b.x + dx, py = b.y + 1 + dy;
-          if (px >= 0 && px < W && py >= 0 && py < H) {
-            if (PATH_TILES.has(ground[py * W + px])) { nearPath = true; break; }
+      const tileIds = b.tiles.map(t => t.tile).filter(t => t < 200); // skip custom tiles for material check
+      const topRowTiles = b.tiles.filter(t => t.y === b.minY).map(t => t.tile);
+      const botRowTiles = b.tiles.filter(t => t.y === b.maxY).map(t => t.tile);
+
+      // Rule 1: Roof tiles should be on TOP row, wall/base on bottom
+      const roofOnTop = topRowTiles.some(t => ROOF_TILES.has(t) || CASTLE_SET.has(t));
+      const wallOnBot = botRowTiles.some(t => WALL_TILES.has(t) || CASTLE_SET.has(t) || t >= 200);
+      if (roofOnTop && wallOnBot) { soundCount++; roofOnTopCount++; }
+      else if (b.h === 1) soundCount++; // fences are 1-tall, always valid
+
+      // Rule 2: Material consistency — don't mix red roof with gray walls
+      const matCounts = { red: 0, gray: 0, blue: 0, castle: 0, stone: 0 };
+      for (const tid of tileIds) {
+        if (RED_SET.has(tid)) matCounts.red++;
+        if (GRAY_SET.has(tid)) matCounts.gray++;
+        if (BLUE_SET.has(tid)) matCounts.blue++;
+        if (CASTLE_SET.has(tid)) matCounts.castle++;
+        if (STONE_SET.has(tid)) matCounts.stone++;
+      }
+      const mats = Object.entries(matCounts).filter(([, c]) => c > 0);
+      // Allow stone to mix with anything (fences attach to buildings)
+      const nonStoneMats = mats.filter(([k]) => k !== 'stone');
+      if (nonStoneMats.length <= 1) materialConsistent++;
+      else if (nonStoneMats.length === 2) {
+        // Red+blue is OK (user's painted map has this), red+gray is bad
+        const matNames = nonStoneMats.map(([k]) => k);
+        if (matNames.includes('red') && matNames.includes('gray')) {
+          violations.push(`Mixed materials at (${b.minX},${b.minY}): red+gray`);
+        } else {
+          materialConsistent++; // other combos are OK
+        }
+      }
+
+      // Rule 3: Doors at ground level with clear exit below
+      const doors = b.tiles.filter(t => DOOR_SET.has(t.tile));
+      for (const door of doors) {
+        let clear = true;
+        for (let dy = 1; dy <= 2; dy++) {
+          const by = door.y + dy;
+          if (by >= H) continue;
+          const bi = by * W + door.x;
+          if (objects[bi] >= 0 || (foreground[bi] >= 0 && !SMALL_TREES.has(foreground[bi]))) {
+            clear = false;
           }
         }
-        if (nearPath) break;
+        if (clear) doorClearCount++;
+        else violations.push(`Blocked door at (${door.x},${door.y})`);
       }
-      if (nearPath) doorsNearPath++;
     }
-    score += doorsNearPath >= withDoors * 0.7 ? 2 : (doorsNearPath > 0 ? 1 : 0);
-    const widths = new Set(buildings.map(b => b.w));
-    score += widths.size >= 2 ? 1 : 0;
+
+    // Scoring
+    score += Math.min(2, Math.round((soundCount / buildings.length) * 2));
+    score += Math.min(2, Math.round((materialConsistent / buildings.length) * 2));
+    if (soundCount < buildings.length) {
+      violations.push(`${buildings.length - soundCount}/${buildings.length} buildings have structural issues (roof not on top or walls missing)`);
+    }
+
+    // Door accessibility to paths
+    let doorsTotal = 0, doorsNearPath = 0;
+    for (const b of buildings) {
+      const doors = b.tiles.filter(t => DOOR_SET.has(t.tile));
+      doorsTotal += doors.length;
+      for (const door of doors) {
+        for (let dy = 1; dy <= 3; dy++) {
+          const py = door.y + dy;
+          if (py >= 0 && py < H && PATH_TILES.has(ground[py * W + door.x])) { doorsNearPath++; break; }
+        }
+      }
+    }
+    score += doorsNearPath > 0 ? 2 : 0;
+
+    // Size variety
+    const sizes = new Set(buildings.map(b => `${b.w}x${b.h}`));
+    score += sizes.size >= 3 ? 2 : (sizes.size >= 2 ? 1 : 0);
+
+    details.push(`Structural: ${soundCount}/${buildings.length} sound, ${materialConsistent} consistent material, ${doorClearCount} clear doors, ${sizes.size} sizes`);
     return Math.min(10, score);
   }
 
   _scoreTrees(objects, foreground, W, H, details, violations) {
-    let canopyCount = 0, trunkCount = 0, smallTreeCount = 0;
-    let canopyAboveTrunk = 0;
+    // Trees are on FOREGROUND layer. Canopy tile above, trunk tile below.
+    // Valid pairs: 4→16 (green), 7→19 (pine), 3→15 (autumn), 6→18 (dark)
+    const VALID_PAIRS = { 4: 16, 7: 19, 3: 15, 6: 18 };
+    let canopyCount = 0, trunkCount = 0, smallCount = 0;
+    let validPairs = 0, orphanCanopies = 0, orphanTrunks = 0;
     const treeTypes = new Set();
+
+    // Count all tree tiles on foreground
     for (let i = 0; i < foreground.length; i++) {
-      if (CANOPY_TILES.has(foreground[i])) {
-        canopyCount++;
-        const tid = foreground[i];
-        if (tid === 4 || tid === 5) treeTypes.add('green');
-        if (tid === 7 || tid === 8) treeTypes.add('autumn');
-        if (tid === 10 || tid === 11) treeTypes.add('pine');
-      }
-    }
-    for (let i = 0; i < objects.length; i++) {
-      if (TRUNK_TILES.has(objects[i])) trunkCount++;
-      if (SMALL_TREES.has(objects[i])) smallTreeCount++;
+      if (CANOPY_TILES.has(foreground[i])) canopyCount++;
+      if (TRUNK_TILES.has(foreground[i])) trunkCount++;
+      if (SMALL_TREES.has(foreground[i])) smallCount++;
     }
 
+    // Check canopy→trunk pairs (foreground layer, canopy at y, trunk at y+1)
     for (let y = 0; y < H - 1; y++) {
       for (let x = 0; x < W; x++) {
-        if (CANOPY_TILES.has(foreground[y * W + x]) && TRUNK_TILES.has(objects[(y + 1) * W + x])) {
-          canopyAboveTrunk++;
+        const canopy = foreground[y * W + x];
+        const below = foreground[(y + 1) * W + x];
+        if (VALID_PAIRS[canopy] !== undefined) {
+          if (VALID_PAIRS[canopy] === below) {
+            validPairs++;
+            if (canopy === 4) treeTypes.add('green');
+            if (canopy === 7) treeTypes.add('pine');
+            if (canopy === 3) treeTypes.add('autumn');
+            if (canopy === 6) treeTypes.add('dark');
+          } else if (!CANOPY_TILES.has(below)) {
+            // Canopy without its matching trunk = orphan (bushes like 28,20 are OK without trunk)
+            if (canopy !== 28 && canopy !== 20) orphanCanopies++;
+          }
         }
       }
     }
 
-    const totalTrees = trunkCount + smallTreeCount;
-    details.push(`Trees: ${totalTrees} (${trunkCount} trunks, ${canopyCount} canopies, ${smallTreeCount} small)`);
-    let score = 0;
-    if (totalTrees >= 20) score += 3;
-    else if (totalTrees >= 8) score += 2;
-    else if (totalTrees >= 3) score += 1;
-    score += Math.min(2, treeTypes.size);
-    const pairRatio = trunkCount > 0 ? canopyAboveTrunk / trunkCount : 0;
-    score += pairRatio > 0.6 ? 2 : (pairRatio > 0.3 ? 1 : 0);
-    let borderTrees = 0;
-    for (let y = 0; y < H; y++) {
+    // Check for trunk tiles without canopy above
+    for (let y = 1; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const borderDist = Math.min(x, y, W - 1 - x, H - 1 - y);
-        if (borderDist < 4 && (TRUNK_TILES.has(objects[y * W + x]) || CANOPY_TILES.has(foreground[y * W + x]))) {
-          borderTrees++;
-        }
+        const trunk = foreground[y * W + x];
+        if (!TRUNK_TILES.has(trunk)) continue;
+        const above = foreground[(y - 1) * W + x];
+        const expectedCanopy = Object.entries(VALID_PAIRS).find(([c, t]) => parseInt(t) === trunk);
+        if (expectedCanopy && parseInt(expectedCanopy[0]) !== above) orphanTrunks++;
       }
     }
-    score += borderTrees >= 20 ? 2 : (borderTrees >= 8 ? 1 : 0);
-    let interiorTrees = 0;
-    for (let y = 5; y < H - 5; y++) {
-      for (let x = 5; x < W - 5; x++) {
-        if (TRUNK_TILES.has(objects[y * W + x])) interiorTrees++;
+
+    // Cluster detection: count groups of 3+ adjacent tree tiles
+    const fgTreeSet = new Set();
+    for (let i = 0; i < foreground.length; i++) {
+      if (CANOPY_TILES.has(foreground[i]) || TRUNK_TILES.has(foreground[i]) || SMALL_TREES.has(foreground[i])) {
+        fgTreeSet.add(i);
       }
     }
-    score += interiorTrees >= 4 ? 1 : 0;
-    if (totalTrees === 0) violations.push('No trees found');
+    const visited = new Set();
+    let clusters = 0;
+    for (const idx of fgTreeSet) {
+      if (visited.has(idx)) continue;
+      const queue = [idx];
+      let size = 0;
+      while (queue.length) {
+        const ci = queue.pop();
+        if (visited.has(ci) || !fgTreeSet.has(ci)) continue;
+        visited.add(ci);
+        size++;
+        const cx = ci % W, cy = Math.floor(ci / W);
+        if (cx > 0) queue.push(ci - 1);
+        if (cx < W - 1) queue.push(ci + 1);
+        if (cy > 0) queue.push(ci - W);
+        if (cy < H - 1) queue.push(ci + W);
+      }
+      if (size >= 3) clusters++;
+    }
+
+    const totalVeg = canopyCount + trunkCount + smallCount;
+    details.push(`Trees: ${validPairs} pairs, ${orphanCanopies} orphan canopies, ${orphanTrunks} orphan trunks, ${clusters} clusters, ${smallCount} small, ${totalVeg} total fg vegetation`);
+
+    let score = 0;
+    // Has trees at all
+    if (totalVeg >= 15) score += 2; else if (totalVeg >= 5) score += 1;
+    // Valid canopy+trunk pairs (the KEY structural rule)
+    if (validPairs >= 10) score += 3; else if (validPairs >= 5) score += 2; else if (validPairs >= 2) score += 1;
+    // Penalty for orphans (canopies without trunks or trunks without canopies)
+    if (orphanCanopies > validPairs) violations.push(`${orphanCanopies} canopies missing trunks`);
+    if (orphanTrunks > 0) violations.push(`${orphanTrunks} trunks missing canopies above`);
+    // Tree variety
+    score += Math.min(2, treeTypes.size);
+    // Dense clusters (like corners of reference map)
+    if (clusters >= 2) score += 2; else if (clusters >= 1) score += 1;
+    // Has both clusters AND scattered singles
+    if (clusters >= 1 && smallCount >= 3) score += 1;
+
+    if (totalVeg === 0) violations.push('No trees or vegetation found');
     return Math.min(10, score);
   }
 

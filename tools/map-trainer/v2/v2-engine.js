@@ -50,44 +50,96 @@ const TILE_LAYER = {};
  T.WATER_NW, T.WATER_N, T.WATER_NE, T.WATER_W, T.WATER_CENTER, T.WATER_E,
  T.WATER_SW, T.WATER_S, T.WATER_SE].forEach(t => TILE_LAYER[t] = 'o');
 
-// ── Building Templates (extracted from user's hand-painted map) ─────────────
-// These are the ACTUAL structures the user built, not generic templates.
-// Each row is a row of tile IDs on the objects layer.
-const BUILDINGS = {
-  // 3x3 house: blue stone roof → brick+red roof wall → wood+stone wall
-  house_3x3: {
-    w: 3, h: 3,
-    rows: [ [48, 49, 50], [60, 63, 62], [72, 85, 75] ]
+// ── Building Material System ─────────────────────────────────────────────────
+// Buildings are composed of material sets. Each set has L-M-R tiles for each layer.
+// The middle tile can repeat to make wider buildings. Layers stack vertically.
+// This allows generating buildings of ANY size from a small set of materials.
+const MATERIALS = {
+  red: {
+    roof:  { L: 48, M: 49, R: 50 },
+    mid:   { L: 60, M: 63, R: 62 },  // 63 = wall pattern
+    base:  { L: 72, M: 85, R: 75 },
+    door:  80,
   },
-  // 6x4 double house with blue+dark roofs
-  house_6x4: {
-    w: 6, h: 4,
-    rows: [ [52, 53, 54, -1, -1, -1], [64, 65, 66, 52, 53, 54], [76, 88, 79, 64, 67, 66], [76, 89, 79, 76, 89, 79] ]
+  gray: {
+    roof:  { L: 52, M: 53, R: 54 },
+    mid:   { L: 64, M: 65, R: 66 },
+    base:  { L: 76, M: 88, R: 79 },
+    door:  57,
   },
-  // 8x3 castle/gatehouse
-  castle_8x3: {
-    w: 8, h: 3,
-    rows: [ [44, 45, 45, 45, 48, 51, 49, 50], [56, 94, -1, 94, 60, 61, 63, 62], [68, 82, -1, 80, 72, 84, 85, 75] ]
+  blue: {
+    roof:  { L: 51, M: 49, R: 55 },
+    mid:   { L: 61, M: 63, R: 62 },
+    base:  { L: 84, M: 85, R: 75 },
+    door:  80,
   },
-  // 2x4 tower
-  tower_2x4: {
-    w: 2, h: 4,
-    rows: [ [96, 98], [120, 122], [111, 112], [123, 124] ]
+  castle: {
+    roof:  { L: 96, M: -1, R: 98 },     // towers as bookends
+    mid:   { L: 120, M: -1, R: 122 },
+    base:  { L: 123, M: -1, R: 124 },
+    gate:  { L: 111, R: 112 },
+    tower: 102,
+    door:  -1, // castles use gate instead
   },
-  // 7x1 stone wall/fence
-  stone_wall_7: {
-    w: 7, h: 1,
-    rows: [ [80, 81, 45, 81, 45, 81, 82] ]
+  stone: {
+    wall:  { L: 44, M: 45, R: 44 },      // fence/wall segments
+    base:  { L: 56, M: 94, R: 68 },
+    door:  82,
+    post:  81,
   },
 };
-const BUILDING_KEYS = Object.keys(BUILDINGS);
+const MATERIAL_KEYS = ['red', 'gray', 'blue']; // house materials (castle/stone are special)
 
-// Legacy compat: map old template format to new
-function getBuildingRows(key) {
-  const b = BUILDINGS[key];
-  if (!b) return null;
-  return b.rows;
+// Generate a building of specified width and height from a material
+function generateBuilding(rng, width, height, material) {
+  if (!material) material = MATERIALS[MATERIAL_KEYS[Math.floor(rng() * MATERIAL_KEYS.length)]];
+  const rows = [];
+  const w = Math.max(3, width);  // minimum 3 wide (L-M-R)
+  const h = Math.max(2, height); // minimum 2 tall (roof + base)
+
+  // Build each row: L, then M repeated, then R
+  const makeRow = (lmr) => {
+    const row = [lmr.L];
+    for (let i = 0; i < w - 2; i++) row.push(lmr.M);
+    row.push(lmr.R);
+    return row;
+  };
+
+  if (h >= 3) {
+    // roof row
+    rows.push(makeRow(material.roof));
+    // mid rows (repeat for taller buildings)
+    for (let i = 0; i < h - 2; i++) rows.push(makeRow(material.mid));
+    // base row with door in center
+    const baseRow = makeRow(material.base);
+    if (material.door >= 0) {
+      const doorX = Math.floor(w / 2);
+      baseRow[doorX] = material.door;
+    }
+    rows.push(baseRow);
+  } else {
+    // 2-tall: roof + base with door
+    rows.push(makeRow(material.roof));
+    const baseRow = makeRow(material.base);
+    if (material.door >= 0) baseRow[Math.floor(w / 2)] = material.door;
+    rows.push(baseRow);
+  }
+  return { w, h: rows.length, rows, tileCount: rows.flat().filter(t => t >= 0).length };
 }
+
+// Generate a fence/wall of specified width
+function generateFence(rng, width) {
+  const mat = MATERIALS.stone;
+  const row = [mat.door]; // start with gate
+  for (let i = 1; i < width - 1; i++) {
+    row.push(i % 2 === 0 ? mat.wall.M : mat.post);
+  }
+  row.push(mat.base.M); // end with gate piece
+  return { w: width, h: 1, rows: [row], tileCount: width };
+}
+
+// Keep painted templates as-is (they're always valid)
+// But ALSO allow procedural generation of new building sizes
 
 // ── Tree Pairs (canopyL, canopyR, trunkL, trunkR) ──────────────────────────
 const TREE_TYPES = [
@@ -283,24 +335,31 @@ class V2Engine {
     const pathCells = new Set();
     const pcx = Math.round((d.pathCenter || [0.5, 0.5])[0] * this.W);
     const pcy = Math.round((d.pathCenter || [0.5, 0.5])[1] * this.H);
-    const pathWidth = d.pathWidth || 1; // 1 tile wide (like the reference)
+
+    // Each map picks a primary path material: rock (cobblestone) or dirt
+    const ROCK_PATH = 25;  // cobblestone
+    const DIRT_PATH = 43;  // dirt
+    const pathMaterial = rng() < (d.rockPathChance || 0.6) ? ROCK_PATH : DIRT_PATH;
+    const altMaterial = pathMaterial === ROCK_PATH ? DIRT_PATH : ROCK_PATH;
 
     // Horizontal path — single row through center
     for (let x = 0; x < this.W; x++) {
       if (this.inBounds(x, pcy)) {
-        ground[this.idx(x, pcy)] = 25; // cobblestone
+        ground[this.idx(x, pcy)] = rng() < 0.85 ? pathMaterial : altMaterial;
         pathCells.add(this.idx(x, pcy));
       }
     }
     // Vertical path — single column
     for (let y = 0; y < this.H; y++) {
       if (this.inBounds(pcx, y)) {
-        ground[this.idx(pcx, y)] = 25;
+        ground[this.idx(pcx, y)] = rng() < 0.85 ? pathMaterial : altMaterial;
         pathCells.add(this.idx(pcx, y));
       }
     }
-    // Path edge tiles from painted map (use 24,36,37,38 for borders)
-    const pathEdgeTiles = [24, 36, 37, 38, 13, 14];
+    // Path edge tiles (transitions between path and grass)
+    const pathEdgeTiles = pathMaterial === ROCK_PATH
+      ? [24, 36, 37, 38, 13, 14]   // rock edges
+      : [1, 2, 43];                  // dirt edges
     for (const pi of pathCells) {
       const px = pi % this.W, py = Math.floor(pi / this.W);
       for (const [nx, ny] of [[px-1,py],[px+1,py],[px,py-1],[px,py+1]]) {
@@ -316,16 +375,32 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 3: Buildings — placed in BUILDING rows, using learned templates
+    // STEP 3: Buildings — mix of painted templates + procedurally generated
+    // Painted templates are used as-is. Additional buildings are generated
+    // procedurally using the material system (variable sizes).
     // ═══════════════════════════════════════════════════════════════════
-    if (this._paintedBuildings && this._paintedBuildings.length > 0) {
-      const numBuildings = d.buildingCount || this._paintedBuildings.length;
-      const placed = [];
+    const doorPositions = []; // tracked for clear-path and no-tree zones
+    const placed = []; // building bounding boxes
+    {
+      const numBuildings = d.buildingCount || (this._paintedBuildings?.length || 4) + Math.floor(rng() * 3);
       // Find building rows from layout
       const buildingRows = rowLayout.filter(r => r.type === 'building').map(r => r.row);
 
       for (let bi = 0; bi < numBuildings; bi++) {
-        const bldg = this._paintedBuildings[bi % this._paintedBuildings.length];
+        // Use painted template if available, otherwise generate procedurally
+        let bldg;
+        if (this._paintedBuildings && bi < this._paintedBuildings.length && rng() < 0.6) {
+          bldg = this._paintedBuildings[bi];
+        } else {
+          // Procedural: random size and material
+          const bw = 3 + Math.floor(rng() * 4); // 3-6 wide
+          const bh = 2 + Math.floor(rng() * 3); // 2-4 tall
+          if (rng() < 0.15) {
+            bldg = generateFence(rng, 3 + Math.floor(rng() * 5)); // occasional fence
+          } else {
+            bldg = generateBuilding(rng, bw, bh);
+          }
+        }
 
         for (let attempt = 0; attempt < 80; attempt++) {
           // Place in a building row (learned from layout)
@@ -353,14 +428,18 @@ class V2Engine {
           }
           if (overlap) continue;
 
-          // Place building
+          // Place building + find doors
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;
               const tile = bldg.rows[dy][dx];
               if (tile >= 0) {
                 objects[this.idx(bx + dx, by + dy)] = tile;
-                collision[this.idx(bx + dx, by + dy)] = (tile === 80 || tile === 57) ? 0 : 1;
+                const isDoor = (tile === 80 || tile === 57 || tile === 82 || tile === 94);
+                collision[this.idx(bx + dx, by + dy)] = isDoor ? 0 : 1;
+                if (isDoor) {
+                  doorPositions.push({ x: bx + dx, y: by + dy });
+                }
               }
             }
           }
@@ -371,30 +450,146 @@ class V2Engine {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 4: Foreground — placed in non-building, non-path areas
-    // Uses cross-layer rules: only place on ground tiles that support it
+    // STEP 3b: Door clearance — keep 2 tiles below each door clear, connect to nearest path
     // ═══════════════════════════════════════════════════════════════════
-    const fgCount = Math.round(this.size * (d.fgDensity || 0.19));
+    const doorClearZone = new Set(); // cells that must stay clear of trees/objects
+    for (const door of doorPositions) {
+      // Clear 2 tiles directly below the door (exit space)
+      for (let dy = 1; dy <= 2; dy++) {
+        if (this.inBounds(door.x, door.y + dy)) {
+          const ci = this.idx(door.x, door.y + dy);
+          objects[ci] = T.EMPTY; // clear any accidental objects
+          foreground[ci] = T.EMPTY;
+          collision[ci] = 0;
+          doorClearZone.add(ci);
+        }
+      }
+      // Connect door to nearest path — walk down from door until hitting a path cell
+      let py = door.y + 1;
+      while (py < this.H && !pathCells.has(this.idx(door.x, py))) {
+        const ci = this.idx(door.x, py);
+        if (!pathCells.has(ci)) {
+          ground[ci] = pathMaterial;
+          pathCells.add(ci);
+          doorClearZone.add(ci);
+        }
+        py++;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 4: Trees & Foreground — proper canopy/trunk pairs + clusters
+    // Learned from painted map: trees are 2-cell vertical pairs on foreground
+    //   canopy (top): 4,7,3,6,19,28 | trunk (bottom): 16,19,15,18,20,32
+    // Dense clusters: 3-8 trees packed together (corners, edges)
+    // Single trees: scattered in open areas
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Tree type definitions: [canopy, trunk] pairs (both foreground layer)
+    const TREE_TYPES = [
+      { canopy: 4, trunk: 16, weight: 7 },    // green tree (most common)
+      { canopy: 7, trunk: 19, weight: 5 },     // pine tree
+      { canopy: 3, trunk: 15, weight: 4 },     // autumn tree
+      { canopy: 28, trunk: -1, weight: 3 },    // bush/shrub (no trunk)
+      { canopy: 20, trunk: -1, weight: 2 },    // small bush
+      { canopy: 6, trunk: 18, weight: 1 },     // dark pine
+      { canopy: 27, trunk: -1, weight: 1 },    // flower bush
+      { canopy: 17, trunk: -1, weight: 1 },    // autumn bush
+    ];
+    // Build weighted pool
+    const treePool = [];
+    for (const tt of TREE_TYPES) {
+      for (let i = 0; i < tt.weight; i++) treePool.push(tt);
+    }
+
+    // Helper: can place foreground at (x,y)?
+    const canPlaceFg = (x, y) => {
+      if (!this.inBounds(x, y)) return false;
+      const i = this.idx(x, y);
+      return foreground[i] === T.EMPTY && objects[i] === T.EMPTY
+        && !pathCells.has(i) && !doorClearZone.has(i);
+    };
+
+    // Helper: place a single tree (canopy at x,y — trunk at x,y+1)
+    const placeTree = (x, y, treeType) => {
+      const ci = this.idx(x, y);
+      foreground[ci] = treeType.canopy;
+      if (treeType.trunk >= 0 && this.inBounds(x, y + 1)) {
+        const ti = this.idx(x, y + 1);
+        if (foreground[ti] === T.EMPTY && objects[ti] === T.EMPTY && !pathCells.has(ti)) {
+          foreground[ti] = treeType.trunk;
+        }
+      }
+    };
+
+    // PHASE A: Dense forest clusters (2-4 clusters in corners/edges)
+    const numClusters = Math.max(2, Math.round((d.treeClusters || 3) + (rng() - 0.5) * 2));
+    const clusterZones = []; // track for spacing
+    for (let ci = 0; ci < numClusters; ci++) {
+      // Prefer edges/corners for dense clusters (like the painted map)
+      let cx, cy;
+      if (rng() < 0.6) {
+        // Corner bias
+        cx = rng() < 0.5 ? Math.floor(rng() * 3) : this.W - 1 - Math.floor(rng() * 3);
+        cy = rng() < 0.5 ? Math.floor(rng() * 3) : this.H - 1 - Math.floor(rng() * 3);
+      } else {
+        cx = Math.floor(rng() * this.W);
+        cy = Math.floor(rng() * this.H);
+      }
+
+      // Check not overlapping buildings
+      let blocked = false;
+      for (const p of placed) {
+        if (cx >= p.x - 1 && cx <= p.x + p.w && cy >= p.y - 1 && cy <= p.y + p.h) { blocked = true; break; }
+      }
+      if (blocked) continue;
+
+      // Pick a primary tree type for this cluster (clusters tend to be same species)
+      const primaryType = treePool[Math.floor(rng() * treePool.length)];
+      const clusterSize = 3 + Math.floor(rng() * 5); // 3-7 trees per cluster
+
+      for (let ti = 0; ti < clusterSize; ti++) {
+        const tx = cx + Math.floor((rng() - 0.5) * 4);
+        const ty = cy + Math.floor((rng() - 0.5) * 3);
+        if (!canPlaceFg(tx, ty)) continue;
+        // 70% primary type, 30% variety
+        const ttype = rng() < 0.7 ? primaryType : treePool[Math.floor(rng() * treePool.length)];
+        placeTree(tx, ty, ttype);
+      }
+      clusterZones.push({ x: cx, y: cy });
+    }
+
+    // PHASE B: Single scattered trees in open areas
+    const singleCount = Math.round(this.size * (d.singleTreeDensity || 0.04));
+    for (let attempt = 0; attempt < singleCount * 5; attempt++) {
+      const x = Math.floor(rng() * this.W);
+      const y = Math.floor(rng() * (this.H - 1)); // leave room for trunk below
+      if (!canPlaceFg(x, y)) continue;
+
+      // Not too close to a cluster
+      let nearCluster = false;
+      for (const cz of clusterZones) {
+        if (Math.abs(x - cz.x) < 3 && Math.abs(y - cz.y) < 3) { nearCluster = true; break; }
+      }
+      if (nearCluster) continue;
+
+      const ttype = treePool[Math.floor(rng() * treePool.length)];
+      placeTree(x, y, ttype);
+    }
+
+    // PHASE C: Fill remaining foreground budget with small decorations
     const gToFg = crossLayer.groundToForeground || {};
-    let fgPlaced = 0;
-    for (let attempt = 0; attempt < fgCount * 4 && fgPlaced < fgCount; attempt++) {
+    const targetFg = Math.round(this.size * (d.fgDensity || 0.19));
+    let currentFg = 0;
+    for (let i = 0; i < this.size; i++) { if (foreground[i] !== T.EMPTY) currentFg++; }
+    const remaining = targetFg - currentFg;
+    const smallDecor = [28, 31, 32, 34, 27, 17, 20]; // bushes, flowers, small plants
+    for (let attempt = 0; attempt < remaining * 4 && currentFg < targetFg; attempt++) {
       const x = Math.floor(rng() * this.W);
       const y = Math.floor(rng() * this.H);
-      const i = this.idx(x, y);
-      if (foreground[i] !== T.EMPTY || objects[i] !== T.EMPTY) continue;
-      if (pathCells.has(i)) continue;
-      // Cross-layer: check what foreground tiles go on this ground tile
-      const gTile = String(ground[i]);
-      const allowedFg = gToFg[gTile];
-      let fgTile;
-      if (allowedFg && rng() < 0.6) {
-        const keys = Object.keys(allowedFg);
-        fgTile = parseInt(keys[Math.floor(rng() * keys.length)]);
-      } else {
-        fgTile = fgTiles[Math.floor(rng() * fgTiles.length)];
-      }
-      foreground[i] = fgTile;
-      fgPlaced++;
+      if (!canPlaceFg(x, y)) continue;
+      foreground[this.idx(x, y)] = smallDecor[Math.floor(rng() * smallDecor.length)];
+      currentFg++;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -705,4 +900,4 @@ if (require.main === module) {
   console.log('\nAll self-tests PASSED');
 }
 
-module.exports = { V2Engine, T, BUILDINGS, TREE_TYPES, valueNoise };
+module.exports = { V2Engine, T, MATERIALS, MATERIAL_KEYS, generateBuilding, generateFence, TREE_TYPES, valueNoise };
