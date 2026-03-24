@@ -298,7 +298,7 @@ async function runGeneration() {
 
   for (let i = 0; i < population.length; i++) {
     const dna = population[i];
-    const map = v2engine.generate(dna, i + status.generation * 1000);
+    const map = v2engine.generate(dna, i + status.generation * 1000 + (Math.random() * 0x7fffffff | 0));
     const audit = auditMap(map);
     const result = combinedScore(map, targetMap, audit);
     // VARIATION MODE: fitness = design quality ONLY (not tile match to target)

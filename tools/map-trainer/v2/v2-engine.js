@@ -277,57 +277,62 @@ function generateCastle(rng) {
   //   Row 4: [205, 204, 123, 124, 204, 204]  base row
   //
   // Key: tile 204 (custom) is the PRIMARY wall fill. Castle-tagged tiles are structural.
-  const hasTowers = rng() < 0.7;
-  const bodyW = 2 + Math.floor(rng() * 2); // 2-3 wide gate area
-  const totalW = hasTowers ? bodyW + 4 : bodyW + 2; // towers add 2 per side
-  const totalH = 4 + Math.floor(rng() * 2); // 4-5 tall
+  // Castle structure from painted map:
+  //   204 only at TOWER columns (next to 102 caps)
+  //   Structural tiles (96,98,120,122) at edges and gate-adjacent
+  //   Gate: 2x2 block of 111,112,123,124
+  const totalW = 6; // fixed 6-wide like painted castle
+  const totalH = 5; // fixed 5-tall like painted castle
+  const tL = 1, tR = 4; // tower columns
+  const gL = 2, gR = 3; // gate columns
   const rows = [];
-  const towerCol = hasTowers ? 1 : -1;
-  const towerColR = hasTowers ? totalW - 2 : -1;
-  const gateCol1 = Math.floor(totalW / 2) - 1;
-  const gateCol2 = Math.floor(totalW / 2);
 
   for (let dy = 0; dy < totalH; dy++) {
     const row = [];
     for (let dx = 0; dx < totalW; dx++) {
+      const isTower = dx === tL || dx === tR;
+      const isGateL = dx === gL;
+      const isGateR = dx === gR;
       const isEdgeL = dx === 0;
       const isEdgeR = dx === totalW - 1;
-      const isTowerL = dx === towerCol;
-      const isTowerR = dx === towerColR;
-      const isGateL = dx === gateCol1;
-      const isGateR = dx === gateCol2;
 
       if (dy === 0) {
-        // Top row: tower caps + wall fill (solid, no gaps)
-        if (isTowerL || isTowerR) row.push(102); // tower cap
-        else row.push(204); // wall fill (was -1, caused overlap)
+        // Top: tower caps + thin walls (96/98) at edges, 204 only at non-tower/non-edge
+        if (isTower) row.push(102);
+        else if (isEdgeL) row.push(96);
+        else if (isEdgeR) row.push(98);
+        else row.push(204);
       } else if (dy === 1) {
-        // Second row: wall fill + side pieces
-        if (isTowerL || isTowerR) row.push(204);
+        // Row 1: 204 at towers, 96/98 at gate, thin walls at edges
+        if (isTower) row.push(204);
         else if (isGateL) row.push(96);
         else if (isGateR) row.push(98);
-        else row.push(204); // all filled (was -1 at edges)
-      } else if (dy === totalH - 2) {
-        // Gate top row: 111(TL), 112(TR) — always this pair
-        if (isGateL) row.push(111);  // gate top-left
-        else if (isGateR) row.push(112); // gate top-right
-        else if (isEdgeL) row.push(96);  // left wall
-        else if (isEdgeR) row.push(98);  // right wall
+        else if (isEdgeL) row.push(96);
+        else if (isEdgeR) row.push(98);
         else row.push(204);
-      } else if (dy === totalH - 1) {
-        // Gate bottom row: 123(BL), 124(BR) — always this pair
-        if (isGateL) row.push(123);  // gate bottom-left
-        else if (isGateR) row.push(124); // gate bottom-right
-        else if (isEdgeL) row.push(120); // base left
-        else if (isEdgeR) row.push(122); // base right
-        else row.push(204);
-      } else {
-        // Mid wall rows
-        if (isEdgeL) row.push(96);   // left wall
-        else if (isEdgeR) row.push(98); // right wall
+      } else if (dy === 2) {
+        // Row 2: structural walls + 204 at towers
+        if (isTower) row.push(204);
+        else if (isEdgeL) row.push(96);
+        else if (isEdgeR) row.push(98);
         else if (isGateL) row.push(120);
         else if (isGateR) row.push(122);
-        else row.push(204); // wall fill
+        else row.push(204);
+      } else if (dy === 3) {
+        // Gate top: 111/112 + 204 at towers + edges
+        if (isTower) row.push(204);
+        else if (isEdgeL) row.push(120);
+        else if (isEdgeR) row.push(122);
+        else if (isGateL) row.push(111);
+        else if (isGateR) row.push(112);
+        else row.push(204);
+      } else {
+        // Base: 123/124 gate + 204 at towers + base edges
+        if (isTower) row.push(204);
+        else if (isEdgeL) row.push(205);
+        else if (isGateL) row.push(123);
+        else if (isGateR) row.push(124);
+        else row.push(204);
       }
     }
     rows.push(row);
