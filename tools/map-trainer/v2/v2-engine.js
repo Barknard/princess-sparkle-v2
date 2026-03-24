@@ -190,12 +190,15 @@ function generateHouse(rng, wantChimney) {
 
   // ── ROW 0: Top roof — full width, ONLY roof tiles ──
   const roofRow = makeRow(mat.roof);
-  // Chimney — ALWAYS on top roof row. Large buildings (4+ wide) get chimney more often.
+  // Chimney — on top roof row, NEVER on edge tiles (L or R), only on middle positions
   const actuallyWantChimney = wantChimney || (w >= 4 && rng() < 0.5);
   if (actuallyWantChimney && w >= 3) {
-    const chimneyX = doorX === 0 ? w - 1 : 0;
-    const isGrayRoof = mat.roof.L === 48 || mat.roof.L === 49 || mat.roof.L === 50;
-    roofRow[chimneyX] = isGrayRoof ? 51 : 55;
+    // Place chimney on a middle tile, not at position 0 or w-1
+    const chimneyX = doorX <= 1 ? w - 2 : 1; // avoid edges AND door column
+    if (chimneyX > 0 && chimneyX < w - 1) {
+      const isGrayRoof = mat.roof.L === 48 || mat.roof.L === 49 || mat.roof.L === 50;
+      roofRow[chimneyX] = isGrayRoof ? 51 : 55;
+    }
   }
   rows.push(roofRow);
 
@@ -1233,28 +1236,28 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 6: Repair pass (best practice: fix structural defects)
     // ═══════════════════════════════════════════════════════════════════
-    const CANOPY_TO_TRUNK = { 4: 12, 5: 13, 7: 24, 8: 25, 10: 22, 11: 23 };
-    const TRUNK_TO_CANOPY = { 12: 4, 13: 5, 24: 7, 25: 8, 22: 10, 23: 11 };
+    // Canopy→trunk pairs on FOREGROUND layer (matching placeTree function)
+    const FG_CANOPY_TO_TRUNK = { 4: 16, 7: 19, 3: 15 };
+    const FG_TRUNK_TO_CANOPY = { 16: 4, 19: 7, 15: 3 };
 
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
         const i = this.idx(x, y);
         const fg = foreground[i];
-        const obj = objects[i];
 
-        // Repair orphan canopy: add trunk below if space
-        if (CANOPY_TO_TRUNK[fg] !== undefined && y + 1 < this.H) {
+        // Repair orphan canopy: add FOREGROUND trunk below (NOT objects layer)
+        if (FG_CANOPY_TO_TRUNK[fg] !== undefined && y + 1 < this.H) {
           const bi = this.idx(x, y + 1);
-          if (objects[bi] === T.EMPTY && !pathCells.has(bi)) {
-            objects[bi] = CANOPY_TO_TRUNK[fg];
+          if (foreground[bi] === T.EMPTY && objects[bi] === T.EMPTY) {
+            foreground[bi] = FG_CANOPY_TO_TRUNK[fg];
           }
         }
 
-        // Repair orphan trunk: add canopy above if space
-        if (TRUNK_TO_CANOPY[obj] !== undefined && y > 0) {
+        // Repair orphan trunk: add canopy above on foreground
+        if (FG_TRUNK_TO_CANOPY[fg] !== undefined && y > 0) {
           const ai = this.idx(x, y - 1);
           if (foreground[ai] === T.EMPTY) {
-            foreground[ai] = TRUNK_TO_CANOPY[obj];
+            foreground[ai] = FG_TRUNK_TO_CANOPY[fg];
           }
         }
 
