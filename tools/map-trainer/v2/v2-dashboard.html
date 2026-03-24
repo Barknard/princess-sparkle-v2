@@ -456,35 +456,44 @@ fetch('/api/tile-catalog').then(function(r) { return r.json(); }).then(function(
   (d.tiles || []).forEach(function(t) { tileCatalog[t.id] = t; });
 }).catch(function() {});
 
+var inspectorBaseImg = null; // server-rendered PNG (same as thumbnail)
+
 function openLightbox() {
   // Clear flags for fresh inspection of new map
   flaggedTiles = [];
   localStorage.setItem('flaggedTiles', JSON.stringify(flaggedTiles));
 
-  // Fetch raw map data and render interactive inspector
-  fetch('/api/best-map-data').then(function(r) { return r.json(); }).then(function(data) {
-    inspectorData = data;
+  // Load BOTH the server PNG (for display) and raw data (for inspection)
+  Promise.all([
+    fetch('/api/best-map-data').then(function(r) { return r.json(); }),
+    new Promise(function(resolve) {
+      var img = new Image();
+      img.onload = function() { resolve(img); };
+      img.onerror = function() { resolve(null); };
+      img.src = '/api/best-map?t=' + Date.now(); // cache-bust to match thumbnail
+    })
+  ]).then(function(results) {
+    inspectorData = results[0];
+    inspectorBaseImg = results[1];
     var canvas = document.getElementById('inspector-canvas');
-    var W = data.width, H = data.height;
-    canvas.width = W * 16 * inspectorScale;
-    canvas.height = H * 16 * inspectorScale;
-    canvas.style.width = (W * 16 * inspectorScale) + 'px';
-    canvas.style.height = (H * 16 * inspectorScale) + 'px';
-    // Adjust scale to fit screen
+    var W = inspectorData.width, H = inspectorData.height;
+
+    // Size canvas to fit screen
+    inspectorScale = 4;
     var maxW = window.innerWidth - 380;
     var maxH = window.innerHeight - 60;
-    while (canvas.width > maxW || canvas.height > maxH) {
+    while (W * 16 * inspectorScale > maxW || H * 16 * inspectorScale > maxH) {
       inspectorScale = Math.max(1, inspectorScale - 1);
-      canvas.width = W * 16 * inspectorScale;
-      canvas.height = H * 16 * inspectorScale;
-      canvas.style.width = canvas.width + 'px';
-      canvas.style.height = canvas.height + 'px';
     }
+    canvas.width = W * 16 * inspectorScale;
+    canvas.height = H * 16 * inspectorScale;
+    canvas.style.width = canvas.width + 'px';
+    canvas.style.height = canvas.height + 'px';
+
     renderInspector();
     document.getElementById('inspector').classList.add('active');
     renderFlaggedList();
   }).catch(function(e) {
-    // Fallback: just show the image
     alert('Could not load map data: ' + e.message);
   });
 }
@@ -494,10 +503,7 @@ function closeInspector() {
 }
 
 function renderInspector() {
-  if (!inspectorData || !inspectorTileset || !inspectorTileset.complete) {
-    setTimeout(renderInspector, 200);
-    return;
-  }
+  if (!inspectorData) { setTimeout(renderInspector, 200); return; }
   var canvas = document.getElementById('inspector-canvas');
   var ctx = canvas.getContext('2d');
   var W = inspectorData.width, H = inspectorData.height;
@@ -506,18 +512,9 @@ function renderInspector() {
   ctx.fillStyle = '#0a0a1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw all 3 layers
-  var layers = [inspectorData.ground, inspectorData.objects, inspectorData.foreground];
-  for (var li = 0; li < layers.length; li++) {
-    var layer = layers[li];
-    if (!layer) continue;
-    for (var i = 0; i < layer.length; i++) {
-      var t = layer[i];
-      if (t < 0) continue;
-      var sx = (t % 12) * 16, sy = Math.floor(t / 12) * 16;
-      var dx = (i % W) * s, dy = Math.floor(i / W) * s;
-      ctx.drawImage(inspectorTileset, sx, sy, 16, 16, dx, dy, s, s);
-    }
+  // Draw the SERVER-RENDERED PNG (same image as the thumbnail)
+  if (inspectorBaseImg) {
+    ctx.drawImage(inspectorBaseImg, 0, 0, canvas.width, canvas.height);
   }
 
   // Draw grid
