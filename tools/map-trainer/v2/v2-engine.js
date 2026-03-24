@@ -114,37 +114,39 @@ const MATERIAL_KEYS = ['red', 'blue', 'gray']; // house materials
 // Generate a house: roof on top, mid detail above door only, base with door
 function generateHouse(rng) {
   const mat = MATERIALS[MATERIAL_KEYS[Math.floor(rng() * MATERIAL_KEYS.length)]];
-  const w = 3 + Math.floor(rng() * 4);   // 3-6 wide
+  const w = 2 + Math.floor(rng() * 5);   // 2-6 wide (min 2 per user rule)
   const rows = [];
 
   const makeRow = (lmr) => {
+    if (w === 2) return [lmr.L, lmr.R];
     const row = [lmr.L];
     for (let i = 0; i < w - 2; i++) row.push(lmr.M);
     row.push(lmr.R);
     return row;
   };
 
-  // Pick door position first (drives the pitched roof placement)
-  const doorPositions = [1, Math.floor(w / 2), w - 2];
-  const doorX = Math.min(doorPositions[Math.floor(rng() * doorPositions.length)], w - 1);
+  // Pick door position (center-ish)
+  const doorX = w === 2 ? Math.floor(rng() * 2) : Math.min(1 + Math.floor(rng() * (w - 2)), w - 1);
 
   // Roof row
   rows.push(makeRow(mat.roof));
 
-  // Mid row — pitched roof detail goes ONLY above the door column
-  // The "mid" tiles (60/61/62/63 etc) are the under-roof overhang
-  // They sit in one row, only above where the door is
-  const hasMidDetail = rng() < 0.7; // 70% of houses have the overhang detail
-  if (hasMidDetail) {
-    const midRow = makeRow(mat.base); // default to base tiles
-    // Place mid L-M-R centered on the door position (3-tile overhang)
+  // Mid row — pitched roof detail ONLY above the door column
+  // Always include at least 1 mid row (minimum 3 tall: roof + mid + base)
+  const midRow = makeRow(mat.base); // default to base wall tiles
+  // Place mid L-M-R overhang centered on door position
+  if (w >= 3) {
     const overhangStart = Math.max(0, doorX - 1);
     const overhangEnd = Math.min(w - 1, doorX + 1);
-    if (overhangStart < w) midRow[overhangStart] = mat.mid.L;
+    midRow[overhangStart] = mat.mid.L;
     midRow[doorX] = mat.mid.M;
-    if (overhangEnd < w) midRow[overhangEnd] = mat.mid.R;
-    rows.push(midRow);
+    midRow[overhangEnd] = mat.mid.R;
+  } else {
+    // 2-wide: just use mid tiles
+    midRow[0] = mat.mid.L;
+    midRow[w - 1] = mat.mid.R;
   }
+  rows.push(midRow);
 
   // Extra wall rows for taller buildings (0-1 additional)
   const extraWalls = Math.floor(rng() * 2); // 0-1
@@ -444,8 +446,8 @@ class V2Engine {
     const placed = []; // building bounding boxes
     {
       // Building count learned from painted map, with some variation
-      const baseCount = this._paintedBuildings?.length || 4;
-      const numBuildings = Math.max(3, baseCount + Math.floor((rng() - 0.5) * 4)); // ±2 from base
+      const baseCount = this._paintedBuildings?.length || 5;
+      const numBuildings = Math.max(5, baseCount + Math.floor((rng() - 0.3) * 3)); // 5 minimum
       // Find building rows from layout
       const buildingRows = rowLayout.filter(r => r.type === 'building').map(r => r.row);
 
@@ -453,15 +455,15 @@ class V2Engine {
         // ALL buildings are procedurally generated from rules — never copied
         let bldg;
         const roll = rng();
-        if (roll < 0.10) {
-          bldg = generateCastle(rng);       // 10% castle
-        } else if (roll < 0.20) {
-          bldg = generateFence(rng);         // 10% fence
+        if (roll < 0.12) {
+          bldg = generateFence(rng);         // 12% fence
+        } else if (roll < 0.18) {
+          bldg = generateCastle(rng);        // 6% castle (rare, 1 per village)
         } else {
-          bldg = generateHouse(rng);         // 80% house (varied materials + sizes)
+          bldg = generateHouse(rng);         // 82% house
         }
 
-        for (let attempt = 0; attempt < 80; attempt++) {
+        for (let attempt = 0; attempt < 120; attempt++) {
           // Place in a building row (learned from layout)
           const by = buildingRows.length > 0
             ? buildingRows[Math.floor(rng() * buildingRows.length)]
@@ -474,7 +476,7 @@ class V2Engine {
           // Check spacing
           let tooClose = false;
           for (const p of placed) {
-            if (Math.abs(bx - p.x) < (d.buildingSpacing || 5) && Math.abs(by - p.y) < 3) { tooClose = true; break; }
+            if (Math.abs(bx - p.x) < (d.buildingSpacing || 3) && Math.abs(by - p.y) < 2) { tooClose = true; break; }
           }
           if (tooClose) continue;
 
