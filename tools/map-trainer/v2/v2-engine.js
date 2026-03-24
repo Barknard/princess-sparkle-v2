@@ -1017,14 +1017,22 @@ class V2Engine {
       const startX = 1 + Math.floor(rng() * (this.W / 2));
       const fenceLen = 4 + Math.floor(rng() * 5);
 
+      // Check fence placement — must be away from buildings AND castle (2-tile margin)
+      const CASTLE_CHECK = new Set([102, 204, 205, 96, 98, 120, 122, 111, 112, 123, 124]);
       let canPlace = true;
-      for (let dy = 0; dy < fenceH && canPlace; dy++) {
-        for (let dx = 0; dx < fenceLen && canPlace; dx++) {
+      for (let dy = -1; dy <= fenceH && canPlace; dy++) {
+        for (let dx = -1; dx <= fenceLen && canPlace; dx++) {
           const fx = startX + dx, fpy = fy + dy;
-          if (!this.inBounds(fx, fpy)) { canPlace = false; break; }
-          if (objects[this.idx(fx, fpy)] !== T.EMPTY) { canPlace = false; break; }
-          if (buildingBuffer.has(this.idx(fx, fpy))) { canPlace = false; break; }
-          if (pathCells.has(this.idx(fx, fpy))) { canPlace = false; break; }
+          if (!this.inBounds(fx, fpy)) continue;
+          const ci = this.idx(fx, fpy);
+          if (dy >= 0 && dy < fenceH && dx >= 0 && dx < fenceLen) {
+            // Exact footprint: must be empty
+            if (objects[ci] !== T.EMPTY) { canPlace = false; break; }
+            if (buildingBuffer.has(ci)) { canPlace = false; break; }
+            if (pathCells.has(ci)) { canPlace = false; break; }
+          }
+          // Extended check: no castle tiles within 1 tile of fence
+          if (CASTLE_CHECK.has(objects[ci])) { canPlace = false; break; }
         }
       }
       if (!canPlace) continue;
