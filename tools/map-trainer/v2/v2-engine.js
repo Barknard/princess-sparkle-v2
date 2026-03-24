@@ -143,15 +143,12 @@ function generateHouse(rng) {
   const extraWalls = 1 + Math.floor(rng() * 2); // 1-2 extra wall rows for taller buildings
   for (let i = 0; i < extraWalls; i++) rows.push(makeRow(mat.base));
 
-  // Base row — only ~35% of buildings get a door (painted map: 2/6 = 33%)
+  // Base row — door placement controlled by caller via wantDoor parameter
   const baseRow = makeRow(mat.base);
-  const hasDoor = rng() < 0.35;
-  if (hasDoor && mat.door >= 0) {
-    baseRow[doorX] = mat.door;
-  }
   rows.push(baseRow);
 
-  return { w, h: rows.length, rows, tileCount: rows.flat().filter(t => t >= 0).length };
+  // Return building with doorX info so caller can optionally add door
+  return { w, h: rows.length, rows, doorX, doorTile: mat.door, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
 // Generate a castle: thick solid walls with towers and gate
@@ -573,16 +570,24 @@ class V2Engine {
           if (overlap) continue;
 
           // Place building + find doors (only real building doors, not fence pieces)
-          const REAL_DOORS = new Set([80]); // 80=Dark Archway Opening (the ACTUAL door in this tileset)
+          // Decide if this building gets a door (max 2 per map, like painted map)
+          const giveDoor = !bldg.isFence && doorPositions.length < 2 && bldg.doorTile >= 0 && rng() < 0.45;
+          if (giveDoor) {
+            // Place door in the bottom row at the building's doorX
+            const doorRow = bldg.rows[bldg.h - 1];
+            doorRow[bldg.doorX] = bldg.doorTile;
+          }
+
+          // Place all tiles
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;
               const tile = bldg.rows[dy][dx];
               if (tile >= 0) {
                 objects[this.idx(bx + dx, by + dy)] = tile;
-                collision[this.idx(bx + dx, by + dy)] = REAL_DOORS.has(tile) ? 0 : 1;
-                // Only track actual doors (bottom row of building, not fences)
-                if (REAL_DOORS.has(tile) && !bldg.isFence && dy === bldg.h - 1) {
+                const isDoor = tile === 80;
+                collision[this.idx(bx + dx, by + dy)] = isDoor ? 0 : 1;
+                if (isDoor && dy === bldg.h - 1) {
                   doorPositions.push({ x: bx + dx, y: by + dy });
                 }
               }

@@ -209,26 +209,67 @@
     image-rendering: pixelated;
   }
 
-  /* ── Lightbox ────────────────────────────────────── */
-  .lightbox {
+  /* ── Tile Inspector (replaces lightbox) ──────────── */
+  .inspector-overlay {
     display: none;
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0,0,0,0.95);
     z-index: 1000;
-    cursor: pointer;
+    padding: 20px;
+  }
+  .inspector-overlay.active { display: flex; gap: 16px; }
+
+  .inspector-map {
+    flex: 1;
+    position: relative;
+    display: flex;
     align-items: center;
     justify-content: center;
   }
-
-  .lightbox.active {
-    display: flex;
+  .inspector-map canvas {
+    image-rendering: pixelated;
+    cursor: crosshair;
   }
 
-  .lightbox img {
-    max-width: 90vw;
-    max-height: 90vh;
-    image-rendering: pixelated;
+  .inspector-panel {
+    width: 320px;
+    background: #141428;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    padding: 12px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  .inspector-panel h3 { color: #a855f7; margin-bottom: 8px; font-size: 14px; }
+  .inspector-panel .tile-info { margin-bottom: 12px; }
+  .inspector-panel .tile-id { color: #facc15; font-size: 16px; }
+  .inspector-panel .tile-name { color: #22d3ee; }
+  .inspector-panel .tile-layer { color: #4ade80; }
+  .inspector-panel .tile-tags { color: #888; font-size: 10px; }
+  .inspector-panel .neighbors { margin-top: 8px; }
+  .inspector-panel .neighbor-row { display: flex; gap: 4px; margin: 2px 0; }
+  .inspector-panel .neighbor-cell {
+    width: 40px; height: 40px; border: 1px solid #333;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #888; background: #0a0a1a;
+  }
+  .inspector-panel .neighbor-cell.selected { border-color: #a855f7; background: #1a1a3a; }
+  .inspector-panel .btn-flag {
+    background: #ef4444; color: #fff; border: none; border-radius: 4px;
+    padding: 6px 12px; cursor: pointer; margin-top: 8px; font-size: 12px;
+  }
+  .inspector-panel .btn-flag:hover { background: #dc2626; }
+  .inspector-panel .flagged-list { margin-top: 12px; max-height: 200px; overflow-y: auto; }
+  .inspector-panel .flagged-item {
+    background: #1a1020; border: 1px solid #4a2040; border-radius: 4px;
+    padding: 4px 8px; margin: 3px 0; font-size: 11px; color: #f0a0c0;
+  }
+  .inspector-close {
+    position: absolute; top: 10px; right: 10px;
+    background: #333; color: #fff; border: none; border-radius: 50%;
+    width: 32px; height: 32px; cursor: pointer; font-size: 18px; z-index: 1001;
   }
 
   /* ── Controls in header ──────────────────────────── */
@@ -325,9 +366,22 @@
 
 </div>
 
-<!-- LIGHTBOX -->
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <img id="lightbox-img" src="">
+<!-- TILE INSPECTOR -->
+<div class="inspector-overlay" id="inspector">
+  <button class="inspector-close" onclick="closeInspector()">&times;</button>
+  <div class="inspector-map">
+    <canvas id="inspector-canvas" onclick="inspectorClick(event)"></canvas>
+  </div>
+  <div class="inspector-panel">
+    <h3>Tile Inspector</h3>
+    <div id="inspector-info">Click a tile on the map to inspect it</div>
+    <div id="inspector-neighbors"></div>
+    <button class="btn-flag" id="btn-flag" onclick="flagTile()" style="display:none">Flag as Wrong</button>
+    <div class="flagged-list" id="flagged-list">
+      <h3 style="margin-top:12px">Flagged Tiles</h3>
+      <div id="flagged-items"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -377,13 +431,202 @@ document.getElementById('ref-map').onload = drawGridOverlay;
 window.addEventListener('resize', drawGridOverlay);
 setTimeout(drawGridOverlay, 2000);
 
-function openLightbox(src) {
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').classList.add('active');
+// ── Tile Inspector ──────────────────────────────────────
+var inspectorData = null;
+var inspectorTileset = null;
+var inspectorScale = 4; // 16px tiles * 4 = 64px per tile
+var inspectorSelected = null;
+var flaggedTiles = JSON.parse(localStorage.getItem('flaggedTiles') || '[]');
+var tileCatalog = null;
+
+// Load tile catalog for names
+fetch('/tilemap').then(function(r) { return r.blob(); }).then(function(blob) {
+  inspectorTileset = new Image();
+  inspectorTileset.src = URL.createObjectURL(blob);
+});
+
+// Try to load tile catalog names
+fetch('/api/tile-catalog').then(function(r) { return r.json(); }).then(function(d) {
+  tileCatalog = {};
+  (d.tiles || []).forEach(function(t) { tileCatalog[t.id] = t; });
+}).catch(function() {});
+
+function openLightbox() {
+  // Fetch raw map data and render interactive inspector
+  fetch('/api/best-map-data').then(function(r) { return r.json(); }).then(function(data) {
+    inspectorData = data;
+    var canvas = document.getElementById('inspector-canvas');
+    var W = data.width, H = data.height;
+    canvas.width = W * 16 * inspectorScale;
+    canvas.height = H * 16 * inspectorScale;
+    canvas.style.width = (W * 16 * inspectorScale) + 'px';
+    canvas.style.height = (H * 16 * inspectorScale) + 'px';
+    // Adjust scale to fit screen
+    var maxW = window.innerWidth - 380;
+    var maxH = window.innerHeight - 60;
+    while (canvas.width > maxW || canvas.height > maxH) {
+      inspectorScale = Math.max(1, inspectorScale - 1);
+      canvas.width = W * 16 * inspectorScale;
+      canvas.height = H * 16 * inspectorScale;
+      canvas.style.width = canvas.width + 'px';
+      canvas.style.height = canvas.height + 'px';
+    }
+    renderInspector();
+    document.getElementById('inspector').classList.add('active');
+    renderFlaggedList();
+  }).catch(function(e) {
+    // Fallback: just show the image
+    alert('Could not load map data: ' + e.message);
+  });
 }
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('active');
+
+function closeInspector() {
+  document.getElementById('inspector').classList.remove('active');
 }
+
+function renderInspector() {
+  if (!inspectorData || !inspectorTileset || !inspectorTileset.complete) {
+    setTimeout(renderInspector, 200);
+    return;
+  }
+  var canvas = document.getElementById('inspector-canvas');
+  var ctx = canvas.getContext('2d');
+  var W = inspectorData.width, H = inspectorData.height;
+  var s = 16 * inspectorScale;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw all 3 layers
+  var layers = [inspectorData.ground, inspectorData.objects, inspectorData.foreground];
+  for (var li = 0; li < layers.length; li++) {
+    var layer = layers[li];
+    if (!layer) continue;
+    for (var i = 0; i < layer.length; i++) {
+      var t = layer[i];
+      if (t < 0) continue;
+      var sx = (t % 12) * 16, sy = Math.floor(t / 12) * 16;
+      var dx = (i % W) * s, dy = Math.floor(i / W) * s;
+      ctx.drawImage(inspectorTileset, sx, sy, 16, 16, dx, dy, s, s);
+    }
+  }
+
+  // Draw grid
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.3)';
+  ctx.lineWidth = 1;
+  for (var x = 0; x <= W; x++) {
+    ctx.beginPath(); ctx.moveTo(x * s, 0); ctx.lineTo(x * s, H * s); ctx.stroke();
+  }
+  for (var y = 0; y <= H; y++) {
+    ctx.beginPath(); ctx.moveTo(0, y * s); ctx.lineTo(W * s, y * s); ctx.stroke();
+  }
+
+  // Highlight selected tile
+  if (inspectorSelected) {
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(inspectorSelected.x * s + 1, inspectorSelected.y * s + 1, s - 2, s - 2);
+  }
+
+  // Highlight flagged tiles in red
+  for (var fi = 0; fi < flaggedTiles.length; fi++) {
+    var ft = flaggedTiles[fi];
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(ft.x * s + 1, ft.y * s + 1, s - 2, s - 2);
+  }
+}
+
+function inspectorClick(e) {
+  if (!inspectorData) return;
+  var canvas = document.getElementById('inspector-canvas');
+  var rect = canvas.getBoundingClientRect();
+  var s = 16 * inspectorScale;
+  var x = Math.floor((e.clientX - rect.left) / s);
+  var y = Math.floor((e.clientY - rect.top) / s);
+  if (x < 0 || x >= inspectorData.width || y < 0 || y >= inspectorData.height) return;
+
+  inspectorSelected = { x: x, y: y };
+  var idx = y * inspectorData.width + x;
+  var g = inspectorData.ground[idx];
+  var o = inspectorData.objects[idx];
+  var f = inspectorData.foreground[idx];
+
+  var html = '<div class="tile-info">';
+  html += '<div>Position: <span class="tile-id">(' + x + ', ' + y + ')</span></div>';
+  html += '<div class="tile-layer">Ground: <span class="tile-id">' + g + '</span> ' + getTileName(g) + '</div>';
+  html += '<div class="tile-layer">Objects: <span class="tile-id">' + (o >= 0 ? o : 'empty') + '</span> ' + (o >= 0 ? getTileName(o) : '') + '</div>';
+  html += '<div class="tile-layer">Foreground: <span class="tile-id">' + (f >= 0 ? f : 'empty') + '</span> ' + (f >= 0 ? getTileName(f) : '') + '</div>';
+  html += '</div>';
+
+  // Show 3x3 neighborhood
+  html += '<div class="neighbors"><strong>Neighborhood (objects):</strong>';
+  html += '<div style="margin-top:4px">';
+  for (var ny = y - 1; ny <= y + 1; ny++) {
+    html += '<div class="neighbor-row">';
+    for (var nx = x - 1; nx <= x + 1; nx++) {
+      var isCenter = nx === x && ny === y;
+      if (nx < 0 || nx >= inspectorData.width || ny < 0 || ny >= inspectorData.height) {
+        html += '<div class="neighbor-cell">OOB</div>';
+      } else {
+        var ni = ny * inspectorData.width + nx;
+        var nt = inspectorData.objects[ni];
+        html += '<div class="neighbor-cell' + (isCenter ? ' selected' : '') + '">' + (nt >= 0 ? nt : '--') + '</div>';
+      }
+    }
+    html += '</div>';
+  }
+  html += '</div></div>';
+
+  // Tags from catalog
+  if (tileCatalog) {
+    var tags = [];
+    [g, o, f].forEach(function(tid) {
+      if (tid >= 0 && tileCatalog[tid] && tileCatalog[tid].tags) {
+        tags.push(tid + ': ' + tileCatalog[tid].tags.slice(0, 6).join(', '));
+      }
+    });
+    if (tags.length) html += '<div class="tile-tags" style="margin-top:8px">' + tags.join('<br>') + '</div>';
+  }
+
+  document.getElementById('inspector-info').innerHTML = html;
+  document.getElementById('btn-flag').style.display = 'block';
+  renderInspector();
+}
+
+function getTileName(id) {
+  if (id < 0) return '';
+  if (tileCatalog && tileCatalog[id]) return '<span class="tile-name">' + tileCatalog[id].name + '</span>';
+  return '';
+}
+
+function flagTile() {
+  if (!inspectorSelected || !inspectorData) return;
+  var idx = inspectorSelected.y * inspectorData.width + inspectorSelected.x;
+  var entry = {
+    x: inspectorSelected.x, y: inspectorSelected.y,
+    ground: inspectorData.ground[idx],
+    objects: inspectorData.objects[idx],
+    foreground: inspectorData.foreground[idx],
+    note: prompt('What looks wrong here?') || 'flagged',
+    time: new Date().toISOString()
+  };
+  flaggedTiles.push(entry);
+  localStorage.setItem('flaggedTiles', JSON.stringify(flaggedTiles));
+  renderFlaggedList();
+  renderInspector();
+}
+
+function renderFlaggedList() {
+  var html = '';
+  for (var i = flaggedTiles.length - 1; i >= 0; i--) {
+    var f = flaggedTiles[i];
+    html += '<div class="flagged-item">(' + f.x + ',' + f.y + ') g:' + f.ground + ' o:' + f.objects + ' f:' + f.foreground + ' — ' + f.note + '</div>';
+  }
+  document.getElementById('flagged-items').innerHTML = html || '<div style="color:#555">No flagged tiles yet</div>';
+}
+
+function closeLightbox() { closeInspector(); }
 
 // ── Canvas resize helper ──────────────────────────────
 function fitCanvas(canvas) {

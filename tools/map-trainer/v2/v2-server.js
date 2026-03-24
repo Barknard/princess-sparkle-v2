@@ -485,6 +485,19 @@ app.get('/api/best-map', (req, res) => {
   res.send(bestMapPng);
 });
 
+// API: Tile catalog for inspector
+app.get('/api/tile-catalog', (req, res) => {
+  const catalogPath = path.join(__dirname, '..', '..', 'tools', 'tile-catalog.json');
+  if (fs.existsSync(catalogPath)) return res.sendFile(catalogPath);
+  res.status(404).json({ error: 'No tile catalog' });
+});
+
+// API: Best map raw tile data (for interactive inspector)
+app.get('/api/best-map-data', (req, res) => {
+  if (!bestMapData) return res.status(404).json({ error: 'No map yet' });
+  res.json(bestMapData);
+});
+
 // API: Knowledge stats
 app.get('/api/knowledge', (req, res) => {
   try {
