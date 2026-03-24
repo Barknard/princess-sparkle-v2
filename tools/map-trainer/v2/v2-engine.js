@@ -906,60 +906,87 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 3c: Fences — placed AFTER paths so they don't cross
     // ═══════════════════════════════════════════════════════════════════
-    // Build fence styles from tags: fence-end(left) → L, fence-rail → M, fence-end(right) → R, fence-post → post
-    const fenceEndsL = [], fenceEndsR = [], fenceRails = [], fencePosts = [];
+    // Build fence styles from tags, respecting vertical position (top/bottom/single)
+    // Single-row fences: use tiles WITHOUT bottom tag (top or no-position)
+    // Tall fences: top row uses top-tagged, bottom row uses bottom-tagged
+    const fenceTiles = { topL: [], topR: [], topPost: [], botL: [], botR: [], botPost: [], rail: [] };
     for (const [id, tags] of Object.entries(_tileTags)) {
       if (!tags.includes('fence')) continue;
       const tid = parseInt(id);
-      if (tags.includes('fence-end') && tags.includes('left')) fenceEndsL.push(tid);
-      else if (tags.includes('fence-end') && tags.includes('right')) fenceEndsR.push(tid);
-      else if (tags.includes('fence-end')) { fenceEndsL.push(tid); fenceEndsR.push(tid); } // no position = either end
-      if (tags.includes('fence-rail')) fenceRails.push(tid);
-      if (tags.includes('fence-post')) fencePosts.push(tid);
-    }
-    // Build styles pairing top/bottom fence rows
-    const FENCE_STYLES = [];
-    if (fenceEndsL.length && fenceRails.length && fenceEndsR.length) {
-      // Create a few styles from available tiles
-      for (let fi = 0; fi < Math.min(3, fenceEndsL.length); fi++) {
-        FENCE_STYLES.push({
-          L: fenceEndsL[fi % fenceEndsL.length],
-          M: fenceRails[fi % fenceRails.length] || fenceEndsL[0],
-          R: fenceEndsR[fi % fenceEndsR.length],
-          post: fencePosts[fi % fencePosts.length] || fenceRails[0],
-        });
+      const isTop = tags.includes('top');
+      const isBot = tags.includes('bottom');
+      const isL = tags.includes('left');
+      const isR = tags.includes('right');
+      if (tags.includes('fence-rail')) { fenceTiles.rail.push(tid); continue; }
+      if (tags.includes('fence-post')) {
+        if (isTop || (!isTop && !isBot)) fenceTiles.topPost.push(tid);
+        if (isBot) fenceTiles.botPost.push(tid);
+        continue;
+      }
+      if (tags.includes('fence-end')) {
+        if (isL && (isTop || (!isTop && !isBot))) fenceTiles.topL.push(tid);
+        if (isR && (isTop || (!isTop && !isBot))) fenceTiles.topR.push(tid);
+        if (isL && isBot) fenceTiles.botL.push(tid);
+        if (isR && isBot) fenceTiles.botR.push(tid);
+        // No position at all = single row end
+        if (!isTop && !isBot && !isL && !isR) { fenceTiles.topL.push(tid); fenceTiles.topR.push(tid); }
+        if (!isTop && !isBot && isL) fenceTiles.topL.push(tid);
+        if (!isTop && !isBot && isR) fenceTiles.topR.push(tid);
       }
     }
-    // Fallback if no tags
-    if (FENCE_STYLES.length === 0) {
-      FENCE_STYLES.push({ L: 44, M: 81, R: 46, post: 45 });
-    }
+    const pickF = (arr, fb) => arr.length ? arr[Math.floor(rng() * arr.length)] : fb;
+    // Single row style (no bottom corners!)
+    const FENCE_SINGLE = {
+      L: pickF(fenceTiles.topL, 80), M: pickF(fenceTiles.rail, 81),
+      R: pickF(fenceTiles.topR, 82), post: pickF(fenceTiles.topPost, 45),
+    };
+    // Tall fence top + bottom rows
+    const FENCE_TOP = {
+      L: pickF(fenceTiles.topL, 44), M: pickF(fenceTiles.rail, 81),
+      R: pickF(fenceTiles.topR, 46), post: pickF(fenceTiles.topPost, 45),
+    };
+    const FENCE_BOT = {
+      L: pickF(fenceTiles.botL, 68), M: pickF(fenceTiles.rail, 81),
+      R: pickF(fenceTiles.botR, 70), post: pickF(fenceTiles.botPost, 69),
+    };
     const numFences = 1 + Math.floor(rng() * 2);
     for (let fi = 0; fi < numFences; fi++) {
-      const fenceType = FENCE_STYLES[Math.floor(rng() * FENCE_STYLES.length)];
-      const fy = 2 + Math.floor(rng() * (this.H - 4));
+      const isTall = rng() < 0.35; // 35% tall fences
+      const fenceH = isTall ? 2 : 1;
+      const fy = 2 + Math.floor(rng() * (this.H - 4 - fenceH));
       const startX = 1 + Math.floor(rng() * (this.W / 2));
       const fenceLen = 4 + Math.floor(rng() * 5);
 
       let canPlace = true;
-      for (let dx = 0; dx < fenceLen && canPlace; dx++) {
-        const fx = startX + dx;
-        if (!this.inBounds(fx, fy)) { canPlace = false; break; }
-        if (objects[this.idx(fx, fy)] !== T.EMPTY) { canPlace = false; break; }
-        if (buildingBuffer.has(this.idx(fx, fy))) { canPlace = false; break; }
-        if (pathCells.has(this.idx(fx, fy))) { canPlace = false; break; }
+      for (let dy = 0; dy < fenceH && canPlace; dy++) {
+        for (let dx = 0; dx < fenceLen && canPlace; dx++) {
+          const fx = startX + dx, fpy = fy + dy;
+          if (!this.inBounds(fx, fpy)) { canPlace = false; break; }
+          if (objects[this.idx(fx, fpy)] !== T.EMPTY) { canPlace = false; break; }
+          if (buildingBuffer.has(this.idx(fx, fpy))) { canPlace = false; break; }
+          if (pathCells.has(this.idx(fx, fpy))) { canPlace = false; break; }
+        }
       }
       if (!canPlace) continue;
 
-      for (let dx = 0; dx < fenceLen; dx++) {
-        const fx = startX + dx;
-        let tile;
-        if (dx === 0) tile = fenceType.L;
-        else if (dx === fenceLen - 1) tile = fenceType.R;
-        else if (dx % 3 === 0) tile = fenceType.post;
-        else tile = fenceType.M;
-        objects[this.idx(fx, fy)] = tile;
-        collision[this.idx(fx, fy)] = 1;
+      // Place fence row(s)
+      const placeFenceRow = (rowY, style) => {
+        for (let dx = 0; dx < fenceLen; dx++) {
+          const fx = startX + dx;
+          let tile;
+          if (dx === 0) tile = style.L;
+          else if (dx === fenceLen - 1) tile = style.R;
+          else if (dx % 3 === 0) tile = style.post;
+          else tile = style.M;
+          objects[this.idx(fx, rowY)] = tile;
+          collision[this.idx(fx, rowY)] = 1;
+        }
+      };
+      if (isTall) {
+        placeFenceRow(fy, FENCE_TOP);
+        placeFenceRow(fy + 1, FENCE_BOT);
+      } else {
+        placeFenceRow(fy, FENCE_SINGLE);
       }
     }
 
