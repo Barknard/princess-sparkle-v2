@@ -35,39 +35,45 @@
     "tree",
     "left",
     "top",
-    "canopy"
+    "canopy",
+    "dense2"
   ],
   "7": [
     "foreground",
     "top",
     "tree",
-    "canopy"
+    "canopy",
+    "dense1"
   ],
   "8": [
     "tree",
     "foreground",
     "top",
     "right",
-    "canopy"
+    "canopy",
+    "dense2"
   ],
   "9": [
     "tree",
     "left",
     "top",
-    "canopy"
+    "canopy",
+    "dense2"
   ],
   "10": [
     "foreground",
     "tree",
     "top",
-    "canopy"
+    "canopy",
+    "dense1"
   ],
   "11": [
     "foreground",
     "tree",
     "top",
     "right",
-    "canopy"
+    "canopy",
+    "dense2"
   ],
   "12": [
     "ground",
@@ -115,34 +121,40 @@
   "18": [
     "foreground",
     "left",
-    "tree"
+    "tree",
+    "dense1"
   ],
   "19": [
     "foreground",
     "center",
     "middle",
-    "tree"
+    "tree",
+    "dense1"
   ],
   "20": [
     "foreground",
     "right",
-    "tree"
+    "tree",
+    "dense1"
   ],
   "21": [
     "foreground",
     "tree",
-    "left"
+    "left",
+    "dense1"
   ],
   "22": [
     "foreground",
     "center",
     "middle",
-    "tree"
+    "tree",
+    "dense1"
   ],
   "23": [
     "foreground",
     "tree",
-    "right"
+    "right",
+    "dense1"
   ],
   "24": [
     "ground",
@@ -190,40 +202,46 @@
     "bottom",
     "left",
     "foreground",
-    "trunk"
+    "trunk",
+    "dense2"
   ],
   "31": [
     "foreground",
     "tree",
     "bottom",
-    "trunk"
+    "trunk",
+    "dense1"
   ],
   "32": [
     "foreground",
     "tree",
     "bottom",
     "right",
-    "trunk"
+    "trunk",
+    "dense2"
   ],
   "33": [
     "foreground",
     "tree",
     "bottom",
     "left",
-    "trunk"
+    "trunk",
+    "dense2"
   ],
   "34": [
     "foreground",
     "tree",
     "bottom",
-    "trunk"
+    "trunk",
+    "dense1"
   ],
   "35": [
     "tree",
     "foreground",
     "bottom",
     "right",
-    "trunk"
+    "trunk",
+    "dense2"
   ],
   "36": [
     "ground",
@@ -929,6 +947,8 @@
     "stone",
     "chimney",
     "pitched-roof",
-    "well"
+    "well",
+    "dense1",
+    "dense2"
   ]
 }

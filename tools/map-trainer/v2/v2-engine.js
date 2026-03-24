@@ -1116,57 +1116,74 @@ class V2Engine {
     //   Row 2: 19 19 19 19 (dense body)
     //   Edge:  32 20 31 32 (closed border of ground-level bushes/stones)
 
+    // Build dense tree species from tags (dense1 and dense2)
+    const dense1 = { top: [], left: [], center: [], right: [], bottom: [] };
+    const dense2 = { topL: [], topR: [], botL: [], botR: [] };
+    for (const [id, tags] of Object.entries(_tileTags)) {
+      const tid = parseInt(id);
+      if (tags.includes('dense1')) {
+        if (tags.includes('top') && tags.includes('canopy')) dense1.top.push(tid);
+        else if (tags.includes('left')) dense1.left.push(tid);
+        else if (tags.includes('center') || tags.includes('middle')) dense1.center.push(tid);
+        else if (tags.includes('right')) dense1.right.push(tid);
+        else if (tags.includes('bottom')) dense1.bottom.push(tid);
+      }
+      if (tags.includes('dense2')) {
+        if (tags.includes('top') && tags.includes('left')) dense2.topL.push(tid);
+        else if (tags.includes('top') && tags.includes('right')) dense2.topR.push(tid);
+        else if (tags.includes('bottom') && tags.includes('left')) dense2.botL.push(tid);
+        else if (tags.includes('bottom') && tags.includes('right')) dense2.botR.push(tid);
+      }
+    }
+    const pickArr = (arr, fb) => arr.length ? arr[Math.floor(rng() * arr.length)] : fb;
+
     const placeTreeCluster = (cx, cy, w, h) => {
       let count = 0;
-      // Pick canopy top tile: mostly 7 (autumn, matches painted map), sometimes 6
-      const topTile = rng() < 0.7 ? 7 : 6;
-      const bodyTile = 19; // dense body (the primary cluster tile)
-      // Edge tiles from painted map: 32, 20, 31 (stone, bush, sand)
-      const edgeTiles = [32, 20, 31, 28];
+      const isDense2 = rng() < 0.3; // 30% chance of dense2 style
 
-      // ALL ROWS: tile 19 fills densely (edge repair adds canopy tops above)
-      for (let dy = 0; dy < h; dy++) {
-        for (let dx = 0; dx < w; dx++) {
-          if (canPlaceFg(cx + dx, cy + dy)) {
-            foreground[this.idx(cx + dx, cy + dy)] = bodyTile;
-            count++;
+      if (isDense2 && dense2.topL.length) {
+        // Dense2: 2x2 tree blocks (topL+topR over botL+botR)
+        for (let dy = 0; dy < h - 1; dy += 2) {
+          for (let dx = 0; dx < w - 1; dx += 2) {
+            if (canPlaceFg(cx+dx, cy+dy) && canPlaceFg(cx+dx+1, cy+dy) &&
+                canPlaceFg(cx+dx, cy+dy+1) && canPlaceFg(cx+dx+1, cy+dy+1)) {
+              foreground[this.idx(cx+dx, cy+dy)] = pickArr(dense2.topL, 6);
+              foreground[this.idx(cx+dx+1, cy+dy)] = pickArr(dense2.topR, 8);
+              foreground[this.idx(cx+dx, cy+dy+1)] = pickArr(dense2.botL, 30);
+              foreground[this.idx(cx+dx+1, cy+dy+1)] = pickArr(dense2.botR, 32);
+              count += 4;
+            }
           }
         }
-      }
-
-      // CLOSED EDGE BORDER — directional tiles learned from painted map:
-      //   TOP:    7 (canopy), 6 (small tree)       — tree tops close the cluster above
-      //   BOTTOM: 32 (stone), 31 (sand)             — ground-level closure below
-      //   LEFT:   6 (small tree), 18 (fern)         — small vegetation on left side
-      //   RIGHT:  20 (bush), 32 (stone)             — bush/stone on right side
-      const EDGE = {
-        top:    [7, 7, 7, 7, 6],        // heavily weighted toward canopy (7)
-        bottom: [32, 32, 31, 28],        // stone/sand/bush at ground level
-        left:   [6, 6, 18, 28],          // small tree/fern on left
-        right:  [20, 20, 20, 32, 32],   // bush/stone on right
-      };
-      const pickEdge = (dir) => dir[Math.floor(rng() * dir.length)];
-      const placeEdgeTile = (x, y, dir) => {
-        if (canPlaceCanopy(x, y)) { // canopy allows edges near buildings/paths
-          foreground[this.idx(x, y)] = pickEdge(EDGE[dir]);
-          count++;
+      } else {
+        // Dense1: body fills with center tile, edges use L/R/top/bottom
+        const bodyTile = pickArr(dense1.center, 19);
+        for (let dy = 0; dy < h; dy++) {
+          for (let dx = 0; dx < w; dx++) {
+            if (canPlaceFg(cx + dx, cy + dy)) {
+              foreground[this.idx(cx + dx, cy + dy)] = bodyTile;
+              count++;
+            }
+          }
         }
-      };
-
-      // Top edge (canopy closure — most important visually)
-      if (cy > 0) for (let dx = 0; dx < w; dx++) placeEdgeTile(cx + dx, cy - 1, 'top');
-      // Bottom edge (ground-level closure)
-      if (cy + h < this.H) for (let dx = 0; dx < w; dx++) placeEdgeTile(cx + dx, cy + h, 'bottom');
-      // Left edge
-      if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdgeTile(cx - 1, cy + dy, 'left');
-      // Right edge
-      if (cx + w < this.W) for (let dy = 0; dy < h; dy++) placeEdgeTile(cx + w, cy + dy, 'right');
-      // Corners — use the adjacent edge's style
-      if (cy > 0 && cx > 0) placeEdgeTile(cx - 1, cy - 1, 'top');
-      if (cy > 0 && cx + w < this.W) placeEdgeTile(cx + w, cy - 1, 'top');
-      if (cy + h < this.H && cx > 0) placeEdgeTile(cx - 1, cy + h, 'bottom');
-      if (cy + h < this.H && cx + w < this.W) placeEdgeTile(cx + w, cy + h, 'bottom');
-
+        // Directional edges from dense1 tags
+        const placeEdge = (x, y, tile) => {
+          if (canPlaceCanopy(x, y)) { foreground[this.idx(x, y)] = tile; count++; }
+        };
+        // Top: canopy tiles
+        if (cy > 0) for (let dx = 0; dx < w; dx++) placeEdge(cx+dx, cy-1, pickArr(dense1.top, 7));
+        // Bottom: trunk/ground tiles
+        if (cy+h < this.H) for (let dx = 0; dx < w; dx++) placeEdge(cx+dx, cy+h, pickArr(dense1.bottom, 31));
+        // Left
+        if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdge(cx-1, cy+dy, pickArr(dense1.left, 18));
+        // Right
+        if (cx+w < this.W) for (let dy = 0; dy < h; dy++) placeEdge(cx+w, cy+dy, pickArr(dense1.right, 20));
+        // Corners
+        if (cy > 0 && cx > 0) placeEdge(cx-1, cy-1, pickArr(dense1.top, 7));
+        if (cy > 0 && cx+w < this.W) placeEdge(cx+w, cy-1, pickArr(dense1.top, 7));
+        if (cy+h < this.H && cx > 0) placeEdge(cx-1, cy+h, pickArr(dense1.bottom, 31));
+        if (cy+h < this.H && cx+w < this.W) placeEdge(cx+w, cy+h, pickArr(dense1.bottom, 31));
+      }
       return count;
     };
 
@@ -1257,10 +1274,11 @@ class V2Engine {
     // PHASE B2: Edge repair — ONLY for dense cluster body tiles (19)
     // Do NOT trigger edges from edge tiles themselves (prevents cascading)
     const CLUSTER_BODY = new Set([19]);
-    const EDGE_TOP = [7, 7, 7, 6];
-    const EDGE_BOT = [32, 31, 28];
-    const EDGE_LEFT = [6, 18, 28];
-    const EDGE_RIGHT = [20, 20, 32];
+    // Edge tiles from dense1 tags (with fallbacks)
+    const EDGE_TOP = dense1.top.length ? dense1.top : [7, 7, 7, 6];
+    const EDGE_BOT = dense1.bottom.length ? dense1.bottom : [31, 34, 28];
+    const EDGE_LEFT = dense1.left.length ? dense1.left : [18, 21, 28];
+    const EDGE_RIGHT = dense1.right.length ? dense1.right : [20, 23, 32];
     const edgePlaced = new Set(); // track edge placements to prevent chaining
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
