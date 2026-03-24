@@ -897,11 +897,20 @@ class V2Engine {
       }
     };
 
-    // 1. Clear 2 tiles below each door
+
+    // Castle tiles that MUST NOT be overwritten by any repair pass or clearing operation
+    // Castle structure: 102=tower cap, 204=wall fill, 205=base,
+    //   96/98=side walls, 120/122=mid walls, 111/112/123/124=gate
+    const CASTLE_TILES = new Set([102, 204, 205, 96, 98, 120, 122, 111, 112, 123, 124]);
+    
+    // 1. Clear 2 tiles below each door (but NEVER clear castle tiles!)
     for (const door of doorPositions) {
       for (let dy = 1; dy <= 2; dy++) {
         if (this.inBounds(door.x, door.y + dy)) {
           const ci = this.idx(door.x, door.y + dy);
+          // CRITICAL: Never clear castle tiles — the castle is placed LAST
+          // and must not be destroyed by door clearing
+          if (CASTLE_TILES.has(objects[ci])) continue;
           objects[ci] = T.EMPTY;
           foreground[ci] = T.EMPTY;
           collision[ci] = 0;
