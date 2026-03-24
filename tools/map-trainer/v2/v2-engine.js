@@ -202,8 +202,8 @@ function generateHouse(rng, wantChimney) {
   const roofRow2 = makeRow(mat.mid); // mid = same color as roof
   rows.push(roofRow2);
 
-  // ── ROWS 2+: Wall rows — max 1 window per row, random placement ──
-  const wallRows = 1 + Math.floor(rng() * 2); // 1-2 wall rows
+  // ── ROWS 2+: Wall rows — 0 for one-story, 1-2 for multi-story ──
+  const wallRows = Math.floor(rng() * 3); // 0, 1, or 2 wall rows
   // Use the material's dedicated window tile (or wood window 75 as fallback)
   const windowTile = mat.window || 75;
   for (let wr = 0; wr < wallRows; wr++) {
