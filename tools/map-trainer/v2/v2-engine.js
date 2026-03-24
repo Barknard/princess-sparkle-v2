@@ -680,16 +680,33 @@ class V2Engine {
           tile = grassPool[Math.floor(rng() * grassPool.length)];
         }
         
-        // Adjacency preference — check left AND top neighbor for better pattern matching
-        if (x > 0 && layerAdj.ground) {
-          const leftTile = String(ground[this.idx(x - 1, y)]);
-          const allowed = layerAdj.ground[leftTile]?.east;
-          if (allowed) {
-            const keys = Object.keys(allowed);
-            if (keys.length > 0 && rng() < 0.7) { // 70% follow adjacency
-              const adjTile = parseInt(keys[Math.floor(rng() * keys.length)]);
-              // Only use adjacency suggestion if it's a grass tile
-              if ([0, 1, 2, 43].includes(adjTile)) tile = adjTile;
+        // Adjacency preference — check ALL placed neighbors (left, top, top-left, top-right)
+        // Collect valid tiles from all neighbors, pick the most common suggestion
+        if (layerAdj.ground && rng() < 0.7) {
+          const candidates = {};
+          const checkNeighbor = (nx, ny, dir) => {
+            if (!this.inBounds(nx, ny)) return;
+            const nTile = String(ground[this.idx(nx, ny)]);
+            const allowed = layerAdj.ground[nTile]?.[dir];
+            if (allowed) {
+              for (const k of Object.keys(allowed)) {
+                const kid = parseInt(k);
+                if ([0, 1, 2, 43].includes(kid)) candidates[kid] = (candidates[kid] || 0) + allowed[k];
+              }
+            }
+          };
+          if (x > 0) checkNeighbor(x - 1, y, 'east');
+          if (y > 0) checkNeighbor(x, y - 1, 'south');
+          if (x > 0 && y > 0) checkNeighbor(x - 1, y - 1, 'south'); // diagonal
+          if (x < this.W - 1 && y > 0) checkNeighbor(x + 1, y - 1, 'south'); // diagonal
+          const cKeys = Object.keys(candidates);
+          if (cKeys.length > 0) {
+            // Weighted random pick based on adjacency frequency
+            const total = Object.values(candidates).reduce((a, b) => a + b, 0);
+            let r = rng() * total;
+            for (const k of cKeys) {
+              r -= candidates[k];
+              if (r <= 0) { tile = parseInt(k); break; }
             }
           }
         }
