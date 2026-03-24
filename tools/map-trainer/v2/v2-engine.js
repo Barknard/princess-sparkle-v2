@@ -76,8 +76,8 @@ const MATERIALS = {
     // Blue-roofed house with colored mid and gray walls (building 1 in painted map)
     roof:  { L: 52, M: 53, R: 54 },   // blue roof L/M/R
     mid:   { L: 64, M: 65, R: 66 },   // red roof tiles as wall detail
-    base:  { L: 76, M: 88, R: 79 },   // gray panels
-    door:  80,                          // same door for all houses
+    base:  { L: 76, M: 85, R: 79 },   // gray panels (85=dark stone center, not 88=interior fill)
+    door:  80,
   },
   style_c: {
     // Red-roofed house with stone walls
@@ -143,9 +143,10 @@ function generateHouse(rng) {
   const extraWalls = 1 + Math.floor(rng() * 2); // 1-2 extra wall rows for taller buildings
   for (let i = 0; i < extraWalls; i++) rows.push(makeRow(mat.base));
 
-  // Base row with door
+  // Base row — only ~35% of buildings get a door (painted map: 2/6 = 33%)
   const baseRow = makeRow(mat.base);
-  if (mat.door >= 0) {
+  const hasDoor = rng() < 0.35;
+  if (hasDoor && mat.door >= 0) {
     baseRow[doorX] = mat.door;
   }
   rows.push(baseRow);
@@ -779,77 +780,77 @@ class V2Engine {
       return true;
     };
 
-    // Place a tree cluster: ONE species + closed edge border
-    // Each cluster uses a single tree type (no color mixing inside a cluster).
-    // The interior is dense tree pairs, surrounded by a closed ring of small trees/bushes.
-    const CLUSTER_SPECIES = [
-      { canopy: 4, trunk: 16, small: 6, name: 'green' },
-      { canopy: 7, trunk: 19, small: 9, name: 'autumn' },
-      { canopy: 3, trunk: 15, small: 16, name: 'light-autumn' },
-      { canopy: 6, trunk: 18, small: 17, name: 'dark' },
-    ];
+    // Place a tree cluster — learned from painted map adjacency:
+    //   Dense clusters: tile 19 fills body, tile 7 or 6 on top row
+    //   Edge tiles: 32 (stone), 20 (bush), 31 (sand) — NOT random small trees
+    //   Single trees: 4 above 16 (green), 3 above 15 (autumn) — standalone pairs
+    //   Tile 19 groups with itself (19→19 horizontal=8x, vertical=6x in painted map)
+    //
+    // Structure (learned from painted map):
+    //   Row 0: 7 7 7 7    (canopy tops, or 6 for variety)
+    //   Row 1: 19 19 19 19 (dense body)
+    //   Row 2: 19 19 19 19 (dense body)
+    //   Edge:  32 20 31 32 (closed border of ground-level bushes/stones)
 
     const placeTreeCluster = (cx, cy, w, h) => {
       let count = 0;
-      const species = CLUSTER_SPECIES[Math.floor(rng() * CLUSTER_SPECIES.length)];
-      const edgeTiles = [species.small, 28, 20]; // species-matching small + generic bushes
+      // Pick canopy top tile: mostly 7 (autumn, matches painted map), sometimes 6
+      const topTile = rng() < 0.7 ? 7 : 6;
+      const bodyTile = 19; // dense body (the primary cluster tile)
+      // Edge tiles from painted map: 32, 20, 31 (stone, bush, sand)
+      const edgeTiles = [32, 20, 31, 28];
 
-      // INTERIOR: dense tree pairs (canopy above trunk, both foreground)
-      for (let dy = 0; dy < h - 1; dy++) {
+      // TOP ROW: canopy tiles (7 or 6)
+      for (let dx = 0; dx < w; dx++) {
+        if (canPlaceFg(cx + dx, cy)) {
+          foreground[this.idx(cx + dx, cy)] = topTile;
+          count++;
+        }
+      }
+
+      // BODY ROWS: tile 19 fills densely
+      for (let dy = 1; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
-          if (rng() < 0.65) { // 65% fill density
-            if (placeTree(cx + dx, cy + dy, species.canopy, species.trunk)) count += 2;
+          if (canPlaceFg(cx + dx, cy + dy)) {
+            foreground[this.idx(cx + dx, cy + dy)] = bodyTile;
+            count++;
           }
         }
       }
 
-      // CLOSED EDGE BORDER: ring of small trees/bushes on ALL non-map-boundary sides
-      // Top edge
-      if (cy > 0) {
-        for (let dx = -1; dx <= w; dx++) {
-          if (canPlaceFg(cx + dx, cy - 1)) {
-            foreground[this.idx(cx + dx, cy - 1)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
-            count++;
-          }
+      // CLOSED EDGE BORDER: ring of edge tiles (32, 20, 31, 28)
+      // Every non-map-boundary side gets a complete border
+      const placeEdge = (x, y) => {
+        if (canPlaceFg(x, y)) {
+          foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
+          count++;
         }
-      }
-      // Bottom edge
-      if (cy + h < this.H) {
-        for (let dx = -1; dx <= w; dx++) {
-          if (canPlaceFg(cx + dx, cy + h)) {
-            foreground[this.idx(cx + dx, cy + h)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
-            count++;
-          }
-        }
-      }
-      // Left edge
-      if (cx > 0) {
-        for (let dy = -1; dy <= h; dy++) {
-          if (canPlaceFg(cx - 1, cy + dy)) {
-            foreground[this.idx(cx - 1, cy + dy)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
-            count++;
-          }
-        }
-      }
-      // Right edge
-      if (cx + w < this.W) {
-        for (let dy = -1; dy <= h; dy++) {
-          if (canPlaceFg(cx + w, cy + dy)) {
-            foreground[this.idx(cx + w, cy + dy)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
-            count++;
-          }
-        }
-      }
+      };
+      // Bottom
+      if (cy + h < this.H) for (let dx = -1; dx <= w; dx++) placeEdge(cx + dx, cy + h);
+      // Top (above canopy row)
+      if (cy > 0) for (let dx = -1; dx <= w; dx++) placeEdge(cx + dx, cy - 1);
+      // Left
+      if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdge(cx - 1, cy + dy);
+      // Right
+      if (cx + w < this.W) for (let dy = 0; dy < h; dy++) placeEdge(cx + w, cy + dy);
+      // Corners
+      if (cy > 0 && cx > 0) placeEdge(cx - 1, cy - 1);
+      if (cy > 0 && cx + w < this.W) placeEdge(cx + w, cy - 1);
+      if (cy + h < this.H && cx > 0) placeEdge(cx - 1, cy + h);
+      if (cy + h < this.H && cx + w < this.W) placeEdge(cx + w, cy + h);
+
       return count;
     };
 
-    // Single tree types for scattered placement
-    // Must match scorer valid pairs: 4→16, 7→19, 3→15, 6→18
+    // Single tree types from painted map adjacency analysis:
+    //   4→16 (7 occurrences, 100% match) — green canopy + trunk
+    //   7→19 (5 occurrences, 100% match) — autumn canopy + dense body
+    //   3→15 (3 occurrences, 100% match) — light autumn pair
     const SINGLE_TREES = [
-      { canopy: 4, trunk: 16, weight: 5 },   // green
-      { canopy: 7, trunk: 19, weight: 4 },   // pine
-      { canopy: 3, trunk: 15, weight: 3 },   // autumn
-      { canopy: 6, trunk: 18, weight: 2 },   // dark
+      { canopy: 4, trunk: 16, weight: 7 },   // green (most common in painted map)
+      { canopy: 7, trunk: 19, weight: 5 },   // autumn canopy + dense
+      { canopy: 3, trunk: 15, weight: 3 },   // light autumn
     ];
     const singlePool = [];
     for (const tt of SINGLE_TREES) {
