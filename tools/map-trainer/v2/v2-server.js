@@ -262,6 +262,8 @@ if (paintedMap) {
   v2engine.setPaintedTemplate(paintedMap);
   console.log(`V2Engine: loaded ${v2engine._paintedBuildings.length} buildings, ${v2engine._paintedForeground.length} foreground tiles from painted map`);
 }
+// Load user feedback (flagged tiles) as negative examples
+v2engine.loadFlaggedTiles(path.join(V2_DIR, 'flagged-tiles.json'));
 
 let bestMapPng = null;
 let bestMapData = null;
@@ -483,6 +485,42 @@ app.get('/api/best-map', (req, res) => {
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'no-cache');
   res.send(bestMapPng);
+});
+
+// API: Flagged tiles — save user feedback and update engine rules
+const FLAGGED_PATH = path.join(V2_DIR, 'flagged-tiles.json');
+let allFlaggedSessions = [];
+if (fs.existsSync(FLAGGED_PATH)) {
+  try { allFlaggedSessions = JSON.parse(fs.readFileSync(FLAGGED_PATH, 'utf8')); } catch(e) {}
+}
+
+app.post('/api/flagged-tiles', (req, res) => {
+  const { flags, generation } = req.body;
+  if (!flags || !flags.length) return res.json({ ok: true, count: 0 });
+
+  // Save this session's flags
+  const session = {
+    time: new Date().toISOString(),
+    generation,
+    flags
+  };
+  allFlaggedSessions.push(session);
+  fs.writeFileSync(FLAGGED_PATH, JSON.stringify(allFlaggedSessions, null, 2));
+
+  // Extract learnings from flags and log them
+  for (const flag of flags) {
+    addLog(`🚩 Flag (${flag.x},${flag.y}): g:${flag.ground} o:${flag.objects} f:${flag.foreground} — ${flag.note}`);
+  }
+
+  // Reload into engine immediately so next generation uses the feedback
+  v2engine.loadFlaggedTiles(FLAGGED_PATH);
+
+  addLog(`📝 Saved ${flags.length} flags from gen ${generation}. Total sessions: ${allFlaggedSessions.length}`);
+  res.json({ ok: true, count: flags.length, totalSessions: allFlaggedSessions.length });
+});
+
+app.get('/api/flagged-tiles', (req, res) => {
+  res.json(allFlaggedSessions);
 });
 
 // API: Tile catalog for inspector

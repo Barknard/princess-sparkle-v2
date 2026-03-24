@@ -617,8 +617,17 @@ function flagTile() {
   };
   flaggedTiles.push(entry);
   localStorage.setItem('flaggedTiles', JSON.stringify(flaggedTiles));
+  saveFlagsToServer();
   renderFlaggedList();
   renderInspector();
+}
+
+function saveFlagsToServer() {
+  fetch('/api/flagged-tiles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flags: flaggedTiles, generation: window._lastGen || 0 })
+  }).catch(function(e) { console.warn('Failed to save flags:', e); });
 }
 
 function renderFlaggedList() {
@@ -955,6 +964,7 @@ async function poll() {
   try {
     var r = await fetch('/api/status');
     var s = await r.json();
+    window._lastGen = s.generation;
     updateKPIs(s);
     drawChart(chartCanvas, s.history, s.target);
     drawRadar(radarCanvas, s.breakdown);

@@ -281,6 +281,36 @@ class V2Engine {
    * Load painted map as template base.
    * @param {Object} painted - { width, height, ground[], objects[], foreground[] }
    */
+  /** Load user feedback (flagged tiles) as negative examples */
+  loadFlaggedTiles(flaggedPath) {
+    if (!require('fs').existsSync(flaggedPath)) return;
+    try {
+      const sessions = JSON.parse(require('fs').readFileSync(flaggedPath, 'utf8'));
+      // Build a set of "bad tile combos" — tiles flagged as wrong at specific contexts
+      this._badCombos = new Map(); // key: "layer:tileId" → Set of notes explaining why
+      for (const session of sessions) {
+        for (const flag of session.flags || []) {
+          // Record each flagged tile+layer as a negative example
+          if (flag.objects >= 0) {
+            const key = 'o:' + flag.objects;
+            if (!this._badCombos.has(key)) this._badCombos.set(key, []);
+            this._badCombos.get(key).push(flag.note);
+          }
+          if (flag.foreground >= 0) {
+            const key = 'f:' + flag.foreground;
+            if (!this._badCombos.has(key)) this._badCombos.set(key, []);
+            this._badCombos.get(key).push(flag.note);
+          }
+        }
+      }
+      if (this._badCombos.size > 0) {
+        console.log('V2Engine: loaded ' + this._badCombos.size + ' bad tile combos from ' + sessions.length + ' flag sessions');
+      }
+    } catch (e) {
+      console.error('Failed to load flagged tiles:', e.message);
+    }
+  }
+
   setPaintedTemplate(painted) {
     this._painted = painted;
     // Extract building structures from painted map
