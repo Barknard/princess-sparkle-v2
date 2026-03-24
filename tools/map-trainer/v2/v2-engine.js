@@ -187,11 +187,13 @@ function generateHouse(rng, wantChimney) {
 
   // ── ROW 0: Top roof — full width, ONLY roof tiles ──
   const roofRow = makeRow(mat.roof);
-  // Optional chimney (tags: chimney tiles are 51, 55)
+  // Chimney — ALWAYS on top roof row, never anywhere else
+  // Uses chimney-tagged tiles: 51 (gray chimney), 55 (red chimney)
   if (wantChimney && w >= 3) {
-    const chimneyX = doorX === 0 ? w - 1 : 0;
-    const chimneyTile = mat.roof.L === 48 ? 51 : 55; // gray→51, red→55
-    roofRow[chimneyX] = chimneyTile;
+    const chimneyX = doorX === 0 ? w - 1 : 0; // opposite side from door
+    // Match chimney color to roof: gray roof→51, red roof→55
+    const isGrayRoof = mat.roof.L === 48 || mat.roof.L === 49 || mat.roof.L === 50;
+    roofRow[chimneyX] = isGrayRoof ? 51 : 55;
   }
   rows.push(roofRow);
 
