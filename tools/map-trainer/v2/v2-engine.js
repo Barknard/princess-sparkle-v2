@@ -65,8 +65,10 @@ const TILE_LAYER = {};
 // This function is called after tile tags load to rebuild materials.
 let MATERIALS = {};
 let MATERIAL_KEYS = [];
+let _tileTags = {}; // module-level tag data for use in generators
 
 function buildMaterialsFromTags(tileTags) {
+  _tileTags = tileTags; // store for use in generators
   const hasTag = (id, tag) => (tileTags[id] || []).includes(tag);
   const withTags = (...tags) => {
     let set = Object.keys(tileTags).filter(k => k !== '_customTags').map(Number);
@@ -205,27 +207,45 @@ function generateHouse(rng, wantChimney) {
 
   // ── ROWS 2+: Wall rows — 0 for one-story, 1-2 for multi-story ──
   const wallRows = Math.floor(rng() * 3); // 0, 1, or 2 wall rows
-  // Use the material's dedicated window tile (or wood window 75 as fallback)
   const windowTile = mat.window || 75;
+  let windowPlaced = false;
   for (let wr = 0; wr < wallRows; wr++) {
     const wallRow = makeRow(mat.base);
-    // 40% chance of 1 window per wall row — never in same column as door
-    if (w >= 3 && rng() < 0.4) {
+    // At least 1 window in the first wall row (if building is wide enough)
+    // Additional wall rows: 30% chance of another window in a DIFFERENT column
+    const wantWindow = (wr === 0 && w >= 3) || (w >= 4 && rng() < 0.3);
+    if (wantWindow) {
       const wx = 1 + Math.floor(rng() * (w - 2));
-      if (wx !== doorX) wallRow[wx] = windowTile;
+      if (wx !== doorX) { wallRow[wx] = windowTile; windowPlaced = true; }
     }
     rows.push(wallRow);
   }
 
-  // ── LAST ROW: Base — exactly 1 door ──
+  // ── LAST ROW: Base — door (single middle OR left+right pair) ──
   const baseRow = makeRow(mat.base);
-  // Every building gets a door
-  const doorTile = mat.doors && mat.doors.length > 0
-    ? mat.doors[Math.floor(rng() * mat.doors.length)]
-    : mat.base.M; // fallback
-  baseRow[doorX] = doorTile;
+
+  // Door selection: use middle door as single, or left+right as a pair
+  // Find available door types from material
+  const middleDoors = (mat.doors || []).filter(id => {
+    const t = _tileTags[id];
+    return t && (t.includes('middle') || (!t.includes('left') && !t.includes('right')));
+  });
+  const leftDoor = (mat.doors || []).find(id => _tileTags[id] && _tileTags[id].includes('left'));
+  const rightDoor = (mat.doors || []).find(id => _tileTags[id] && _tileTags[id].includes('right'));
+
+  if (w >= 3 && leftDoor && rightDoor && rng() < 0.35) {
+    // 35% chance: left+right door pair (always together)
+    baseRow[doorX] = leftDoor;
+    baseRow[Math.min(doorX + 1, w - 1)] = rightDoor;
+  } else if (middleDoors.length > 0) {
+    // Single middle door
+    baseRow[doorX] = middleDoors[Math.floor(rng() * middleDoors.length)];
+  } else if (mat.doors && mat.doors.length > 0) {
+    baseRow[doorX] = mat.doors[0]; // fallback
+  }
   rows.push(baseRow);
 
+  const doorTile = baseRow[doorX];
   return { w, h: rows.length, rows, doorX, doorTile, hasDoor: true, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
@@ -656,10 +676,10 @@ class V2Engine {
         ];
       }
 
-      let chimneyPlaced = false;
+      let chimneyCount = 0;
       for (let bi = 0; bi < numBuildings; bi++) {
-        // At least 1 building gets a chimney — first building that hasn't had one yet
-        const wantChimney = !chimneyPlaced && (bi === 0 || rng() < 0.25);
+        // ~40% of buildings get chimneys, at least 1 guaranteed
+        const wantChimney = chimneyCount === 0 ? true : rng() < 0.35;
         let bldg;
         const roll = rng();
         if (roll < 0.08) {
@@ -668,7 +688,7 @@ class V2Engine {
           bldg = generateFence(rng);          // 7% fence
         } else {
           bldg = generateHouse(rng, wantChimney);
-          if (wantChimney) chimneyPlaced = true;
+          if (wantChimney) chimneyCount++;
         }
 
         for (let attempt = 0; attempt < 120; attempt++) {

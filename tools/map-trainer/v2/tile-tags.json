@@ -74,21 +74,27 @@
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "left",
+    "top"
   ],
   "13": [
     "ground",
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "top",
+    "middle"
   ],
   "14": [
     "ground",
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "right",
+    "top"
   ],
   "15": [
     "foreground",
@@ -139,21 +145,27 @@
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "left",
+    "middle"
   ],
   "25": [
     "ground",
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "middle",
+    "center"
   ],
   "26": [
     "ground",
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "right",
+    "middle"
   ],
   "27": [
     "foreground",
@@ -214,21 +226,27 @@
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "left",
+    "bottom"
   ],
   "37": [
     "ground",
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "bottom",
+    "middle"
   ],
   "38": [
     "ground",
     "walkable",
     "path",
     "dirt",
-    "grass"
+    "grass",
+    "right",
+    "bottom"
   ],
   "39": [
     "ground",
