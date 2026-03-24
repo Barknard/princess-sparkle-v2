@@ -129,14 +129,23 @@ class V2Scorer {
       details.push(`Tile match: ${tileMatch.toFixed(1)}%`);
     }
 
-    const designScore = breakdown.pathNetwork + breakdown.buildings +
+    // Design score: structural quality (70pts max) + similarity bonuses (15pts max)
+    const structuralScore = breakdown.pathNetwork + breakdown.buildings +
       breakdown.treeQuality + breakdown.decorations + breakdown.groundTexture +
-      breakdown.composition + breakdown.waterFeature + breakdown.villageFeel +
-      (breakdown.freqMatch || 0) + (breakdown.patternCoverage || 0) + (breakdown.adjCompliance || 0);
-    const tileMatchPts = this.target ? tileMatch * 0.2 : 0; // reduced from 0.3 since freq+pattern cover some of this
+      breakdown.composition + breakdown.waterFeature + breakdown.villageFeel;
+    // Similarity bonuses (scaled down — we want varied maps, not copies)
+    const similarityBonus = Math.round(
+      (breakdown.freqMatch || 0) * 0.6 +      // freq match weighted down
+      (breakdown.patternCoverage || 0) * 0.4 + // pattern coverage weighted down
+      (breakdown.adjCompliance || 0) * 0.8      // adjacency still matters
+    );
+    const designScore = structuralScore + similarityBonus;
+    breakdown._structural = structuralScore;
+    breakdown._similarity = similarityBonus;
+    const tileMatchPts = this.target ? tileMatch * 0.15 : 0;
     const total = this.target
       ? Math.min(100, Math.round(designScore + tileMatchPts))
-      : Math.min(100, Math.round(designScore / 85 * 100));
+      : Math.min(100, Math.round(designScore / 70 * 100));
     return {
       total,
       tileMatch: this.target ? +tileMatch.toFixed(1) : null,
