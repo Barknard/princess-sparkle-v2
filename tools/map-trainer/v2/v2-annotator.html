@@ -33,30 +33,38 @@ body {
 .header .saved { color: #4ade80; font-size: 11px; opacity: 0; transition: opacity 0.3s; }
 .header .saved.show { opacity: 1; }
 
-/* Tile Grid */
+/* Tile Grid — same visual style as painter */
 .tile-grid {
   background: #141428; border: 1px solid #2a2a3e; border-radius: 8px;
-  padding: 12px; overflow-y: auto;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.tile-grid-header {
+  padding: 8px 12px; border-bottom: 1px solid #2a2a3e;
+  display: flex; align-items: center; gap: 12px; font-size: 12px;
+}
+.tile-grid-scroll {
+  flex: 1; overflow-y: auto; padding: 8px;
 }
 .tile-grid-inner {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 4px;
+  gap: 3px;
 }
 .tile-cell {
-  position: relative; aspect-ratio: 1;
-  border: 2px solid transparent; border-radius: 4px;
+  position: relative;
+  border: 2px solid transparent; border-radius: 2px;
   cursor: pointer; background: #0a0a1a;
-  transition: border-color 0.1s;
+  image-rendering: pixelated; overflow: hidden;
 }
 .tile-cell canvas {
   width: 100%; height: 100%; image-rendering: pixelated; display: block;
 }
-.tile-cell:hover { border-color: #555; }
-.tile-cell.selected { border-color: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.4); }
+.tile-cell:hover { border-color: #a855f788; }
+.tile-cell.selected { border-color: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.5); }
 .tile-cell .id {
-  position: absolute; bottom: 1px; right: 2px;
-  font-size: 9px; color: #888; font-family: monospace;
+  position: absolute; bottom: 0; right: 1px;
+  font-size: 7px; color: #888; font-family: monospace;
+  text-shadow: 0 0 2px #000;
 }
 .tile-cell .tag-dots {
   position: absolute; top: 1px; left: 2px;
@@ -120,6 +128,7 @@ body {
     <button onclick="clearSelection()">Clear Selection</button>
     <button onclick="selectAll()">Select All</button>
     <button onclick="saveTags()">Save Tags</button>
+    <button onclick="autoTagFromPaintedMap()" style="background:#065f46;border-color:#047857">Auto-Tag from Painted Map</button>
     <span class="saved" id="saved-msg">Saved!</span>
     <span style="flex:1"></span>
     <a href="/">Dashboard</a>
@@ -127,12 +136,19 @@ body {
   </div>
 
   <div class="tile-grid">
-    <div class="filter-bar" style="margin-bottom:8px">
+    <div class="tile-grid-header">
+      <span>Tileset</span>
+      <label style="font-size:11px; color:#888;">
+        Zoom: <input type="range" id="tileZoom" min="2" max="8" value="4" style="width:80px; vertical-align:middle;" oninput="setZoom(this.value)">
+      </label>
+      <span style="flex:1"></span>
       <span>Filter:</span>
-      <input type="text" id="filter-input" placeholder="Type tag to filter tiles..." oninput="filterTiles()">
-      <button onclick="document.getElementById('filter-input').value='';filterTiles()">Clear</button>
+      <input type="text" id="filter-input" placeholder="tag name..." oninput="filterTiles()" style="width:120px; background:#0a0a1a; border:1px solid #333; border-radius:4px; padding:2px 6px; color:#ccc; font-size:11px;">
+      <button onclick="document.getElementById('filter-input').value='';filterTiles()" style="background:#2a2a3e; color:#ccc; border:1px solid #3a3a5e; border-radius:4px; padding:2px 8px; cursor:pointer; font-size:10px;">Clear</button>
     </div>
-    <div class="tile-grid-inner" id="tile-grid"></div>
+    <div class="tile-grid-scroll">
+      <div class="tile-grid-inner" id="tile-grid"></div>
+    </div>
   </div>
 
   <div class="tag-panel">
@@ -237,14 +253,36 @@ img.onload = function() {
 };
 img.src = '/tilemap';
 
+var tileZoom = 4; // multiplier: 16px * 4 = 64px per tile
+
+function setZoom(val) {
+  tileZoom = parseInt(val);
+  applyZoom();
+}
+
+function applyZoom() {
+  var size = 16 * tileZoom;
+  document.querySelectorAll('.tile-cell').forEach(function(cell) {
+    cell.style.width = size + 'px';
+    cell.style.height = size + 'px';
+  });
+  // Update grid columns to fit
+  var inner = document.getElementById('tile-grid');
+  inner.querySelector('.tile-grid-inner').style.gridTemplateColumns = 'repeat(12, ' + size + 'px)';
+}
+
 function buildGrid() {
-  var grid = document.getElementById('tile-grid');
-  var inner = grid.querySelector('.tile-grid-inner');
+  var inner = document.querySelector('.tile-grid-inner');
   inner.innerHTML = '';
+  var size = 16 * tileZoom;
+  inner.style.gridTemplateColumns = 'repeat(12, ' + size + 'px)';
+
   for (var id = 0; id < 132; id++) {
     var cell = document.createElement('div');
     cell.className = 'tile-cell';
     cell.dataset.id = id;
+    cell.style.width = size + 'px';
+    cell.style.height = size + 'px';
     // Draw tile
     var c = document.createElement('canvas');
     c.width = 16; c.height = 16;
@@ -260,7 +298,7 @@ function buildGrid() {
     var dots = document.createElement('div');
     dots.className = 'tag-dots'; dots.id = 'dots-' + id;
     cell.appendChild(dots);
-    // Events
+    // Events — click/drag to select/deselect
     cell.addEventListener('mousedown', function(e) {
       e.preventDefault();
       var tid = parseInt(this.dataset.id);
@@ -483,6 +521,44 @@ function applyLoadedTags(data) {
   renderCustomTags();
   updateDots();
   updateTagButtons();
+}
+
+// ── Auto-tag from painted map (bootstrap) ──────────────
+function autoTagFromPaintedMap() {
+  fetch('/api/painted-map').then(function(r) { return r.json(); }).then(function(pm) {
+    if (!pm || !pm.ground) return;
+    var groundTiles = new Set(), objTiles = new Set(), fgTiles = new Set();
+    var pathTilesSet = new Set([25, 39, 40, 41, 43, 44, 45, 13, 14, 24, 36, 37, 38]);
+    pm.ground.forEach(function(t) { if (t >= 0) groundTiles.add(t); });
+    pm.objects.forEach(function(t) { if (t >= 0) objTiles.add(t); });
+    pm.foreground.forEach(function(t) { if (t >= 0) fgTiles.add(t); });
+
+    var added = 0;
+    groundTiles.forEach(function(id) {
+      if (!tileTags[id]) tileTags[id] = new Set();
+      if (!tileTags[id].has('ground')) { tileTags[id].add('ground'); added++; }
+      if (!tileTags[id].has('walkable')) tileTags[id].add('walkable');
+      if (pathTilesSet.has(id) && !tileTags[id].has('path')) tileTags[id].add('path');
+    });
+    objTiles.forEach(function(id) {
+      if (!tileTags[id]) tileTags[id] = new Set();
+      if (!tileTags[id].has('objects')) { tileTags[id].add('objects'); added++; }
+      if (!tileTags[id].has('solid')) tileTags[id].add('solid');
+    });
+    fgTiles.forEach(function(id) {
+      if (!tileTags[id]) tileTags[id] = new Set();
+      if (!tileTags[id].has('foreground')) { tileTags[id].add('foreground'); added++; }
+    });
+
+    if (added > 0) {
+      updateDots();
+      autoSave();
+      alert('Auto-tagged ' + added + ' tiles from your painted map!\n' +
+        groundTiles.size + ' ground, ' + objTiles.size + ' objects, ' + fgTiles.size + ' foreground');
+    } else {
+      alert('All tiles already tagged from painted map.');
+    }
+  });
 }
 
 // ── Init ───────────────────────────────────────────────
