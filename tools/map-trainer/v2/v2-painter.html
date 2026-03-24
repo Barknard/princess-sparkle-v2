@@ -779,7 +779,7 @@ document.addEventListener('keydown', (e) => {
   var customTileId = 200;
   var CUSTOM_TILES_KEY = 'painter-custom-tiles';
 
-  // Save all custom tiles as base64
+  // Save all custom tiles as base64 — to localStorage AND server
   function saveCustomTiles() {
     var data = {};
     for (var id = 200; id < customTileId; id++) {
@@ -788,31 +788,58 @@ document.addEventListener('keydown', (e) => {
       }
     }
     try { localStorage.setItem(CUSTOM_TILES_KEY, JSON.stringify(data)); } catch(e) {}
+    // Also save to server for persistence and engine use
+    fetch('/api/custom-tiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(function(e) { console.warn('Failed to save custom tiles to server:', e); });
   }
 
-  // Restore custom tiles from localStorage
+  // Restore custom tiles — try server first, fall back to localStorage
   function loadCustomTiles() {
-    try {
-      var data = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY));
-      if (!data) return;
-      var ids = Object.keys(data).map(Number).sort((a,b) => a - b);
-      for (var i = 0; i < ids.length; i++) {
-        var id = ids[i];
-        var img = new Image();
-        img.src = data[id];
-        (function(tileId, imgEl) {
-          imgEl.onload = function() {
-            var c = document.createElement('canvas');
-            c.width = 16; c.height = 16;
-            c.getContext('2d').drawImage(imgEl, 0, 0, 16, 16);
-            tileCanvases[tileId] = c;
-            addCustomTileUI(tileId, c);
-            if (tileId >= customTileId) customTileId = tileId + 1;
-            renderMap(); // re-render to show restored tiles
-          };
-        })(id, img);
-      }
-    } catch(e) {}
+    fetch('/api/custom-tiles').then(function(r) { return r.json(); }).then(function(serverData) {
+      // Merge: server tiles + localStorage tiles (server wins on conflict)
+      var localData = {};
+      try { localData = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY)) || {}; } catch(e) {}
+      var data = Object.assign({}, localData, serverData);
+      if (!data || Object.keys(data).length === 0) return;
+      restoreCustomTilesFromData(data);
+      // Re-save merged set to both stores
+      try { localStorage.setItem(CUSTOM_TILES_KEY, JSON.stringify(data)); } catch(e) {}
+      fetch('/api/custom-tiles', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) }).catch(function(){});
+    }).catch(function() {
+      // Server unavailable, fall back to localStorage only
+      try {
+        var data = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY));
+        if (data) {
+          restoreCustomTilesFromData(data);
+          // Try to push to server in case it just came up
+          fetch('/api/custom-tiles', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) }).catch(function(){});
+        }
+      } catch(e) {}
+    });
+  }
+
+  function restoreCustomTilesFromData(data) {
+    var ids = Object.keys(data).map(Number).sort(function(a,b) { return a - b; });
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      if (tileCanvases[id]) continue; // already loaded
+      var img = new Image();
+      img.src = data[id];
+      (function(tileId, imgEl) {
+        imgEl.onload = function() {
+          var c = document.createElement('canvas');
+          c.width = 16; c.height = 16;
+          c.getContext('2d').drawImage(imgEl, 0, 0, 16, 16);
+          tileCanvases[tileId] = c;
+          addCustomTileUI(tileId, c);
+          if (tileId >= customTileId) customTileId = tileId + 1;
+          renderMap();
+        };
+      })(id, img);
+    }
   }
 
   function addCustomTileUI(id, tileCanvas) {

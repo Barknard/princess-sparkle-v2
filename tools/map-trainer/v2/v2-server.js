@@ -109,7 +109,7 @@ async function renderMapToPng(tileData) {
   for (const layer of layers) {
     if (!layer) continue;
     for (const id of layer) {
-      if (id >= 0 && id <= MAX_TILE_ID) uniqueIds.add(id);
+      if (id >= 0 && (id <= MAX_TILE_ID || _tileCache.has(id))) uniqueIds.add(id);
     }
   }
 
@@ -122,7 +122,7 @@ async function renderMapToPng(tileData) {
     if (!layer) continue;
     for (let i = 0; i < layer.length; i++) {
       const tileId = layer[i];
-      if (tileId < 0 || tileId > MAX_TILE_ID) continue;
+      if (tileId < 0 || (tileId > MAX_TILE_ID && !_tileCache.has(tileId))) continue;
       const tileBuf = _tileCache.get(tileId);
       if (!tileBuf) continue;
       composites.push({
@@ -301,7 +301,7 @@ async function runGeneration() {
     // We want DIFFERENT maps that are equally GOOD, not copies
     const fitness = audit.design || audit.total || result.designQuality || 0;
 
-    scored[i] = { dna, fitness, tileMatch: result.tileMatch, designScore: result.designQuality };
+    scored[i] = { dna, fitness, tileMatch: result.tileMatch || 0, designScore: audit.design || result.designQuality || 0 };
 
     if (fitness > bestFitness) {
       bestFitness = fitness;
@@ -373,7 +373,7 @@ async function runGeneration() {
 
   // Log
   const genSpeed = status.generation / (status.elapsed / 1000);
-  const logMsg = `Gen ${status.generation}: best=${best.fitness.toFixed(1)}% tile=${best.tileMatch.toFixed(1)}% audit=${best.designScore.toFixed(0)} div=${stats.diversity.toFixed(1)} [${genSpeed.toFixed(1)} gen/s]`;
+  const logMsg = `Gen ${status.generation}: best=${(best.fitness||0).toFixed(1)}% tile=${(best.tileMatch||0).toFixed(1)}% design=${(best.designScore||0).toFixed(0)} div=${(stats.diversity||0).toFixed(1)} [${genSpeed.toFixed(1)} gen/s]`;
   addLog(logMsg);
 
   // Force GC every 500 gens
@@ -601,6 +601,50 @@ app.get('/api/painted-map', (req, res) => {
   if (fs.existsSync(PAINTED_MAP_PATH)) res.sendFile(PAINTED_MAP_PATH);
   else res.json({ width: targetMap?.width || 24, height: targetMap?.height || 14, ground: [], objects: [], foreground: [] });
 });
+
+// ── Custom Tiles ────────────────────────────────────────────────────────────
+const CUSTOM_TILES_PATH = path.join(V2_DIR, 'custom-tiles.json');
+
+app.get('/api/custom-tiles', (req, res) => {
+  if (fs.existsSync(CUSTOM_TILES_PATH)) {
+    res.sendFile(CUSTOM_TILES_PATH);
+  } else {
+    res.json({});
+  }
+});
+
+app.post('/api/custom-tiles', (req, res) => {
+  // req.body = { "200": "data:image/png;base64,...", "203": "...", ... }
+  fs.writeFileSync(CUSTOM_TILES_PATH, JSON.stringify(req.body, null, 2));
+  // Also load into tile cache for server-side rendering
+  loadCustomTilesIntoCache(req.body);
+  res.json({ ok: true, count: Object.keys(req.body).length });
+});
+
+function loadCustomTilesIntoCache(tilesObj) {
+  for (const [idStr, dataUrl] of Object.entries(tilesObj)) {
+    const id = parseInt(idStr);
+    if (isNaN(id)) continue;
+    try {
+      const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+      const buf = Buffer.from(base64, 'base64');
+      _tileCache.set(id, buf);
+    } catch (e) {
+      console.error(`Failed to load custom tile ${id}: ${e.message}`);
+    }
+  }
+}
+
+// Load custom tiles on startup
+if (fs.existsSync(CUSTOM_TILES_PATH)) {
+  try {
+    const ct = JSON.parse(fs.readFileSync(CUSTOM_TILES_PATH, 'utf8'));
+    loadCustomTilesIntoCache(ct);
+    console.log(`Loaded ${Object.keys(ct).length} custom tiles from disk`);
+  } catch (e) {
+    console.error(`Failed to load custom tiles: ${e.message}`);
+  }
+}
 
 // ── Launch ──────────────────────────────────────────────────────────────────
 async function main() {

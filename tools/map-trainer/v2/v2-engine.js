@@ -283,26 +283,34 @@ class V2Engine {
     const pathCells = new Set();
     const pcx = Math.round((d.pathCenter || [0.5, 0.5])[0] * this.W);
     const pcy = Math.round((d.pathCenter || [0.5, 0.5])[1] * this.H);
-    // Paths in the mixed/open rows (rows 4-6, 10-13 from layout)
-    for (let y = 0; y < this.H; y++) {
-      const rowInfo = rowLayout[y];
-      const isOpenRow = !rowInfo || rowInfo.type === 'open' || rowInfo.type === 'mixed';
-      if (isOpenRow || y === pcy || y === pcy + 1) {
-        // Horizontal path through open/mixed rows
-        if (Math.abs(y - pcy) <= 1) {
-          for (let x = 0; x < this.W; x++) {
-            ground[this.idx(x, y)] = 25; // cobblestone
-            pathCells.add(this.idx(x, y));
-          }
-        }
+    const pathWidth = d.pathWidth || 1; // 1 tile wide (like the reference)
+
+    // Horizontal path — single row through center
+    for (let x = 0; x < this.W; x++) {
+      if (this.inBounds(x, pcy)) {
+        ground[this.idx(x, pcy)] = 25; // cobblestone
+        pathCells.add(this.idx(x, pcy));
       }
     }
-    // Vertical path
+    // Vertical path — single column
     for (let y = 0; y < this.H; y++) {
-      for (let dx = 0; dx < 2; dx++) {
-        if (this.inBounds(pcx + dx, y)) {
-          ground[this.idx(pcx + dx, y)] = 25;
-          pathCells.add(this.idx(pcx + dx, y));
+      if (this.inBounds(pcx, y)) {
+        ground[this.idx(pcx, y)] = 25;
+        pathCells.add(this.idx(pcx, y));
+      }
+    }
+    // Path edge tiles from painted map (use 24,36,37,38 for borders)
+    const pathEdgeTiles = [24, 36, 37, 38, 13, 14];
+    for (const pi of pathCells) {
+      const px = pi % this.W, py = Math.floor(pi / this.W);
+      for (const [nx, ny] of [[px-1,py],[px+1,py],[px,py-1],[px,py+1]]) {
+        if (!this.inBounds(nx, ny)) continue;
+        const ni = this.idx(nx, ny);
+        if (!pathCells.has(ni) && ground[ni] !== 25) {
+          // 30% chance of a path edge tile
+          if (rng() < 0.3) {
+            ground[ni] = pathEdgeTiles[Math.floor(rng() * pathEdgeTiles.length)];
+          }
         }
       }
     }
