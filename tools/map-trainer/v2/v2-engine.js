@@ -1079,12 +1079,11 @@ class V2Engine {
       return foreground[i] === T.EMPTY && objects[i] === T.EMPTY
         && !pathCells.has(i) && !doorClearZone.has(i) && !buildingBuffer.has(i);
     };
-    // Canopies CAN overhang paths (foreground is drawn OVER the player)
+    // Canopies/edges CAN overhang paths and building buffer (foreground is drawn OVER the player)
     const canPlaceCanopy = (x, y) => {
       if (!this.inBounds(x, y)) return false;
       const i = this.idx(x, y);
-      return foreground[i] === T.EMPTY && objects[i] === T.EMPTY
-        && !doorClearZone.has(i) && !buildingBuffer.has(i);
+      return foreground[i] === T.EMPTY && objects[i] === T.EMPTY && !doorClearZone.has(i);
     };
 
     // Helper: can place on objects layer at (x,y)? Must be away from buildings.
@@ -1148,7 +1147,7 @@ class V2Engine {
       };
       const pickEdge = (dir) => dir[Math.floor(rng() * dir.length)];
       const placeEdgeTile = (x, y, dir) => {
-        if (canPlaceFg(x, y)) {
+        if (canPlaceCanopy(x, y)) { // canopy allows edges near buildings/paths
           foreground[this.idx(x, y)] = pickEdge(EDGE[dir]);
           count++;
         }
