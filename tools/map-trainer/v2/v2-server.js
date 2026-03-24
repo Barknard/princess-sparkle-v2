@@ -286,7 +286,9 @@ async function runGeneration() {
     const map = v2engine.generate(dna, i + status.generation * 1000);
     const audit = auditMap(map);
     const result = combinedScore(map, targetMap, audit);
-    const fitness = result.combined;
+    // VARIATION MODE: fitness = design quality ONLY (not tile match to target)
+    // We want DIFFERENT maps that are equally GOOD, not copies
+    const fitness = audit.total || result.designQuality || 0;
 
     scored[i] = { dna, fitness, tileMatch: result.tileMatch, designScore: result.designQuality };
 
