@@ -82,11 +82,13 @@ function buildMaterialsFromTags(tileTags) {
     return { L: left, M: mid, R: right };
   };
 
-  // Derive tile groups from tags + positions
-  const grayRoof = withTags('roof', 'gray').filter(id => !hasTag(id, 'castle') && !hasTag(id, 'wood'));
-  const grayRoofWood = withTags('roof', 'gray', 'wood').filter(id => !hasTag(id, 'castle'));
-  const redRoof = withTags('roof', 'red').filter(id => !hasTag(id, 'castle') && !hasTag(id, 'stone'));
-  const redRoofStone = withTags('roof', 'red', 'stone').filter(id => !hasTag(id, 'castle'));
+  // Derive tile groups from tags + top/bottom positions
+  // Top roof row: roof + color + top (48-50 gray, 52-54 red)
+  // Bottom roof row: roof + color + bottom (60-62 gray, 64-66 red)
+  const grayRoofTop = withTags('roof', 'gray', 'top').filter(id => !hasTag(id, 'castle') && !hasTag(id, 'chimney'));
+  const grayRoofBot = withTags('roof', 'gray', 'bottom').filter(id => !hasTag(id, 'castle'));
+  const redRoofTop = withTags('roof', 'red', 'top').filter(id => !hasTag(id, 'castle') && !hasTag(id, 'chimney'));
+  const redRoofBot = withTags('roof', 'red', 'bottom').filter(id => !hasTag(id, 'castle'));
   const woodWall = withTags('wall', 'wood').filter(id => !hasTag(id, 'door') && !hasTag(id, 'window'));
   const stoneWall = withTags('wall', 'stone').filter(id => !hasTag(id, 'door') && !hasTag(id, 'window') && !hasTag(id, 'castle'));
   const woodDoors = withTags('door', 'wood').filter(id => !hasTag(id, 'castle'));
@@ -103,29 +105,29 @@ function buildMaterialsFromTags(tileTags) {
 
   MATERIALS = {
     gray_wood: {
-      roof: pickLMR(grayRoof),                    // gray roof row 1
-      mid:  grayRoofWood.length >= 3 ? pickLMR(grayRoofWood) : pickLMR(grayRoof), // gray roof row 2
-      base: pickLMR(woodWall),                     // wood walls (uses left/right positions)
+      roof: pickLMR(grayRoofTop),                  // gray top roof: 48(L), 49(M), 50(R)
+      mid:  pickLMR(grayRoofBot),                   // gray bottom roof: 60(L), 61(M), 62(R)
+      base: pickLMR(woodWall),
       window: woodWindow,
       doors: woodDoors,
     },
     red_wood: {
-      roof: pickLMR(redRoof),                      // red roof row 1
-      mid:  redRoofStone.length >= 3 ? pickLMR(redRoofStone) : pickLMR(redRoof), // red roof row 2
+      roof: pickLMR(redRoofTop),                    // red top roof: 52(L), 53(M), 54(R)
+      mid:  pickLMR(redRoofBot),                     // red bottom roof: 64(L), 65(M), 66(R)
       base: pickLMR(woodWall),
       window: woodWindow,
       doors: woodDoors,
     },
     red_stone: {
-      roof: pickLMR(redRoof),
-      mid:  redRoofStone.length >= 3 ? pickLMR(redRoofStone) : pickLMR(redRoof),
-      base: pickLMR(stoneWall),                    // stone walls (uses left/right positions)
+      roof: pickLMR(redRoofTop),
+      mid:  pickLMR(redRoofBot),
+      base: pickLMR(stoneWall),
       window: stoneWindow,
       doors: stoneDoors,
     },
     gray_stone: {
-      roof: pickLMR(grayRoof),
-      mid:  grayRoofWood.length >= 3 ? pickLMR(grayRoofWood) : pickLMR(grayRoof),
+      roof: pickLMR(grayRoofTop),
+      mid:  pickLMR(grayRoofBot),
       base: pickLMR(stoneWall),
       window: stoneWindow,
       doors: stoneDoors,
@@ -141,11 +143,10 @@ function buildMaterialsFromTags(tileTags) {
   };
   MATERIAL_KEYS = ['gray_wood', 'red_wood', 'red_stone', 'gray_stone'];
 
-  console.log('V2Engine: materials from tags — grayRoof:' + JSON.stringify(MATERIALS.gray_wood.roof) +
-    ' redRoof:' + JSON.stringify(MATERIALS.red_wood.roof) +
-    ' woodWall:' + JSON.stringify(MATERIALS.gray_wood.base) +
-    ' stoneWall:' + JSON.stringify(MATERIALS.red_stone.base) +
-    ' castle:' + JSON.stringify(MATERIALS.castle.roof) + '/' + JSON.stringify(MATERIALS.castle.mid) + '/' + JSON.stringify(MATERIALS.castle.base));
+  console.log('V2Engine: materials from tags:');
+  for (const [name, mat] of Object.entries(MATERIALS)) {
+    console.log('  ' + name + ': roof=' + JSON.stringify(mat.roof) + ' mid=' + JSON.stringify(mat.mid) + (mat.base ? ' base=' + JSON.stringify(mat.base) : ''));
+  }
 }
 
 // Fallback materials if no tags loaded

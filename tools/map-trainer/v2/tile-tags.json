@@ -295,21 +295,27 @@
     "solid",
     "building",
     "roof",
-    "gray"
+    "gray",
+    "top",
+    "left"
   ],
   "49": [
     "objects",
     "solid",
     "building",
     "roof",
-    "gray"
+    "gray",
+    "top",
+    "middle"
   ],
   "50": [
     "objects",
     "solid",
     "building",
     "roof",
-    "gray"
+    "gray",
+    "top",
+    "right"
   ],
   "51": [
     "objects",
@@ -318,35 +324,43 @@
     "roof",
     "chimney",
     "gray",
-    "stone"
+    "stone",
+    "top"
   ],
   "52": [
     "objects",
     "solid",
     "building",
     "roof",
-    "red"
+    "red",
+    "left",
+    "top"
   ],
   "53": [
     "objects",
     "solid",
     "building",
     "roof",
-    "red"
+    "red",
+    "top",
+    "middle"
   ],
   "54": [
     "objects",
     "solid",
     "building",
     "roof",
-    "red"
+    "red",
+    "right",
+    "top"
   ],
   "55": [
     "building",
     "roof",
     "chimney",
     "red",
-    "stone"
+    "stone",
+    "top"
   ],
   "56": [
     "objects",
@@ -377,7 +391,9 @@
     "building",
     "roof",
     "gray",
-    "wood"
+    "wood",
+    "bottom",
+    "left"
   ],
   "61": [
     "objects",
@@ -385,7 +401,9 @@
     "building",
     "roof",
     "gray",
-    "wood"
+    "wood",
+    "bottom",
+    "middle"
   ],
   "62": [
     "objects",
@@ -393,7 +411,9 @@
     "building",
     "roof",
     "gray",
-    "wood"
+    "wood",
+    "bottom",
+    "right"
   ],
   "63": [
     "objects",
@@ -402,7 +422,8 @@
     "roof",
     "pitched-roof",
     "gray",
-    "wood"
+    "wood",
+    "bottom"
   ],
   "64": [
     "objects",
@@ -410,7 +431,9 @@
     "building",
     "roof",
     "red",
-    "stone"
+    "stone",
+    "left",
+    "bottom"
   ],
   "65": [
     "objects",
@@ -418,7 +441,9 @@
     "building",
     "roof",
     "red",
-    "stone"
+    "stone",
+    "bottom",
+    "middle"
   ],
   "66": [
     "objects",
@@ -426,7 +451,9 @@
     "building",
     "roof",
     "red",
-    "stone"
+    "stone",
+    "right",
+    "bottom"
   ],
   "67": [
     "objects",
@@ -435,7 +462,8 @@
     "roof",
     "pitched-roof",
     "red",
-    "stone"
+    "stone",
+    "bottom"
   ],
   "68": [
     "objects",
