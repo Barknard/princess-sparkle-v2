@@ -54,58 +54,49 @@ const TILE_LAYER = {};
 // Buildings are composed of material sets. Each set has L-M-R tiles for each layer.
 // The middle tile can repeat to make wider buildings. Layers stack vertically.
 // This allows generating buildings of ANY size from a small set of materials.
-// ── Building Materials — derived from tile-catalog.json tags ─────────────────
-// Each material has tiles verified by catalog position tags (left/middle/right)
-// and material tags (red/blue/stone/wood/brick).
+// ── Building Materials — derived from user's ACTUAL painted map ──────────────
+// The painted map is the ground truth. Catalog names are often wrong.
+// User's buildings mix roof colors with different wall types — this is intentional.
+//
+// From painted map analysis:
+//   Building style A: roof=48,49,50 mid=60,62,63 base=72,85,75 (stone roof + brick mid + wood base)
+//   Building style B: roof=52,53,54 mid=64,65,66 base=76,88,79 (blue roof + red mid + gray base)
+//   Gatehouse: mixed with 44,45,56,68,80,82,84,94 (stone arch + fences + dark archway door)
+//   Door tile: 80 (Dark Archway Opening) — THE actual door in this tileset
+//
 const MATERIALS = {
-  red: {
-    // Red Roof: 63(L), 64(M), 65(R) — catalog: "Red Roof Left/Middle/Right Slope"
-    roof:  { L: 63, M: 64, R: 65 },
-    // Brick mid-row: 60(L), 61(Center), 62(R) — catalog: "Brick Wall Left/Center/Right"
-    mid:   { L: 60, M: 61, R: 62 },
-    // Wood wall base: 72(L), 73(Center), 75(Window) — catalog: "Wood Wall Left/Center/Window"
-    base:  { L: 72, M: 73, R: 75 },
-    door:  74, // catalog: "Wood Door" (building-door tag)
+  style_a: {
+    // Stone-topped house with brick detail and wood walls (buildings 2,3 in painted map)
+    roof:  { L: 48, M: 49, R: 50 },   // stone wall row (looks like flat stone roof)
+    mid:   { L: 60, M: 63, R: 62 },   // brick L + red roof L + brick R (overhang detail)
+    base:  { L: 72, M: 85, R: 75 },   // wood L + dark stone center + wood window
+    door:  80,                          // Dark Archway Opening (the REAL door)
   },
-  blue: {
-    // Blue Roof: 51(L), 52(M), 53(R) — catalog: "Blue Roof Left/Middle/Right Slope"
-    roof:  { L: 51, M: 52, R: 53 },
-    // Stone mid-row: 48(stone wall), 49(window), 50(plain) — catalog: stone material
-    mid:   { L: 48, M: 49, R: 50 },
-    // Dark stone base: 84(L), 85(Center), 87(Window) — catalog: "Dark Stone Wall"
-    base:  { L: 84, M: 85, R: 87 },
-    door:  86, // catalog: "Dark Stone Door"
+  style_b: {
+    // Blue-roofed house with colored mid and gray walls (building 1 in painted map)
+    roof:  { L: 52, M: 53, R: 54 },   // blue roof L/M/R
+    mid:   { L: 64, M: 65, R: 66 },   // red roof tiles as wall detail
+    base:  { L: 76, M: 88, R: 79 },   // gray panels
+    door:  80,                          // same door for all houses
   },
-  gray: {
-    // Gray/stone building — uses stone wall tiles (48-50) as "roof"
-    // and darker stone for walls below
-    roof:  { L: 48, M: 49, R: 50 },  // Stone wall top row (these look like gray roof)
-    mid:   { L: 84, M: 85, R: 87 },  // Dark stone wall L/Center/Window
-    base:  { L: 84, M: 85, R: 87 },  // Same dark stone for base
-    door:  86, // Dark Stone Door
-  },
-  fence_white: {
-    // White fence: 96(L), 97(M), 98(R) — catalog verified
-    rail:  { L: 96, M: 97, R: 98 },
-    post:  108, // Vertical Fence Post
-  },
-  fence_wood: {
-    // Brown wood fence: 99(L), 100(M), 101(R) — catalog verified
-    rail:  { L: 99, M: 100, R: 101 },
-    post:  108,
+  style_c: {
+    // Red-roofed house with stone walls
+    roof:  { L: 63, M: 64, R: 65 },   // red roof L/M/R
+    mid:   { L: 60, M: 61, R: 62 },   // brick mid
+    base:  { L: 84, M: 85, R: 75 },   // dark stone + wood window
+    door:  80,
   },
   castle: {
-    // Castle tiles from user's painted map (Kenney Tiny Town castle set)
-    // Note: tile-catalog.json misidentifies these as water/fence — they ARE castle tiles
-    roof:  { L: 96, M: 96, R: 98 },    // 96=castle wall L, 98=castle wall R
-    mid:   { L: 120, M: 120, R: 122 }, // 120=castle mid L, 122=castle mid R
-    base:  { L: 123, M: 123, R: 124 }, // 123=castle base L, 124=castle base R
-    gate:  { L: 111, R: 112 },          // 111=gate L, 112=gate R
-    tower: 102,                          // tower cap piece
+    // Castle from painted map (tiles 96,98,102,111,112,120,122,123,124)
+    roof:  { L: 96, M: 96, R: 98 },
+    mid:   { L: 120, M: 120, R: 122 },
+    base:  { L: 123, M: 123, R: 124 },
+    gate:  { L: 111, R: 112 },
+    tower: 102,
     door:  -1,
   },
 };
-const MATERIAL_KEYS = ['red', 'blue'];  // house materials (gray removed - no proper roof tiles) // house materials
+const MATERIAL_KEYS = ['style_a', 'style_b', 'style_c']; // house materials
 
 // ── Procedural Building Generators ──────────────────────────────────────────
 // Every building is uniquely generated from rules. Painted templates are
@@ -581,7 +572,7 @@ class V2Engine {
           if (overlap) continue;
 
           // Place building + find doors (only real building doors, not fence pieces)
-          const REAL_DOORS = new Set([74, 86]); // 74=Wood Door, 86=Dark Stone Door (catalog verified)
+          const REAL_DOORS = new Set([80]); // 80=Dark Archway Opening (the ACTUAL door in this tileset)
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;
@@ -778,47 +769,65 @@ class V2Engine {
       return true;
     };
 
-    // Place a tree cluster — mix of tree pairs and standalone small trees
+    // Place a tree cluster: ONE species + closed edge border
+    // Each cluster uses a single tree type (no color mixing inside a cluster).
+    // The interior is dense tree pairs, surrounded by a closed ring of small trees/bushes.
+    const CLUSTER_SPECIES = [
+      { canopy: 4, trunk: 16, small: 6, name: 'green' },
+      { canopy: 7, trunk: 19, small: 9, name: 'autumn' },
+      { canopy: 3, trunk: 15, small: 16, name: 'light-autumn' },
+      { canopy: 6, trunk: 18, small: 17, name: 'dark' },
+    ];
+
     const placeTreeCluster = (cx, cy, w, h) => {
       let count = 0;
-      // Tree pair types: BOTH on foreground layer
-      // Scorer valid pairs (v2-scorer.js line 291): 4→16, 7→19, 3→15, 6→18
-      const pairTypes = [
-        { canopy: 4, trunk: 16 },   // green: canopy 4 above trunk 16
-        { canopy: 7, trunk: 19 },   // pine: canopy 7 above trunk 19
-        { canopy: 3, trunk: 15 },   // autumn: canopy 3 above trunk 15
-        { canopy: 6, trunk: 18 },   // dark: canopy 6 above trunk 18
-      ];
-      // Standalone small trees (foreground only, no trunk)
-      const smallTypes = [6, 9, 16, 17]; // small green, small autumn, complete, fruit
+      const species = CLUSTER_SPECIES[Math.floor(rng() * CLUSTER_SPECIES.length)];
+      const edgeTiles = [species.small, 28, 20]; // species-matching small + generic bushes
 
-      // Place 3-6 trees in the cluster area
-      const treesToPlace = 3 + Math.floor(rng() * 4);
-      for (let i = 0; i < treesToPlace; i++) {
-        const x = cx + Math.floor(rng() * w);
-        const y = cy + Math.floor(rng() * Math.max(1, h - 1));
-
-        if (rng() < 0.6) {
-          // 60% tree pair (canopy + trunk)
-          const tt = pairTypes[Math.floor(rng() * pairTypes.length)];
-          if (placeTree(x, y, tt.canopy, tt.trunk)) count += 2;
-        } else {
-          // 40% standalone small tree (foreground only)
-          if (canPlaceFg(x, y)) {
-            foreground[this.idx(x, y)] = smallTypes[Math.floor(rng() * smallTypes.length)];
-            count++;
+      // INTERIOR: dense tree pairs (canopy above trunk, both foreground)
+      for (let dy = 0; dy < h - 1; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          if (rng() < 0.65) { // 65% fill density
+            if (placeTree(cx + dx, cy + dy, species.canopy, species.trunk)) count += 2;
           }
         }
       }
 
-      // Edge bushes/decoration
-      const edgeTypes = [28, 19, 20, 15]; // bush, flower bush, small bush, tulip
-      for (let i = 0; i < 2 + Math.floor(rng() * 3); i++) {
-        const bx = cx + Math.floor(rng() * (w + 2)) - 1;
-        const by = cy + Math.floor(rng() * (h + 1));
-        if (canPlaceFg(bx, by)) {
-          foreground[this.idx(bx, by)] = edgeTypes[Math.floor(rng() * edgeTypes.length)];
-          count++;
+      // CLOSED EDGE BORDER: ring of small trees/bushes on ALL non-map-boundary sides
+      // Top edge
+      if (cy > 0) {
+        for (let dx = -1; dx <= w; dx++) {
+          if (canPlaceFg(cx + dx, cy - 1)) {
+            foreground[this.idx(cx + dx, cy - 1)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
+            count++;
+          }
+        }
+      }
+      // Bottom edge
+      if (cy + h < this.H) {
+        for (let dx = -1; dx <= w; dx++) {
+          if (canPlaceFg(cx + dx, cy + h)) {
+            foreground[this.idx(cx + dx, cy + h)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
+            count++;
+          }
+        }
+      }
+      // Left edge
+      if (cx > 0) {
+        for (let dy = -1; dy <= h; dy++) {
+          if (canPlaceFg(cx - 1, cy + dy)) {
+            foreground[this.idx(cx - 1, cy + dy)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
+            count++;
+          }
+        }
+      }
+      // Right edge
+      if (cx + w < this.W) {
+        for (let dy = -1; dy <= h; dy++) {
+          if (canPlaceFg(cx + w, cy + dy)) {
+            foreground[this.idx(cx + w, cy + dy)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
+            count++;
+          }
         }
       }
       return count;
@@ -1030,11 +1039,10 @@ class V2Engine {
           }
         }
 
-        // Fix stacked doors: if a door is directly above another door, replace top with wall
-        if ((obj === 74 || obj === 86) && y + 1 < this.H) {
-          const belowObj = objects[this.idx(x, y + 1)];
-          if (belowObj === 74 || belowObj === 86) {
-            objects[i] = (obj === 74) ? 73 : 85; // wood plain or stone plain
+        // Fix stacked doors: if door(80) is directly above another door, replace top with wall
+        if (obj === 80 && y + 1 < this.H) {
+          if (objects[this.idx(x, y + 1)] === 80) {
+            objects[i] = 85; // replace with dark stone wall
           }
         }
 
@@ -1046,7 +1054,7 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 6: Collision
     // ═══════════════════════════════════════════════════════════════════
-    const WALKABLE_DOORS = new Set([74, 86]); // Wood Door, Stone Door
+    const WALKABLE_DOORS = new Set([80]); // 80=Dark Archway Opening (the door)
     for (let i = 0; i < this.size; i++) {
       if (objects[i] !== T.EMPTY && !WALKABLE_DOORS.has(objects[i])) {
         collision[i] = 1;
