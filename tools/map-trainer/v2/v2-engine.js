@@ -66,35 +66,35 @@ const TILE_LAYER = {};
 //
 const MATERIALS = {
   gray_wood: {
-    // Gray roof + wood mid + wood walls (painted map buildings 2,3)
+    // Gray roof + gray mid overhang + wood walls
     roof:  { L: 48, M: 49, R: 50 },   // gray roof
-    mid:   { L: 60, M: 63, R: 62 },   // wood mid detail
-    base:  { L: 72, M: 73, R: 72 },   // wood walls (72=solid, NOT 75=window)
-    window: 75,                         // wood window
+    mid:   { L: 48, M: 49, R: 50 },   // SAME gray tiles for overhang (matching roof color!)
+    base:  { L: 72, M: 73, R: 72 },   // wood walls
+    window: 75,
     doors: [74, 78],
   },
   red_stone: {
-    // Red roof + wood mid + stone walls
-    roof:  { L: 52, M: 53, R: 54 },   // red roof (tag: roof+red)
-    mid:   { L: 64, M: 65, R: 66 },   // red/stone mid
-    base:  { L: 76, M: 76, R: 76 },   // stone wall panels (76=solid stone, NOT 84=window!)
-    window: 84,                         // window tile placed intentionally only
+    // Red roof + red mid overhang + stone walls
+    roof:  { L: 52, M: 53, R: 54 },   // red roof
+    mid:   { L: 64, M: 65, R: 66 },   // red overhang (64-66 are red-tagged, matching roof)
+    base:  { L: 76, M: 76, R: 76 },   // stone wall panels
+    window: 84,
     doors: [85, 86],
   },
   red_wood: {
-    // Red roof + wood mid + wood walls
+    // Red roof + red mid overhang + wood walls
     roof:  { L: 52, M: 53, R: 54 },   // red roof
-    mid:   { L: 60, M: 61, R: 62 },   // wood mid
-    base:  { L: 72, M: 73, R: 72 },   // wood walls (72=solid, NOT 75=window)
+    mid:   { L: 64, M: 65, R: 66 },   // red overhang (matches roof color)
+    base:  { L: 72, M: 73, R: 72 },   // wood walls
     window: 75,
     doors: [74, 78],
   },
   gray_stone: {
-    // Gray roof + stone walls
+    // Gray roof + gray mid overhang + stone walls
     roof:  { L: 48, M: 49, R: 50 },   // gray roof
-    mid:   { L: 76, M: 77, R: 79 },   // stone mid
-    base:  { L: 76, M: 77, R: 76 },   // stone wall panels (NOT 88=window!)
-    window: 88,                         // window tile placed intentionally only
+    mid:   { L: 48, M: 49, R: 50 },   // SAME gray tiles (matching roof color)
+    base:  { L: 76, M: 77, R: 76 },   // stone wall panels
+    window: 88,
     doors: [89, 90],
   },
   castle: {
