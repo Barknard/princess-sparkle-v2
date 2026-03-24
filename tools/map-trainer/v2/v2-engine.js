@@ -823,27 +823,38 @@ class V2Engine {
         }
       }
 
-      // CLOSED EDGE BORDER: ring of edge tiles (32, 20, 31, 28)
-      // Every non-map-boundary side gets a complete border
-      const placeEdge = (x, y) => {
+      // CLOSED EDGE BORDER — directional tiles learned from painted map:
+      //   TOP:    7 (canopy), 6 (small tree)       — tree tops close the cluster above
+      //   BOTTOM: 32 (stone), 31 (sand)             — ground-level closure below
+      //   LEFT:   6 (small tree), 18 (fern)         — small vegetation on left side
+      //   RIGHT:  20 (bush), 32 (stone)             — bush/stone on right side
+      const EDGE = {
+        top:    [7, 7, 7, 7, 6],        // heavily weighted toward canopy (7)
+        bottom: [32, 32, 31, 28],        // stone/sand/bush at ground level
+        left:   [6, 6, 18, 28],          // small tree/fern on left
+        right:  [20, 20, 20, 32, 32],   // bush/stone on right
+      };
+      const pickEdge = (dir) => dir[Math.floor(rng() * dir.length)];
+      const placeEdgeTile = (x, y, dir) => {
         if (canPlaceFg(x, y)) {
-          foreground[this.idx(x, y)] = edgeTiles[Math.floor(rng() * edgeTiles.length)];
+          foreground[this.idx(x, y)] = pickEdge(EDGE[dir]);
           count++;
         }
       };
-      // Bottom
-      if (cy + h < this.H) for (let dx = -1; dx <= w; dx++) placeEdge(cx + dx, cy + h);
-      // Top (above canopy row)
-      if (cy > 0) for (let dx = -1; dx <= w; dx++) placeEdge(cx + dx, cy - 1);
-      // Left
-      if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdge(cx - 1, cy + dy);
-      // Right
-      if (cx + w < this.W) for (let dy = 0; dy < h; dy++) placeEdge(cx + w, cy + dy);
-      // Corners
-      if (cy > 0 && cx > 0) placeEdge(cx - 1, cy - 1);
-      if (cy > 0 && cx + w < this.W) placeEdge(cx + w, cy - 1);
-      if (cy + h < this.H && cx > 0) placeEdge(cx - 1, cy + h);
-      if (cy + h < this.H && cx + w < this.W) placeEdge(cx + w, cy + h);
+
+      // Top edge (canopy closure — most important visually)
+      if (cy > 0) for (let dx = 0; dx < w; dx++) placeEdgeTile(cx + dx, cy - 1, 'top');
+      // Bottom edge (ground-level closure)
+      if (cy + h < this.H) for (let dx = 0; dx < w; dx++) placeEdgeTile(cx + dx, cy + h, 'bottom');
+      // Left edge
+      if (cx > 0) for (let dy = 0; dy < h; dy++) placeEdgeTile(cx - 1, cy + dy, 'left');
+      // Right edge
+      if (cx + w < this.W) for (let dy = 0; dy < h; dy++) placeEdgeTile(cx + w, cy + dy, 'right');
+      // Corners — use the adjacent edge's style
+      if (cy > 0 && cx > 0) placeEdgeTile(cx - 1, cy - 1, 'top');
+      if (cy > 0 && cx + w < this.W) placeEdgeTile(cx + w, cy - 1, 'top');
+      if (cy + h < this.H && cx > 0) placeEdgeTile(cx - 1, cy + h, 'bottom');
+      if (cy + h < this.H && cx + w < this.W) placeEdgeTile(cx + w, cy + h, 'bottom');
 
       return count;
     };
