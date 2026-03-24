@@ -54,60 +54,108 @@ const TILE_LAYER = {};
 // Buildings are composed of material sets. Each set has L-M-R tiles for each layer.
 // The middle tile can repeat to make wider buildings. Layers stack vertically.
 // This allows generating buildings of ANY size from a small set of materials.
-// ── Building Materials — derived from user's tile tags ───────────────────────
-// Tags source: tile-tags.json (user-tagged via Tile Tagger tool)
+// ── Building Materials — DYNAMICALLY derived from user's tile tags ────────────
+// The tile-tags.json is the GOLD STANDARD. Materials are built from tag queries:
+//   roof+gray → gray roof tiles    roof+red → red roof tiles
+//   wall+wood → wood wall tiles    wall+stone → stone wall tiles
+//   door (without castle) → house door tiles
+//   window → window tiles
+//   castle+roof/wall/door → castle tiles
 //
-// Tag-verified tile groups:
-//   gray roofs: 48,49,50,51  |  red roofs: 52,53,54,55  |  wood mid: 60,61,62,63,64,65,66,67
-//   wood walls: 72,73,74,75  |  stone walls: 76,77,78,79,84,85,86,87,88,89,90,91
-//   doors (wall+door tag): 74,78,85,86,87,89,90,91
-//   castle: 96-102,108-114,120-126
-//   fence: 44-47,56,58-59,68-71,80-82
-//
-const MATERIALS = {
-  gray_wood: {
-    // Gray roof + gray mid overhang + wood walls
-    roof:  { L: 48, M: 49, R: 50 },   // gray roof
-    mid:   { L: 48, M: 49, R: 50 },   // SAME gray tiles for overhang (matching roof color!)
-    base:  { L: 72, M: 73, R: 72 },   // wood walls
-    window: 75,
-    doors: [74, 78],
-  },
-  red_stone: {
-    // Red roof + red mid overhang + stone walls
-    roof:  { L: 52, M: 53, R: 54 },   // red roof
-    mid:   { L: 64, M: 65, R: 66 },   // red overhang (64-66 are red-tagged, matching roof)
-    base:  { L: 76, M: 76, R: 76 },   // stone wall panels
-    window: 84,
-    doors: [85, 86],
-  },
-  red_wood: {
-    // Red roof + red mid overhang + wood walls
-    roof:  { L: 52, M: 53, R: 54 },   // red roof
-    mid:   { L: 64, M: 65, R: 66 },   // red overhang (matches roof color)
-    base:  { L: 72, M: 73, R: 72 },   // wood walls
-    window: 75,
-    doors: [74, 78],
-  },
-  gray_stone: {
-    // Gray roof + gray mid overhang + stone walls
-    roof:  { L: 48, M: 49, R: 50 },   // gray roof
-    mid:   { L: 48, M: 49, R: 50 },   // SAME gray tiles (matching roof color)
-    base:  { L: 76, M: 77, R: 76 },   // stone wall panels
-    window: 88,
-    doors: [89, 90],
-  },
-  castle: {
-    // Castle (tag: castle+stone) — full castle tile set
-    roof:  { L: 96, M: 97, R: 98 },   // castle roof/wall top
-    mid:   { L: 108, M: 109, R: 110 }, // castle mid wall
-    base:  { L: 120, M: 121, R: 122 }, // castle base wall
-    gate:  { L: 111, R: 112 },         // castle doors (tag: castle+door)
-    tower: 102,
-    doors: [],
-  },
+// This function is called after tile tags load to rebuild materials.
+let MATERIALS = {};
+let MATERIAL_KEYS = [];
+
+function buildMaterialsFromTags(tileTags) {
+  // Build tag→tile lookup from raw tag data
+  const byTag = {};
+  for (const [id, tags] of Object.entries(tileTags)) {
+    if (id === '_customTags') continue;
+    const tid = parseInt(id);
+    for (const t of tags) {
+      if (!byTag[t]) byTag[t] = [];
+      byTag[t].push(tid);
+    }
+  }
+  const hasTag = (id, tag) => (tileTags[id] || []).includes(tag);
+  const withTags = (...tags) => {
+    let set = byTag[tags[0]] || [];
+    for (let i = 1; i < tags.length; i++) {
+      set = set.filter(id => hasTag(id, tags[i]));
+    }
+    return set.sort((a, b) => a - b);
+  };
+  const pick3 = (arr) => ({ L: arr[0] || 0, M: arr[1] || arr[0] || 0, R: arr[2] || arr[0] || 0 });
+
+  // Derive tile groups from tags
+  const grayRoof = withTags('roof', 'gray').filter(id => !hasTag(id, 'castle'));
+  const redRoof = withTags('roof', 'red').filter(id => !hasTag(id, 'castle'));
+  const woodWall = withTags('wall', 'wood').filter(id => !hasTag(id, 'door') && !hasTag(id, 'window'));
+  const stoneWall = withTags('wall', 'stone').filter(id => !hasTag(id, 'door') && !hasTag(id, 'window') && !hasTag(id, 'castle'));
+  const woodDoors = withTags('door', 'wood').filter(id => !hasTag(id, 'castle'));
+  const stoneDoors = withTags('door', 'stone').filter(id => !hasTag(id, 'castle'));
+  const allDoors = withTags('door').filter(id => !hasTag(id, 'castle'));
+  const windowTiles = byTag.window || [];
+  const woodWindow = windowTiles.find(id => hasTag(id, 'wood')) || windowTiles[0] || 75;
+  const stoneWindow = windowTiles.find(id => hasTag(id, 'stone') && !hasTag(id, 'castle')) || windowTiles[0] || 84;
+
+  // Castle tiles
+  const castleRoof = withTags('castle', 'roof');
+  const castleWall = withTags('castle', 'wall');
+  const castleDoor = withTags('castle', 'door');
+
+  MATERIALS = {
+    gray_wood: {
+      roof: pick3(grayRoof.slice(0, 3)),
+      mid:  pick3(grayRoof.slice(0, 3)), // same color as roof for consistency
+      base: pick3(woodWall.slice(0, 3)),
+      window: woodWindow,
+      doors: woodDoors.length ? woodDoors : allDoors.slice(0, 2),
+    },
+    red_wood: {
+      roof: pick3(redRoof.slice(0, 3)),
+      mid:  pick3(redRoof.slice(4, 7).length ? redRoof.slice(4, 7) : redRoof.slice(0, 3)),
+      base: pick3(woodWall.slice(0, 3)),
+      window: woodWindow,
+      doors: woodDoors.length ? woodDoors : allDoors.slice(0, 2),
+    },
+    red_stone: {
+      roof: pick3(redRoof.slice(0, 3)),
+      mid:  pick3(redRoof.slice(4, 7).length ? redRoof.slice(4, 7) : redRoof.slice(0, 3)),
+      base: pick3(stoneWall.slice(0, 3)),
+      window: stoneWindow,
+      doors: stoneDoors.length ? stoneDoors : allDoors.slice(0, 2),
+    },
+    gray_stone: {
+      roof: pick3(grayRoof.slice(0, 3)),
+      mid:  pick3(grayRoof.slice(0, 3)),
+      base: pick3(stoneWall.slice(0, 3)),
+      window: stoneWindow,
+      doors: stoneDoors.length ? stoneDoors : allDoors.slice(0, 2),
+    },
+    castle: {
+      roof:  pick3(castleRoof.slice(0, 3)),
+      mid:   pick3(castleRoof.slice(3, 6).length >= 3 ? castleRoof.slice(3, 6) : castleRoof.slice(0, 3)),
+      base:  pick3(castleRoof.slice(6, 9).length >= 3 ? castleRoof.slice(6, 9) : castleRoof.slice(3, 6)),
+      gate:  { L: castleDoor[0] || 111, R: castleDoor[1] || 112 },
+      tower: castleRoof.find(id => hasTag(id, 'top')) || 102,
+      doors: [],
+    },
+  };
+  MATERIAL_KEYS = ['gray_wood', 'red_wood', 'red_stone', 'gray_stone'];
+
+  console.log('V2Engine: built materials from tags — gray roof:[' + grayRoof.slice(0,3) + '] red roof:[' + redRoof.slice(0,3) + '] wood wall:[' + woodWall.slice(0,3) + '] stone wall:[' + stoneWall.slice(0,3) + '] doors:[' + allDoors + ']');
+}
+
+// Fallback materials if no tags loaded
+MATERIALS = {
+  gray_wood: { roof: {L:48,M:49,R:50}, mid: {L:48,M:49,R:50}, base: {L:72,M:73,R:72}, window:75, doors:[74,78] },
+  red_wood: { roof: {L:52,M:53,R:54}, mid: {L:64,M:65,R:66}, base: {L:72,M:73,R:72}, window:75, doors:[74,78] },
+  red_stone: { roof: {L:52,M:53,R:54}, mid: {L:64,M:65,R:66}, base: {L:76,M:76,R:76}, window:84, doors:[85,86] },
+  gray_stone: { roof: {L:48,M:49,R:50}, mid: {L:48,M:49,R:50}, base: {L:76,M:77,R:76}, window:88, doors:[89,90] },
+  castle: { roof: {L:96,M:97,R:98}, mid: {L:108,M:109,R:110}, base: {L:120,M:121,R:122}, gate:{L:111,R:112}, tower:102, doors:[] },
 };
-const MATERIAL_KEYS = ['gray_wood', 'red_stone', 'red_wood', 'gray_stone'];
+MATERIAL_KEYS = ['gray_wood', 'red_wood', 'red_stone', 'gray_stone'];
 
 // ── Procedural Building Generators ──────────────────────────────────────────
 // Every building is uniquely generated from rules. Painted templates are
@@ -136,29 +184,20 @@ function generateHouse(rng, wantChimney) {
   // Pick door position (center-ish, but not at edges)
   const doorX = w <= 2 ? Math.floor(rng() * w) : 1 + Math.floor(rng() * (w - 2));
 
-  // ── ROW 0: Roof — ONLY roof tiles, no windows/doors ──
+  // ── ROW 0: Top roof — full width, ONLY roof tiles ──
   const roofRow = makeRow(mat.roof);
   // Optional chimney (tags: chimney tiles are 51, 55)
   if (wantChimney && w >= 3) {
-    const chimneyX = doorX === 0 ? w - 1 : 0; // chimney opposite side from door
+    const chimneyX = doorX === 0 ? w - 1 : 0;
     const chimneyTile = mat.roof.L === 48 ? 51 : 55; // gray→51, red→55
     roofRow[chimneyX] = chimneyTile;
   }
   rows.push(roofRow);
 
-  // ── ROW 1: Pitched roof overhang above door (sloped roof detail) ──
-  const midRow = makeRow(mat.base); // default to wall tiles
-  if (w >= 3) {
-    const overhangStart = Math.max(0, doorX - 1);
-    const overhangEnd = Math.min(w - 1, doorX + 1);
-    midRow[overhangStart] = mat.mid.L;
-    midRow[doorX] = mat.mid.M;
-    midRow[overhangEnd] = mat.mid.R;
-  } else {
-    midRow[0] = mat.mid.L;
-    midRow[w - 1] = mat.mid.R;
-  }
-  rows.push(midRow);
+  // ── ROW 1: Bottom roof — full width, same roof color (overhang/eave) ──
+  // This is the second roof row spanning the full building width
+  const roofRow2 = makeRow(mat.mid); // mid = same color as roof
+  rows.push(roofRow2);
 
   // ── ROWS 2+: Wall rows — max 1 window per row, random placement ──
   const wallRows = 1 + Math.floor(rng() * 2); // 1-2 wall rows
@@ -337,6 +376,8 @@ class V2Engine {
       const taggedCount = Object.keys(this._tileTags).length;
       if (taggedCount > 0) {
         console.log('V2Engine: loaded tile tags for ' + taggedCount + ' tiles');
+        // Rebuild materials from tags (gold standard)
+        buildMaterialsFromTags(data);
       }
     } catch (e) {
       console.error('Failed to load tile tags:', e.message);
