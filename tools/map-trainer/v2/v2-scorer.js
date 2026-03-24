@@ -22,10 +22,10 @@ const ROOF_TILES = new Set([51, 52, 53, 55, 63, 64, 65, 67]);
 const MID_TILES = new Set([48, 49, 50, 60, 61, 62]);
 // Walls — wood(72-75), dark stone(84-87), gray(76,79,81,82), stone arch(56-58,68)
 const WALL_TILES = new Set([56, 57, 58, 68, 72, 73, 74, 75, 76, 79, 81, 82, 84, 85, 86, 87]);
-// Doors — from painted map: 80(Dark Archway Opening) is THE door tile
-const DOOR_TILES = new Set([80]);
-// Fences — white(96-98), brown(99-101), post(108)
-const FENCE_TILES = new Set([96, 97, 98, 99, 100, 101, 108]);
+// Doors — from user's tile tags (door+wall tiles)
+const DOOR_TILES = new Set([74,78,85,86,87,89,90,91,111,112,113,114,123,124]);
+// Fences — from user tags (fence tiles)
+const FENCE_TILES = new Set([44,45,46,47,56,58,59,68,69,70,71,80,81,82]);
 // Trees/vegetation — ALL on FOREGROUND layer (user's style)
 // Canopy tops: green(4), pine(7), autumn(3), dark(6), bush-canopy(28,20)
 const CANOPY_TILES = new Set([3, 4, 6, 7, 28, 20]);

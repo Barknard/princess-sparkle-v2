@@ -1,0 +1,787 @@
+{
+  "0": [
+    "ground",
+    "grass",
+    "walkable"
+  ],
+  "1": [
+    "ground",
+    "grass",
+    "walkable"
+  ],
+  "2": [
+    "ground",
+    "flower",
+    "grass",
+    "walkable"
+  ],
+  "3": [
+    "foreground",
+    "tree",
+    "canopy",
+    "top"
+  ],
+  "4": [
+    "foreground",
+    "tree",
+    "canopy",
+    "top"
+  ],
+  "5": [
+    "foreground",
+    "tree"
+  ],
+  "6": [
+    "tree",
+    "left",
+    "top",
+    "canopy"
+  ],
+  "7": [
+    "foreground",
+    "top",
+    "tree",
+    "canopy"
+  ],
+  "8": [
+    "tree",
+    "foreground",
+    "top",
+    "right",
+    "canopy"
+  ],
+  "9": [
+    "tree",
+    "left",
+    "top",
+    "canopy"
+  ],
+  "10": [
+    "foreground",
+    "tree",
+    "top",
+    "canopy"
+  ],
+  "11": [
+    "foreground",
+    "tree",
+    "top",
+    "right",
+    "canopy"
+  ],
+  "12": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "13": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "14": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "15": [
+    "foreground",
+    "tree",
+    "bottom",
+    "trunk"
+  ],
+  "16": [
+    "foreground",
+    "tree",
+    "bottom",
+    "trunk"
+  ],
+  "17": [
+    "foreground",
+    "bush"
+  ],
+  "18": [
+    "foreground",
+    "left",
+    "tree"
+  ],
+  "19": [
+    "foreground"
+  ],
+  "20": [
+    "foreground",
+    "right",
+    "tree"
+  ],
+  "21": [
+    "foreground",
+    "tree",
+    "left"
+  ],
+  "22": [
+    "foreground",
+    "tree",
+    "center"
+  ],
+  "23": [
+    "foreground",
+    "tree",
+    "right"
+  ],
+  "24": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "25": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "26": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "27": [
+    "foreground",
+    "tree",
+    "bush"
+  ],
+  "28": [
+    "foreground",
+    "tree",
+    "bush"
+  ],
+  "29": [
+    "foreground",
+    "bush"
+  ],
+  "30": [
+    "tree",
+    "bottom",
+    "left",
+    "foreground",
+    "trunk"
+  ],
+  "31": [
+    "foreground",
+    "tree",
+    "bottom",
+    "trunk"
+  ],
+  "32": [
+    "foreground",
+    "tree",
+    "bottom",
+    "right",
+    "trunk"
+  ],
+  "33": [
+    "foreground",
+    "tree",
+    "bottom",
+    "left",
+    "trunk"
+  ],
+  "34": [
+    "foreground",
+    "tree",
+    "bottom",
+    "trunk"
+  ],
+  "35": [
+    "tree",
+    "foreground",
+    "bottom",
+    "right",
+    "trunk"
+  ],
+  "36": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "37": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "38": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "39": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "40": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "41": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "42": [
+    "ground",
+    "walkable",
+    "path",
+    "dirt",
+    "grass"
+  ],
+  "43": [
+    "ground",
+    "walkable",
+    "path",
+    "stone"
+  ],
+  "44": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "45": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "46": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "47": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "48": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "gray"
+  ],
+  "49": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "gray"
+  ],
+  "50": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "gray"
+  ],
+  "51": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "chimney",
+    "gray",
+    "stone"
+  ],
+  "52": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "red"
+  ],
+  "53": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "red"
+  ],
+  "54": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "red"
+  ],
+  "55": [
+    "building",
+    "roof",
+    "chimney",
+    "red",
+    "stone"
+  ],
+  "56": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "57": [
+    "objects",
+    "solid"
+  ],
+  "58": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "59": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "60": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "gray",
+    "wood"
+  ],
+  "61": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "gray",
+    "wood"
+  ],
+  "62": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "gray",
+    "wood"
+  ],
+  "63": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "pitched-roof",
+    "gray",
+    "wood"
+  ],
+  "64": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "red",
+    "stone"
+  ],
+  "65": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "red",
+    "stone"
+  ],
+  "66": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "red",
+    "stone"
+  ],
+  "67": [
+    "objects",
+    "solid",
+    "building",
+    "roof",
+    "pitched-roof",
+    "red",
+    "stone"
+  ],
+  "68": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "69": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "70": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "71": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "72": [
+    "objects",
+    "solid",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "73": [
+    "objects",
+    "solid",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "74": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "75": [
+    "objects",
+    "solid",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "76": [
+    "objects",
+    "solid",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "77": [
+    "objects",
+    "solid",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "78": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "79": [
+    "objects",
+    "solid",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "80": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "81": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "82": [
+    "objects",
+    "solid",
+    "fence"
+  ],
+  "83": [
+    "objects",
+    "solid"
+  ],
+  "84": [
+    "objects",
+    "solid",
+    "window",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "85": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "86": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "87": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "wood"
+  ],
+  "88": [
+    "objects",
+    "solid",
+    "window",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "89": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "90": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "91": [
+    "objects",
+    "solid",
+    "door",
+    "wall",
+    "building",
+    "stone"
+  ],
+  "92": [
+    "objects",
+    "solid",
+    "top",
+    "well"
+  ],
+  "94": [
+    "objects",
+    "solid"
+  ],
+  "95": [
+    "objects",
+    "solid"
+  ],
+  "96": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "97": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "98": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "99": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "100": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "101": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "102": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "103": [
+    "foreground"
+  ],
+  "104": [
+    "objects",
+    "solid",
+    "bottom",
+    "well"
+  ],
+  "108": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "109": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "110": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "111": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "door"
+  ],
+  "112": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "door"
+  ],
+  "113": [
+    "solid",
+    "objects",
+    "stone",
+    "castle",
+    "door"
+  ],
+  "114": [
+    "solid",
+    "objects",
+    "stone",
+    "castle",
+    "door"
+  ],
+  "120": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "121": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "122": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "roof",
+    "wall"
+  ],
+  "123": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "door"
+  ],
+  "124": [
+    "objects",
+    "solid",
+    "stone",
+    "castle",
+    "door"
+  ],
+  "125": [
+    "solid",
+    "objects",
+    "stone",
+    "castle",
+    "window"
+  ],
+  "126": [
+    "solid",
+    "objects",
+    "stone",
+    "castle"
+  ],
+  "204": [
+    "objects",
+    "solid"
+  ],
+  "205": [
+    "objects",
+    "solid"
+  ],
+  "_customTags": [
+    "stone",
+    "chimney",
+    "pitched-roof",
+    "well"
+  ]
+}

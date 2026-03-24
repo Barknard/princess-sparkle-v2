@@ -54,49 +54,56 @@ const TILE_LAYER = {};
 // Buildings are composed of material sets. Each set has L-M-R tiles for each layer.
 // The middle tile can repeat to make wider buildings. Layers stack vertically.
 // This allows generating buildings of ANY size from a small set of materials.
-// ── Building Materials — derived from user's ACTUAL painted map ──────────────
-// The painted map is the ground truth. Catalog names are often wrong.
-// User's buildings mix roof colors with different wall types — this is intentional.
+// ── Building Materials — derived from user's tile tags ───────────────────────
+// Tags source: tile-tags.json (user-tagged via Tile Tagger tool)
 //
-// From painted map analysis:
-//   Building style A: roof=48,49,50 mid=60,62,63 base=72,85,75 (stone roof + brick mid + wood base)
-//   Building style B: roof=52,53,54 mid=64,65,66 base=76,88,79 (blue roof + red mid + gray base)
-//   Gatehouse: mixed with 44,45,56,68,80,82,84,94 (stone arch + fences + dark archway door)
-//   Door tile: 80 (Dark Archway Opening) — THE actual door in this tileset
+// Tag-verified tile groups:
+//   gray roofs: 48,49,50,51  |  red roofs: 52,53,54,55  |  wood mid: 60,61,62,63,64,65,66,67
+//   wood walls: 72,73,74,75  |  stone walls: 76,77,78,79,84,85,86,87,88,89,90,91
+//   doors (wall+door tag): 74,78,85,86,87,89,90,91
+//   castle: 96-102,108-114,120-126
+//   fence: 44-47,56,58-59,68-71,80-82
 //
 const MATERIALS = {
-  style_a: {
-    // Stone-topped house with brick detail and wood walls (buildings 2,3 in painted map)
-    roof:  { L: 48, M: 49, R: 50 },   // stone wall row (looks like flat stone roof)
-    mid:   { L: 60, M: 63, R: 62 },   // brick L + red roof L + brick R (overhang detail)
-    base:  { L: 72, M: 85, R: 75 },   // wood L + dark stone center + wood window
-    door:  80,                          // Dark Archway Opening (the REAL door)
+  gray_wood: {
+    // Gray roof + wood mid + wood walls (painted map buildings 2,3)
+    roof:  { L: 48, M: 49, R: 50 },   // gray roof (tag: roof+gray)
+    mid:   { L: 60, M: 63, R: 62 },   // wood mid detail (tag: roof+wood)
+    base:  { L: 72, M: 73, R: 75 },   // wood walls (tag: wall+wood)
+    doors: [74, 78],                    // wood doors (tag: door+wall)
   },
-  style_b: {
-    // Blue-roofed house with stone mid and gray walls (building 1 in painted map)
-    roof:  { L: 52, M: 53, R: 54 },   // blue roof L/M/R
-    mid:   { L: 48, M: 49, R: 50 },   // stone walls as mid detail (matches blue aesthetic)
-    base:  { L: 76, M: 85, R: 79 },   // gray panels
-    door:  80,
+  red_stone: {
+    // Red roof + wood mid + stone walls (painted map style)
+    roof:  { L: 52, M: 53, R: 54 },   // red roof (tag: roof+red)
+    mid:   { L: 64, M: 65, R: 66 },   // red/stone mid (tag: roof+stone)
+    base:  { L: 84, M: 85, R: 87 },   // stone walls (tag: wall+stone+wood)
+    doors: [85, 86, 89],               // stone doors (tag: door+wall)
   },
-  style_c: {
-    // Red-roofed house with stone walls
-    roof:  { L: 63, M: 64, R: 65 },   // red roof L/M/R
-    mid:   { L: 60, M: 61, R: 62 },   // brick mid
-    base:  { L: 84, M: 85, R: 75 },   // dark stone + wood window
-    door:  80,
+  red_wood: {
+    // Red roof + wood mid + wood walls
+    roof:  { L: 52, M: 53, R: 54 },   // red roof
+    mid:   { L: 60, M: 61, R: 62 },   // wood mid
+    base:  { L: 72, M: 73, R: 75 },   // wood walls
+    doors: [74, 78],
+  },
+  gray_stone: {
+    // Gray roof + stone walls
+    roof:  { L: 48, M: 49, R: 50 },   // gray roof
+    mid:   { L: 76, M: 77, R: 79 },   // stone mid (tag: wall+stone)
+    base:  { L: 88, M: 89, R: 91 },   // stone walls (tag: wall+stone)
+    doors: [89, 90],
   },
   castle: {
-    // Castle from painted map (tiles 96,98,102,111,112,120,122,123,124)
-    roof:  { L: 96, M: 96, R: 98 },
-    mid:   { L: 120, M: 120, R: 122 },
-    base:  { L: 123, M: 123, R: 124 },
-    gate:  { L: 111, R: 112 },
+    // Castle (tag: castle+stone) — full castle tile set
+    roof:  { L: 96, M: 97, R: 98 },   // castle roof/wall top
+    mid:   { L: 108, M: 109, R: 110 }, // castle mid wall
+    base:  { L: 120, M: 121, R: 122 }, // castle base wall
+    gate:  { L: 111, R: 112 },         // castle doors (tag: castle+door)
     tower: 102,
-    door:  -1,
+    doors: [],
   },
 };
-const MATERIAL_KEYS = ['style_a', 'style_b', 'style_c']; // house materials
+const MATERIAL_KEYS = ['gray_wood', 'red_stone', 'red_wood', 'gray_stone'];
 
 // ── Procedural Building Generators ──────────────────────────────────────────
 // Every building is uniquely generated from rules. Painted templates are
@@ -143,12 +150,16 @@ function generateHouse(rng) {
   const extraWalls = 1 + Math.floor(rng() * 2); // 1-2 extra wall rows for taller buildings
   for (let i = 0; i < extraWalls; i++) rows.push(makeRow(mat.base));
 
-  // Base row — door placement controlled by caller via wantDoor parameter
+  // Base row
   const baseRow = makeRow(mat.base);
   rows.push(baseRow);
 
-  // Return building with doorX info so caller can optionally add door
-  return { w, h: rows.length, rows, doorX, doorTile: mat.door, tileCount: rows.flat().filter(t => t >= 0).length };
+  // Pick a door tile from the material's door options
+  const doorTile = mat.doors && mat.doors.length > 0
+    ? mat.doors[Math.floor(rng() * mat.doors.length)]
+    : -1;
+
+  return { w, h: rows.length, rows, doorX, doorTile, tileCount: rows.flat().filter(t => t >= 0).length };
 }
 
 // Generate a castle: thick solid walls with towers and gate
@@ -631,30 +642,27 @@ class V2Engine {
           }
           if (overlap) continue;
 
-          // Place building + find doors (only real building doors, not fence pieces)
-          // Decide if this building gets a door (max 2 per map, like painted map)
+          // Decide if this building gets a door (max 2 per map)
           const giveDoor = !bldg.isFence && doorPositions.length < 2 && bldg.doorTile >= 0 && rng() < 0.45;
+          let doorCellIdx = -1;
           if (giveDoor) {
-            // Place door in the bottom row at the building's doorX
             const doorRow = bldg.rows[bldg.h - 1];
             doorRow[bldg.doorX] = bldg.doorTile;
+            doorCellIdx = this.idx(bx + bldg.doorX, by + bldg.h - 1);
           }
 
-          // Place all tiles
+          // Place all tiles — only the explicit door is walkable
           for (let dy = 0; dy < bldg.h; dy++) {
             for (let dx = 0; dx < bldg.w; dx++) {
               if (!this.inBounds(bx + dx, by + dy)) continue;
               const tile = bldg.rows[dy][dx];
               if (tile >= 0) {
                 objects[this.idx(bx + dx, by + dy)] = tile;
-                const isDoor = tile === 80;
-                collision[this.idx(bx + dx, by + dy)] = isDoor ? 0 : 1;
-                if (isDoor && dy === bldg.h - 1) {
-                  doorPositions.push({ x: bx + dx, y: by + dy });
-                }
+                collision[this.idx(bx + dx, by + dy)] = (this.idx(bx + dx, by + dy) === doorCellIdx) ? 0 : 1;
               }
             }
           }
+          if (giveDoor) doorPositions.push({ x: bx + bldg.doorX, y: by + bldg.h - 1 });
           placed.push({ x: bx, y: by, w: bldg.w, h: bldg.h });
           break;
         }
@@ -684,9 +692,11 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 3a: Fences — horizontal runs with proper L-M-R, 2+ tiles from buildings
     // ═══════════════════════════════════════════════════════════════════
+    // Fence tiles from user tags: 44-47 (set A), 68-71 (set B), 80-82 (set C)
     const FENCE_STYLES = [
-      { L: 96, M: 97, R: 98 },   // white fence
-      { L: 99, M: 100, R: 101 }, // wood fence
+      { L: 44, M: 45, R: 46 },   // fence set A
+      { L: 68, M: 69, R: 70 },   // fence set B
+      { L: 80, M: 81, R: 82 },   // fence set C
     ];
 
     const numFences = 1 + Math.floor(rng() * 2); // 1-2 fence runs
@@ -1158,10 +1168,11 @@ class V2Engine {
           }
         }
 
-        // Fix stacked doors: if door(80) is directly above another door, replace top with wall
-        if (obj === 80 && y + 1 < this.H) {
-          if (objects[this.idx(x, y + 1)] === 80) {
-            objects[i] = 85; // replace with dark stone wall
+        // Fix stacked doors: if a door is directly above another door, replace top with wall
+        const DOOR_SET = new Set([74,78,85,86,87,89,90,91,111,112,113,114,123,124]);
+        if (DOOR_SET.has(obj) && y + 1 < this.H) {
+          if (DOOR_SET.has(objects[this.idx(x, y + 1)])) {
+            objects[i] = 73; // replace with plain wood wall
           }
         }
 
@@ -1173,7 +1184,7 @@ class V2Engine {
     // ═══════════════════════════════════════════════════════════════════
     // STEP 6: Collision
     // ═══════════════════════════════════════════════════════════════════
-    const WALKABLE_DOORS = new Set([80]); // 80=Dark Archway Opening (the door)
+    const WALKABLE_DOORS = new Set([74,78,85,86,87,89,90,91,111,112,113,114,123,124]); // all door tiles from tags
     for (let i = 0; i < this.size; i++) {
       if (objects[i] !== T.EMPTY && !WALKABLE_DOORS.has(objects[i])) {
         collision[i] = 1;
