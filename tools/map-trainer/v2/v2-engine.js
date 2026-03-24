@@ -77,10 +77,14 @@ function buildMaterialsFromTags(tileTags) {
   };
 
   // Position-aware L-M-R picker: find left, middle/center, right tiles
+  // Prefers tiles that are ONLY left/middle/right (not multi-tagged like left+center)
   const pickLMR = (tiles) => {
-    const left = tiles.find(id => hasTag(id, 'left')) || tiles[0] || 0;
-    const mid = tiles.find(id => hasTag(id, 'middle') || hasTag(id, 'center')) || tiles[1] || tiles[0] || 0;
-    const right = tiles.find(id => hasTag(id, 'right')) || tiles[2] || tiles[0] || 0;
+    const left = tiles.find(id => hasTag(id, 'left') && !hasTag(id, 'center') && !hasTag(id, 'right'))
+      || tiles.find(id => hasTag(id, 'left')) || tiles[0] || 0;
+    const mid = tiles.find(id => (hasTag(id, 'middle') || hasTag(id, 'center')) && !hasTag(id, 'left') && !hasTag(id, 'right'))
+      || tiles.find(id => hasTag(id, 'middle') || hasTag(id, 'center')) || tiles[1] || tiles[0] || 0;
+    const right = tiles.find(id => hasTag(id, 'right') && !hasTag(id, 'center') && !hasTag(id, 'left'))
+      || tiles.find(id => hasTag(id, 'right')) || tiles[2] || tiles[0] || 0;
     return { L: left, M: mid, R: right };
   };
 
@@ -208,7 +212,9 @@ function generateHouse(rng, wantChimney) {
   rows.push(roofRow2);
 
   // ── ROWS 2+: Wall rows — 0 for one-story, 1-2 for multi-story ──
-  const wallRows = Math.floor(rng() * 3); // 0, 1, or 2 wall rows
+  // Buildings 4+ wide MUST have at least 1 wall row (so they can have a window)
+  const minWallRows = w >= 4 ? 1 : 0;
+  const wallRows = minWallRows + Math.floor(rng() * 2); // 0-2 for small, 1-2 for large
   const windowTile = mat.window || 75;
   let windowPlaced = false;
   for (let wr = 0; wr < wallRows; wr++) {
