@@ -423,6 +423,69 @@ async function runGeneration() {
   evolver.mutationRate = Math.min(0.5, baseMutRate * staleMultiplier);
   evolver.mutationStrength = Math.min(0.6, baseMutStrength * staleMultiplier);
 
+  // ── RADICAL: Simulated Annealing on best map when GA stalls ──────────
+  // After 200 stale gens, directly tweak tiles on the best map
+  if (staleGens > 200 && bestMapData && staleGens % 50 === 0) {
+    const annealRounds = 500;
+    let annealMap = {
+      width: bestMapData.width, height: bestMapData.height,
+      ground: bestMapData.ground.slice(),
+      objects: bestMapData.objects.slice(),
+      foreground: bestMapData.foreground.slice(),
+      collision: bestMapData.collision ? bestMapData.collision.slice() : new Array(bestMapData.width * bestMapData.height).fill(0)
+    };
+    let annealScore = auditMap(annealMap).design || 0;
+    const W = annealMap.width, H = annealMap.height;
+    // Valid ground tiles and foreground tiles from tags
+    const grassTiles = [0, 1, 2, 43];
+    const fgTiles = [3, 4, 6, 7, 15, 16, 17, 19, 20, 28, 32, -1, -1, -1]; // -1 = empty (weighted)
+    let improved = 0;
+    const temp0 = 2.0; // starting temperature
+
+    for (let r = 0; r < annealRounds; r++) {
+      const temp = temp0 * (1 - r / annealRounds); // cooling
+      const layer = Math.random() < 0.6 ? 'ground' : 'foreground'; // mostly ground tweaks
+      const x = Math.floor(Math.random() * W);
+      const y = Math.floor(Math.random() * H);
+      const idx = y * W + x;
+
+      // Skip objects layer (buildings/castle — don't mess with structures)
+      if (annealMap.objects[idx] >= 0) continue;
+
+      const oldTile = annealMap[layer][idx];
+      let newTile;
+      if (layer === 'ground') {
+        newTile = grassTiles[Math.floor(Math.random() * grassTiles.length)];
+      } else {
+        newTile = fgTiles[Math.floor(Math.random() * fgTiles.length)];
+      }
+      if (newTile === oldTile) continue;
+
+      // Apply tweak
+      annealMap[layer][idx] = newTile;
+      const newScore = auditMap(annealMap).design || 0;
+      const delta = newScore - annealScore;
+
+      if (delta > 0 || Math.random() < Math.exp(delta / Math.max(0.01, temp))) {
+        // Accept
+        annealScore = newScore;
+        if (delta > 0) improved++;
+      } else {
+        // Reject — revert
+        annealMap[layer][idx] = oldTile;
+      }
+    }
+
+    if (annealScore > status.bestScore) {
+      addLog(`🔥 ANNEALING: ${annealScore.toFixed(1)}% (+${(annealScore - status.bestScore).toFixed(1)}) after ${improved} improvements`);
+      bestMapData = annealMap;
+      status.bestScore = annealScore;
+      status.bestGeneration = status.generation;
+    } else {
+      addLog(`🔥 Annealing tried ${annealRounds} tweaks, ${improved} accepted, no net improvement`);
+    }
+  }
+
   // At extreme stagnation (>300), inject fresh random individuals
   if (staleGens > 300 && staleGens % 100 === 0) {
     const injectCount = Math.floor(population.length * 0.3);
