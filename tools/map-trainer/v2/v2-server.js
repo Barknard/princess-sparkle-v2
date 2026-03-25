@@ -423,10 +423,10 @@ async function runGeneration() {
   evolver.mutationRate = Math.min(0.5, baseMutRate * staleMultiplier);
   evolver.mutationStrength = Math.min(0.6, baseMutStrength * staleMultiplier);
 
-  // ── RADICAL: Simulated Annealing on best map when GA stalls ──────────
-  // After 200 stale gens, directly tweak tiles on the best map
-  if (staleGens > 200 && bestMapData && staleGens % 50 === 0) {
-    const annealRounds = 500;
+  // ── RADICAL: Simulated Annealing on best map — CONTINUOUS ──────────
+  // Every 10 gens, do a big annealing pass on the best map
+  if (bestMapData && status.generation % 10 === 0) {
+    const annealRounds = 2000; // more rounds for real improvement
     let annealMap = {
       width: bestMapData.width, height: bestMapData.height,
       ground: bestMapData.ground.slice(),
@@ -440,24 +440,41 @@ async function runGeneration() {
     const grassTiles = [0, 1, 2, 43];
     const fgTiles = [3, 4, 6, 7, 15, 16, 17, 19, 20, 28, 32, -1, -1, -1]; // -1 = empty (weighted)
     let improved = 0;
-    const temp0 = 2.0; // starting temperature
+    const temp0 = 3.0;
 
     for (let r = 0; r < annealRounds; r++) {
-      const temp = temp0 * (1 - r / annealRounds); // cooling
-      const layer = Math.random() < 0.6 ? 'ground' : 'foreground'; // mostly ground tweaks
+      const temp = temp0 * (1 - r / annealRounds);
       const x = Math.floor(Math.random() * W);
       const y = Math.floor(Math.random() * H);
       const idx = y * W + x;
 
-      // Skip objects layer (buildings/castle — don't mess with structures)
-      if (annealMap.objects[idx] >= 0) continue;
+      // Pick which layer to tweak (weighted: ground 50%, foreground 40%, objects 10%)
+      const roll = Math.random();
+      let layer, newTile, oldTile;
 
-      const oldTile = annealMap[layer][idx];
-      let newTile;
-      if (layer === 'ground') {
+      if (roll < 0.5) {
+        // Ground tweak
+        layer = 'ground';
+        oldTile = annealMap.ground[idx];
         newTile = grassTiles[Math.floor(Math.random() * grassTiles.length)];
-      } else {
+      } else if (roll < 0.9) {
+        // Foreground tweak
+        layer = 'foreground';
+        oldTile = annealMap.foreground[idx];
         newTile = fgTiles[Math.floor(Math.random() * fgTiles.length)];
+        // Don't mess with cells that have buildings below
+        if (annealMap.objects[idx] >= 0) continue;
+      } else {
+        // Objects tweak — only empty cells (add/remove small decorations)
+        layer = 'objects';
+        oldTile = annealMap.objects[idx];
+        const CASTLE_TILES = new Set([102, 204, 205, 96, 98, 120, 122, 111, 112, 123, 124]);
+        if (CASTLE_TILES.has(oldTile)) continue; // never touch castle
+        // Can add well, barrel, lantern to empty cells or remove them
+        const decoTiles = [92, 104, 107, 93, -1, -1, -1]; // decorations + empty
+        if (oldTile >= 0 && oldTile < 44) continue; // don't touch buildings
+        if (oldTile >= 48 && oldTile <= 91) continue; // don't touch buildings
+        newTile = decoTiles[Math.floor(Math.random() * decoTiles.length)];
       }
       if (newTile === oldTile) continue;
 
@@ -481,8 +498,13 @@ async function runGeneration() {
       bestMapData = annealMap;
       status.bestScore = annealScore;
       status.bestGeneration = status.generation;
-    } else {
-      addLog(`🔥 Annealing tried ${annealRounds} tweaks, ${improved} accepted, no net improvement`);
+      // Re-render immediately so dashboard updates
+      try {
+        bestMapPng = await renderMapToPng(bestMapData);
+        fs.writeFileSync(path.join(RESULTS_DIR, `best-anneal-${status.generation}.png`), bestMapPng);
+      } catch (e) {}
+    } else if (improved > 0) {
+      addLog(`🔥 Annealing: ${improved}/${annealRounds} accepted but no net gain`);
     }
   }
 
