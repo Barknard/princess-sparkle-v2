@@ -1,0 +1,606 @@
+{
+  "version": "1.0.0",
+  "name": "Sparkle Kingdom",
+  "tileSize": 16,
+
+  "maps": [
+    {
+      "id": "sparkle-village",
+      "name": "Sparkle Village",
+      "role": "hub",
+      "biome": "village",
+      "width": 60,
+      "height": 40,
+      "gridX": 2,
+      "gridY": 2,
+      "density": { "ground": 0.90, "objects": 0.35, "decorations": 0.20 },
+      "features": ["well", "buildings-3", "pond"],
+      "landmark": { "type": "village-square", "description": "Central well and gathering area" },
+      "handcrafted": true,
+      "storyAct": 1,
+      "bgm": "bgm-village"
+    },
+    {
+      "id": "meadow-trail",
+      "name": "Meadow Trail",
+      "role": "path",
+      "biome": "meadow",
+      "width": 40,
+      "height": 40,
+      "gridX": 1,
+      "gridY": 2,
+      "density": { "ground": 0.90, "objects": 0.30, "decorations": 0.15 },
+      "features": ["flower-field", "butterfly-clearing"],
+      "landmark": { "type": "giant-sunflower", "description": "Huge sunflower visible from the village" },
+      "storyAct": 1,
+      "bgm": "bgm-village"
+    },
+    {
+      "id": "whisper-path",
+      "name": "Whisper Path",
+      "role": "path",
+      "biome": "forest-edge",
+      "width": 40,
+      "height": 40,
+      "gridX": 2,
+      "gridY": 3,
+      "density": { "ground": 0.90, "objects": 0.45, "decorations": 0.10 },
+      "features": ["tree-corridor", "mushroom-patches"],
+      "landmark": { "type": "ancient-tree", "description": "Massive old tree with glowing moss" },
+      "storyAct": 1,
+      "bgm": "bgm-forest"
+    },
+    {
+      "id": "whisper-forest",
+      "name": "Whisper Forest",
+      "role": "destination",
+      "biome": "deep-forest",
+      "width": 50,
+      "height": 50,
+      "gridX": 2,
+      "gridY": 4,
+      "density": { "ground": 0.90, "objects": 0.55, "decorations": 0.15 },
+      "features": ["clearing-10x10", "mushroom-ring", "return-portal"],
+      "landmark": { "type": "fairy-ring", "description": "Glowing mushroom circle in a clearing" },
+      "storyAct": 1,
+      "bgm": "bgm-forest"
+    },
+    {
+      "id": "blossom-bridge",
+      "name": "Blossom Bridge",
+      "role": "path",
+      "biome": "meadow",
+      "width": 40,
+      "height": 40,
+      "gridX": 3,
+      "gridY": 2,
+      "density": { "ground": 0.90, "objects": 0.35, "decorations": 0.20 },
+      "features": ["flower-arch", "small-stream"],
+      "landmark": { "type": "flower-arch", "description": "Pink flower archway over path" },
+      "storyAct": 2,
+      "bgm": "bgm-meadow"
+    },
+    {
+      "id": "rainbow-garden",
+      "name": "Rainbow Garden",
+      "role": "destination",
+      "biome": "meadow",
+      "width": 50,
+      "height": 50,
+      "gridX": 4,
+      "gridY": 2,
+      "density": { "ground": 0.90, "objects": 0.30, "decorations": 0.25 },
+      "features": ["clearing-12x12", "flower-rows", "return-portal"],
+      "landmark": { "type": "rainbow-fountain", "description": "Sparkling fountain with colorful flowers" },
+      "storyAct": 2,
+      "bgm": "bgm-meadow"
+    },
+    {
+      "id": "crystal-path",
+      "name": "Crystal Path",
+      "role": "path",
+      "biome": "mountain",
+      "width": 40,
+      "height": 40,
+      "gridX": 2,
+      "gridY": 1,
+      "density": { "ground": 0.90, "objects": 0.40, "decorations": 0.10 },
+      "features": ["rocky-terrain", "pine-corridor"],
+      "landmark": { "type": "crystal-rock", "description": "Sparkling crystal boulder" },
+      "storyAct": 3,
+      "bgm": "bgm-mountain"
+    },
+    {
+      "id": "crystal-cave",
+      "name": "Crystal Cave",
+      "role": "destination",
+      "biome": "mountain",
+      "width": 50,
+      "height": 50,
+      "gridX": 2,
+      "gridY": 0,
+      "density": { "ground": 0.90, "objects": 0.45, "decorations": 0.15 },
+      "features": ["clearing-10x10", "crystal-formations", "return-portal"],
+      "landmark": { "type": "crystal-cavern", "description": "Glowing cave entrance with crystals" },
+      "storyAct": 3,
+      "bgm": "bgm-mountain"
+    }
+  ],
+
+  "connections": [
+    {
+      "id": "village-south-to-whisper",
+      "from": "sparkle-village",
+      "fromEdge": "south",
+      "fromTiles": [28, 31],
+      "to": "whisper-path",
+      "toEdge": "north",
+      "toTiles": [18, 21],
+      "pathWidth": 3,
+      "marker": "wooden-arch",
+      "transition": { "type": "iris", "duration": 700 }
+    },
+    {
+      "id": "whisper-path-to-forest",
+      "from": "whisper-path",
+      "fromEdge": "south",
+      "fromTiles": [18, 21],
+      "to": "whisper-forest",
+      "toEdge": "north",
+      "toTiles": [23, 26],
+      "pathWidth": 2,
+      "marker": "tree-gap",
+      "transition": { "type": "iris", "duration": 700 }
+    },
+    {
+      "id": "village-west-to-meadow",
+      "from": "sparkle-village",
+      "fromEdge": "west",
+      "fromTiles": [18, 21],
+      "to": "meadow-trail",
+      "toEdge": "east",
+      "toTiles": [18, 21],
+      "pathWidth": 3,
+      "marker": "flower-gate",
+      "transition": { "type": "iris", "duration": 700 }
+    },
+    {
+      "id": "village-east-to-blossom",
+      "from": "sparkle-village",
+      "fromEdge": "east",
+      "fromTiles": [18, 21],
+      "to": "blossom-bridge",
+      "toEdge": "west",
+      "toTiles": [18, 21],
+      "pathWidth": 3,
+      "marker": "flower-arch",
+      "transition": { "type": "iris", "duration": 700 }
+    },
+    {
+      "id": "blossom-to-garden",
+      "from": "blossom-bridge",
+      "fromEdge": "east",
+      "fromTiles": [18, 21],
+      "to": "rainbow-garden",
+      "toEdge": "west",
+      "toTiles": [23, 26],
+      "pathWidth": 2,
+      "marker": "rainbow-arch",
+      "transition": { "type": "iris", "duration": 700 }
+    },
+    {
+      "id": "village-north-to-crystal",
+      "from": "sparkle-village",
+      "fromEdge": "north",
+      "fromTiles": [28, 31],
+      "to": "crystal-path",
+      "toEdge": "south",
+      "toTiles": [18, 21],
+      "pathWidth": 3,
+      "marker": "stone-gate",
+      "transition": { "type": "iris", "duration": 700 }
+    },
+    {
+      "id": "crystal-path-to-cave",
+      "from": "crystal-path",
+      "fromEdge": "north",
+      "fromTiles": [18, 21],
+      "to": "crystal-cave",
+      "toEdge": "south",
+      "toTiles": [23, 26],
+      "pathWidth": 2,
+      "marker": "cave-mouth",
+      "transition": { "type": "iris", "duration": 700 }
+    }
+  ],
+
+  "interiors": [
+    {
+      "id": "grandma-cottage",
+      "name": "Grandma's Cottage",
+      "parentMap": "sparkle-village",
+      "entryDoor": { "tileX": 9, "tileY": 13 },
+      "width": 10,
+      "height": 8,
+      "biome": "interior-cozy",
+      "features": ["fireplace", "rocking-chair", "cookie-jar"],
+      "transition": { "type": "fade", "duration": 500, "color": "#ffe8f0" }
+    },
+    {
+      "id": "baker-shop",
+      "name": "Baker's Shop",
+      "parentMap": "sparkle-village",
+      "entryDoor": { "tileX": 12, "tileY": 29 },
+      "width": 10,
+      "height": 8,
+      "biome": "interior-cozy",
+      "features": ["oven", "bread-shelf", "flour-barrel"],
+      "transition": { "type": "fade", "duration": 500, "color": "#fff5e0" }
+    }
+  ],
+
+  "npcs": {
+    "grandma-rose": {
+      "name": "Grandma Rose",
+      "sprite": "townsfolk-female",
+      "personality": "warm",
+      "trait": "Always humming, smells like cookies",
+      "homeMap": "sparkle-village",
+      "homeX": 9,
+      "homeY": 12,
+      "wanderRadius": 2,
+      "dialogueId": "grandma-rose-greeting",
+      "ambientLines": ["voice_grandma_hum_01", "voice_grandma_garden_01"],
+      "sillyBehavior": "knitting-mishap",
+      "questGiver": ["sharing-is-caring"]
+    },
+    "baker-ben": {
+      "name": "Baker Ben",
+      "sprite": "merchant",
+      "personality": "jolly",
+      "trait": "Flour on his nose, laughs at everything",
+      "homeMap": "sparkle-village",
+      "homeX": 12,
+      "homeY": 27,
+      "wanderRadius": 2,
+      "dialogueId": "baker-ben-greeting",
+      "ambientLines": ["voice_baker_whistle_01"],
+      "sillyBehavior": "flour-explosion",
+      "questGiver": ["bakers-dozen"]
+    },
+    "lily": {
+      "name": "Lily",
+      "sprite": "townsfolk-female",
+      "personality": "cheerful",
+      "trait": "Loves flowers, always pointing at butterflies",
+      "homeMap": "sparkle-village",
+      "homeX": 25,
+      "homeY": 33,
+      "wanderRadius": 3,
+      "dialogueId": "lily-greeting",
+      "ambientLines": ["voice_lily_hum_01"],
+      "sillyBehavior": "butterfly-chase",
+      "questGiver": ["lily-lost-petals"]
+    },
+    "finn": {
+      "name": "Finn the Fox",
+      "sprite": "wolf",
+      "personality": "shy",
+      "trait": "Hides behind trees, peeks out curiously",
+      "homeMap": "whisper-path",
+      "homeX": 20,
+      "homeY": 20,
+      "wanderRadius": 4,
+      "dialogueId": "finn-greeting",
+      "ambientLines": ["voice_finn_curious_01"],
+      "sillyBehavior": "tail-chase",
+      "questGiver": ["finn-lost-acorn"]
+    },
+    "elder-oak": {
+      "name": "Elder Oak",
+      "sprite": "alchemist",
+      "personality": "gentle",
+      "trait": "Speaks slowly, knows every plant's name",
+      "homeMap": "whisper-forest",
+      "homeX": 25,
+      "homeY": 25,
+      "wanderRadius": 1,
+      "dialogueId": "elder-oak-greeting",
+      "ambientLines": ["voice_elder_oak_hum_01"],
+      "sillyBehavior": "leaf-sneeze",
+      "questGiver": ["elder-oak-remedy"]
+    },
+    "daisy": {
+      "name": "Daisy",
+      "sprite": "fairy",
+      "personality": "bubbly",
+      "trait": "Giggles constantly, leaves sparkle trails",
+      "homeMap": "rainbow-garden",
+      "homeX": 25,
+      "homeY": 25,
+      "wanderRadius": 5,
+      "dialogueId": "daisy-greeting",
+      "ambientLines": ["voice_daisy_giggle_01"],
+      "sillyBehavior": "sparkle-hiccup",
+      "questGiver": ["daisy-rainbow-seeds"]
+    }
+  },
+
+  "quests": {
+    "sharing-is-caring": {
+      "name": "Sharing is Caring",
+      "value": "sharing",
+      "heartReward": 3,
+      "giverNpcId": "grandma-rose",
+      "spansMaps": ["sparkle-village"],
+      "storyAct": 1,
+      "difficulty": "early",
+      "stages": [
+        {
+          "type": "TALK_TO",
+          "targetId": "grandma-rose",
+          "dialogueId": "sharing-start",
+          "companionReminder": "Let's talk to Grandma Rose!"
+        },
+        {
+          "type": "DELIVER",
+          "targetId": "baker-ben",
+          "itemId": "cookies",
+          "dialogueId": "sharing-deliver",
+          "companionReminder": "Let's bring the cookies to Baker Ben!",
+          "trailStoryBeats": [
+            { "tileX": 15, "tileY": 20, "type": "aroma-sparkles", "companionReaction": "Mmm, I can smell the cookies!" }
+          ]
+        }
+      ]
+    },
+    "lily-lost-petals": {
+      "name": "Lily's Lost Petals",
+      "value": "helping",
+      "heartReward": 3,
+      "giverNpcId": "lily",
+      "spansMaps": ["sparkle-village"],
+      "storyAct": 1,
+      "difficulty": "early",
+      "stages": [
+        {
+          "type": "TALK_TO",
+          "targetId": "lily",
+          "dialogueId": "lily-petals-start",
+          "companionReminder": "Let's see what Lily needs!"
+        },
+        {
+          "type": "PICKUP",
+          "targetId": "flower-petals",
+          "itemId": "petals",
+          "dialogueId": null,
+          "companionReminder": "I see some petals over there!"
+        }
+      ]
+    },
+    "finn-lost-acorn": {
+      "name": "Finn's Lost Acorn",
+      "value": "kindness",
+      "heartReward": 4,
+      "giverNpcId": "finn",
+      "spansMaps": ["whisper-path"],
+      "storyAct": 1,
+      "difficulty": "early",
+      "stages": [
+        {
+          "type": "TALK_TO",
+          "targetId": "finn",
+          "dialogueId": "finn-acorn-start",
+          "companionReminder": "The little fox looks sad. Let's talk to him!"
+        },
+        {
+          "type": "PICKUP",
+          "targetId": "golden-acorn",
+          "itemId": "acorn",
+          "dialogueId": null,
+          "companionReminder": "Finn's acorn must be nearby! Let's look around!",
+          "trailStoryBeats": [
+            { "tileX": 12, "tileY": 15, "type": "animal-tracks", "companionReaction": "Look, little paw prints!" }
+          ]
+        }
+      ]
+    },
+    "elder-oak-remedy": {
+      "name": "Elder Oak's Remedy",
+      "value": "empathy",
+      "heartReward": 5,
+      "giverNpcId": "elder-oak",
+      "spansMaps": ["whisper-forest", "sparkle-village"],
+      "storyAct": 1,
+      "difficulty": "mid",
+      "stages": [
+        {
+          "type": "TALK_TO",
+          "targetId": "elder-oak",
+          "dialogueId": "elder-remedy-start",
+          "companionReminder": "Elder Oak needs our help!"
+        },
+        {
+          "type": "PICKUP",
+          "targetId": "healing-flower",
+          "itemId": "moonpetal",
+          "dialogueId": null,
+          "companionReminder": "The moonpetal flower is somewhere in the forest!"
+        },
+        {
+          "type": "RETURN_TO",
+          "targetId": "elder-oak",
+          "dialogueId": "elder-remedy-complete",
+          "companionReminder": "Let's bring the moonpetal back to Elder Oak!"
+        }
+      ]
+    },
+    "bakers-dozen": {
+      "name": "Baker's Dozen",
+      "value": "cooperation",
+      "heartReward": 4,
+      "giverNpcId": "baker-ben",
+      "spansMaps": ["sparkle-village"],
+      "storyAct": 1,
+      "difficulty": "early",
+      "stages": [
+        {
+          "type": "TALK_TO",
+          "targetId": "baker-ben",
+          "dialogueId": "bakers-start",
+          "companionReminder": "Baker Ben is waving at us!"
+        },
+        {
+          "type": "DELIVER",
+          "targetId": "grandma-rose",
+          "itemId": "fresh-bread",
+          "dialogueId": "bakers-deliver",
+          "companionReminder": "Let's bring this warm bread to Grandma Rose!"
+        }
+      ]
+    },
+    "daisy-rainbow-seeds": {
+      "name": "Daisy's Rainbow Seeds",
+      "value": "patience",
+      "heartReward": 5,
+      "giverNpcId": "daisy",
+      "spansMaps": ["rainbow-garden"],
+      "storyAct": 2,
+      "difficulty": "mid",
+      "stages": [
+        {
+          "type": "TALK_TO",
+          "targetId": "daisy",
+          "dialogueId": "daisy-seeds-start",
+          "companionReminder": "Daisy looks excited! Let's see what she found!"
+        },
+        {
+          "type": "PICKUP",
+          "targetId": "rainbow-seed",
+          "itemId": "rainbow-seed",
+          "dialogueId": null,
+          "companionReminder": "The rainbow seed is hiding in the garden!"
+        },
+        {
+          "type": "OBSERVE",
+          "targetId": "planted-seed",
+          "dialogueId": "daisy-seeds-grow",
+          "companionReminder": "Let's watch the seed grow! Let's wait together!"
+        }
+      ]
+    }
+  },
+
+  "story": {
+    "acts": [
+      {
+        "act": 1,
+        "name": "Welcome Home",
+        "description": "Princess discovers her village and the nearby forest",
+        "maps": ["sparkle-village", "meadow-trail", "whisper-path", "whisper-forest"],
+        "values": ["sharing", "kindness", "helping"],
+        "bridgeColors": ["red", "orange"],
+        "unlockCondition": "start",
+        "revealEvent": null
+      },
+      {
+        "act": 2,
+        "name": "Growing Courage",
+        "description": "New paths appear leading to a magical garden",
+        "maps": ["blossom-bridge", "rainbow-garden"],
+        "values": ["empathy", "patience"],
+        "bridgeColors": ["yellow", "green"],
+        "unlockCondition": "act1-complete",
+        "revealEvent": {
+          "companionLine": "Look! A new path appeared from the village!",
+          "visualEffect": "sparkle-reveal",
+          "narratorLine": "With kindness in her heart, new paths opened before the princess."
+        }
+      },
+      {
+        "act": 3,
+        "name": "The Full Rainbow",
+        "description": "The mountain path reveals itself for the final journey",
+        "maps": ["crystal-path", "crystal-cave"],
+        "values": ["cooperation", "gratitude"],
+        "bridgeColors": ["blue", "purple"],
+        "unlockCondition": "act2-complete",
+        "revealEvent": {
+          "companionLine": "Wow! The mountain path is glowing!",
+          "visualEffect": "crystal-reveal",
+          "narratorLine": "The rainbow was almost complete. One last adventure awaited."
+        }
+      }
+    ]
+  },
+
+  "biomes": {
+    "village": {
+      "groundMix": { "1": 0.60, "2": 0.30, "43": 0.10 },
+      "treeTypes": ["green", "autumn"],
+      "pathTile": 40,
+      "treeDensity": 0.15,
+      "ambientLife": ["butterflies", "birds", "grass-sway"]
+    },
+    "meadow": {
+      "groundMix": { "1": 0.50, "2": 0.35, "43": 0.15 },
+      "treeTypes": ["green", "autumn", "small"],
+      "pathTile": 40,
+      "treeDensity": 0.10,
+      "flowerDensity": 0.25,
+      "ambientLife": ["butterflies", "bees", "flower-sway"]
+    },
+    "forest-edge": {
+      "groundMix": { "1": 0.50, "2": 0.20, "43": 0.05, "18": 0.15, "19": 0.10 },
+      "treeTypes": ["green", "pine", "dense"],
+      "pathTile": 40,
+      "treeDensity": 0.40,
+      "ambientLife": ["fireflies", "birds", "leaf-fall"]
+    },
+    "deep-forest": {
+      "groundMix": { "1": 0.40, "2": 0.15, "18": 0.20, "19": 0.15, "43": 0.10 },
+      "treeTypes": ["dense", "pine", "green"],
+      "pathTile": 42,
+      "treeDensity": 0.55,
+      "ambientLife": ["fireflies", "mushroom-glow", "mist"]
+    },
+    "mountain": {
+      "groundMix": { "1": 0.35, "2": 0.15, "43": 0.05, "44": 0.25, "45": 0.20 },
+      "treeTypes": ["pine"],
+      "pathTile": 44,
+      "treeDensity": 0.20,
+      "ambientLife": ["wind-particles", "birds"]
+    },
+    "interior-cozy": {
+      "groundMix": { "44": 0.70, "45": 0.30 },
+      "treeTypes": [],
+      "pathTile": 44,
+      "treeDensity": 0,
+      "ambientLife": ["fireplace-glow", "dust-motes"]
+    }
+  },
+
+  "densityProfiles": {
+    "hub": {
+      "objectFill": 0.65,
+      "buildingCount": [3, 5],
+      "npcCount": [3, 4],
+      "openSpaceMin": [6, 4],
+      "description": "Busy, safe, lots to see and do"
+    },
+    "path": {
+      "objectFill": 0.45,
+      "buildingCount": [0, 1],
+      "npcCount": [1, 2],
+      "openSpaceMin": [8, 6],
+      "description": "Journey feeling, moderate density, anticipation"
+    },
+    "destination": {
+      "objectFill": 0.35,
+      "buildingCount": [1, 2],
+      "npcCount": [1, 3],
+      "openSpaceMin": [10, 10],
+      "description": "Open arrival space, reward feeling, breathing room"
+    }
+  }
+}

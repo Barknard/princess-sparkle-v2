@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Editor - Sparkle Kingdom</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e0e0e0; }
+
+.layout { display: flex; height: 100%; }
+
+/* ── Left: World Map View ──────────────────────────────── */
+.map-panel {
+  flex: 1; display: flex; flex-direction: column;
+  border-right: 1px solid #30363d;
+}
+.map-header {
+  padding: 12px 16px; background: #161b22;
+  border-bottom: 1px solid #30363d;
+  display: flex; align-items: center; gap: 12px;
+}
+.map-header h2 {
+  font-size: 16px; font-weight: 600;
+  background: linear-gradient(90deg, #f472b6, #a855f7);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.map-header .subtitle { font-size: 11px; color: #8b949e; }
+.map-canvas-wrap {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: #0a0e14; overflow: auto; position: relative;
+}
+canvas#worldCanvas { cursor: pointer; }
+
+.map-legend {
+  padding: 8px 16px; background: #161b22;
+  border-top: 1px solid #30363d;
+  display: flex; gap: 16px; font-size: 11px; color: #8b949e;
+  flex-wrap: wrap;
+}
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-swatch {
+  width: 12px; height: 12px; border-radius: 3px; border: 1px solid #30363d;
+}
+
+/* ── Right: Properties Panel ───────────────────────────── */
+.props-panel {
+  width: 340px; display: flex; flex-direction: column;
+  background: #161b22; overflow-y: auto;
+}
+.props-header {
+  padding: 12px 16px; border-bottom: 1px solid #30363d;
+  font-size: 14px; font-weight: 600;
+}
+.props-body { padding: 12px 16px; flex: 1; overflow-y: auto; }
+.prop-group { margin-bottom: 16px; }
+.prop-group h4 {
+  font-size: 11px; text-transform: uppercase; color: #8b949e;
+  margin-bottom: 6px; letter-spacing: 0.5px;
+}
+.prop-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  font-size: 12px;
+}
+.prop-label { width: 80px; color: #8b949e; flex-shrink: 0; }
+.prop-value { flex: 1; color: #e0e0e0; }
+.prop-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+}
+.badge-hub { background: #a855f7; color: white; }
+.badge-path { background: #3b82f6; color: white; }
+.badge-destination { background: #22c55e; color: white; }
+
+.prop-tag {
+  display: inline-block; padding: 2px 6px; margin: 2px;
+  background: #21262d; border: 1px solid #30363d; border-radius: 4px;
+  font-size: 10px;
+}
+
+.npc-card {
+  padding: 8px; margin-bottom: 6px;
+  background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+}
+.npc-name { font-weight: 600; font-size: 12px; }
+.npc-trait { font-size: 10px; color: #8b949e; margin-top: 2px; }
+
+.quest-card {
+  padding: 8px; margin-bottom: 6px;
+  background: #0d1117; border-left: 3px solid #f472b6; border-radius: 0 6px 6px 0;
+}
+.quest-name { font-weight: 600; font-size: 12px; }
+.quest-value { font-size: 10px; color: #8b949e; }
+.quest-stages { font-size: 10px; color: #6e7681; margin-top: 4px; }
+
+.conn-card {
+  padding: 6px 8px; margin-bottom: 4px;
+  background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
+  font-size: 11px;
+}
+
+.empty-state {
+  text-align: center; padding: 40px 20px; color: #484f58;
+}
+.empty-state p { margin-top: 8px; font-size: 12px; }
+
+/* ── Bottom toolbar ────────────────────────────────────── */
+.toolbar {
+  padding: 8px 16px; background: #161b22;
+  border-top: 1px solid #30363d;
+  display: flex; gap: 8px; align-items: center;
+}
+.toolbar button {
+  padding: 6px 14px; border: 1px solid #30363d; border-radius: 6px;
+  background: #21262d; color: #e0e0e0; font-size: 12px; cursor: pointer;
+}
+.toolbar button:hover { background: #30363d; }
+.toolbar button.primary {
+  background: #a855f7; border-color: #a855f7; color: white;
+}
+.toolbar button.primary:hover { background: #9333ea; }
+.toolbar .spacer { flex: 1; }
+.toolbar .status { font-size: 11px; color: #8b949e; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Left: World Map -->
+  <div class="map-panel">
+    <div class="map-header">
+      <h2>Sparkle Kingdom</h2>
+      <span class="subtitle" id="worldStats">Loading...</span>
+    </div>
+    <div class="map-canvas-wrap">
+      <canvas id="worldCanvas" width="800" height="700"></canvas>
+    </div>
+    <div class="map-legend" id="legend"></div>
+  </div>
+
+  <!-- Right: Properties -->
+  <div class="props-panel">
+    <div class="props-header" id="propsTitle">Select a map</div>
+    <div class="props-body" id="propsBody">
+      <div class="empty-state">
+        <div style="font-size:40px">&#127758;</div>
+        <p>Click a map on the left to see its properties</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <button onclick="loadBlueprint()">Reload</button>
+  <button onclick="exportJSON()">Export JSON</button>
+  <div class="spacer"></div>
+  <span class="status" id="statusText">Ready</span>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let blueprint = null;
+let selectedMapId = null;
+let hoveredMapId = null;
+
+// ── Biome colors ───────────────────────────────────────────────────
+const BIOME_COLORS = {
+  village:       { fill: '#6d28d9', stroke: '#a855f7', label: 'Village' },
+  meadow:        { fill: '#15803d', stroke: '#4ade80', label: 'Meadow' },
+  'forest-edge': { fill: '#166534', stroke: '#22c55e', label: 'Forest Edge' },
+  'deep-forest': { fill: '#052e16', stroke: '#16a34a', label: 'Deep Forest' },
+  mountain:      { fill: '#44403c', stroke: '#a8a29e', label: 'Mountain' },
+  'interior-cozy':{ fill: '#92400e', stroke: '#f59e0b', label: 'Interior' },
+};
+
+const ROLE_BADGES = {
+  hub: 'badge-hub',
+  path: 'badge-path',
+  destination: 'badge-destination',
+};
+
+// ── Load blueprint ─────────────────────────────────────────────────
+async function loadBlueprint() {
+  try {
+    const resp = await fetch('../game/data/world-blueprint.json');
+    blueprint = await resp.json();
+    document.getElementById('statusText').textContent = 'Loaded v' + blueprint.version;
+    render();
+    updateStats();
+    buildLegend();
+  } catch(e) {
+    document.getElementById('statusText').textContent = 'Error: ' + e.message;
+  }
+}
+
+function updateStats() {
+  if (!blueprint) return;
+  const maps = blueprint.maps.length;
+  const conns = blueprint.connections.length;
+  const npcs = Object.keys(blueprint.npcs || {}).length;
+  const quests = Object.keys(blueprint.quests || {}).length;
+  document.getElementById('worldStats').textContent =
+    `${maps} maps | ${conns} connections | ${npcs} NPCs | ${quests} quests`;
+}
+
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  for (const [biome, cfg] of Object.entries(BIOME_COLORS)) {
+    if (biome === 'interior-cozy') continue;
+    el.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:${cfg.fill};border-color:${cfg.stroke}"></div>${cfg.label}</div>`;
+  }
+  el.innerHTML += '<div class="legend-item"><div class="legend-swatch" style="background:#a855f7;border-color:#d8b4fe"></div>Hub</div>';
+}
+
+// ── Render world map ───────────────────────────────────────────────
+const CELL = 120;    // px per grid cell
+const PAD = 60;      // canvas padding
+const CORNER_R = 12;
+
+function mapRect(map) {
+  return {
+    x: PAD + map.gridX * CELL,
+    y: PAD + map.gridY * CELL,
+    w: CELL - 16,
+    h: CELL - 16,
+  };
+}
+
+function render() {
+  const canvas = document.getElementById('worldCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Compute canvas size from grid
+  let maxGX = 0, maxGY = 0;
+  for (const m of blueprint.maps) {
+    maxGX = Math.max(maxGX, m.gridX);
+    maxGY = Math.max(maxGY, m.gridY);
+  }
+  canvas.width = PAD * 2 + (maxGX + 1) * CELL;
+  canvas.height = PAD * 2 + (maxGY + 1) * CELL;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw connections first (behind maps)
+  ctx.lineWidth = 3;
+  for (const conn of blueprint.connections) {
+    const fromMap = blueprint.maps.find(m => m.id === conn.from);
+    const toMap = blueprint.maps.find(m => m.id === conn.to);
+    if (!fromMap || !toMap) continue;
+
+    const fr = mapRect(fromMap);
+    const tr = mapRect(toMap);
+    const fcx = fr.x + fr.w / 2, fcy = fr.y + fr.h / 2;
+    const tcx = tr.x + tr.w / 2, tcy = tr.y + tr.h / 2;
+
+    // Dashed line
+    ctx.strokeStyle = '#30363d';
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(fcx, fcy);
+    ctx.lineTo(tcx, tcy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Connection dot at midpoint
+    const mx = (fcx + tcx) / 2, my = (fcy + tcy) / 2;
+    ctx.fillStyle = '#484f58';
+    ctx.beginPath();
+    ctx.arc(mx, my, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw maps
+  for (const map of blueprint.maps) {
+    const r = mapRect(map);
+    const biome = BIOME_COLORS[map.biome] || { fill: '#21262d', stroke: '#484f58' };
+    const isSelected = map.id === selectedMapId;
+    const isHovered = map.id === hoveredMapId;
+    const isLocked = isMapLocked(map);
+
+    // Shadow for selected
+    if (isSelected) {
+      ctx.shadowColor = biome.stroke;
+      ctx.shadowBlur = 16;
+    }
+
+    // Fill
+    ctx.fillStyle = isLocked ? '#1c1c1c' : biome.fill;
+    ctx.globalAlpha = isLocked ? 0.4 : 1;
+    roundRect(ctx, r.x, r.y, r.w, r.h, CORNER_R);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = isSelected ? '#f472b6' : isHovered ? '#e0e0e0' : biome.stroke;
+    ctx.lineWidth = isSelected ? 3 : 2;
+    roundRect(ctx, r.x, r.y, r.w, r.h, CORNER_R);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    // Hub star
+    if (map.role === 'hub') {
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2605', r.x + r.w / 2, r.y + 22);
+    }
+
+    // Map name
+    ctx.fillStyle = isLocked ? '#484f58' : '#f0f0f0';
+    ctx.font = 'bold 12px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(map.name, r.x + r.w / 2, r.y + r.h / 2 - 6);
+
+    // Size + role
+    ctx.fillStyle = isLocked ? '#30363d' : '#8b949e';
+    ctx.font = '10px "Segoe UI", sans-serif';
+    ctx.fillText(`${map.width}x${map.height} | ${map.role}`, r.x + r.w / 2, r.y + r.h / 2 + 10);
+
+    // Act badge
+    if (map.storyAct) {
+      const actColors = { 1: '#22c55e', 2: '#eab308', 3: '#3b82f6' };
+      ctx.fillStyle = actColors[map.storyAct] || '#8b949e';
+      ctx.font = 'bold 9px "Segoe UI", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('Act ' + map.storyAct, r.x + r.w - 8, r.y + r.h - 8);
+    }
+
+    // Handcrafted badge
+    if (map.handcrafted) {
+      ctx.fillStyle = '#f472b6';
+      ctx.font = '9px "Segoe UI", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('\u2764 hand', r.x + 8, r.y + r.h - 8);
+    }
+
+    // Lock icon for future acts
+    if (isLocked) {
+      ctx.fillStyle = '#484f58';
+      ctx.font = '20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('\uD83D\uDD12', r.x + r.w / 2, r.y + r.h / 2 + 28);
+    }
+  }
+}
+
+function isMapLocked(map) {
+  if (!blueprint.story) return false;
+  const act = blueprint.story.acts.find(a => a.maps.includes(map.id));
+  if (!act) return false;
+  return act.unlockCondition !== 'start';
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+// ── Hit testing ────────────────────────────────────────────────────
+function hitTest(cx, cy) {
+  if (!blueprint) return null;
+  for (const map of blueprint.maps) {
+    const r = mapRect(map);
+    if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
+      return map.id;
+    }
+  }
+  return null;
+}
+
+const canvas = document.getElementById('worldCanvas');
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const sy = canvas.height / rect.height;
+  const cx = (e.clientX - rect.left) * sx;
+  const cy = (e.clientY - rect.top) * sy;
+  const id = hitTest(cx, cy);
+  if (id) {
+    selectedMapId = id;
+    render();
+    showProps(id);
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const sy = canvas.height / rect.height;
+  const cx = (e.clientX - rect.left) * sx;
+  const cy = (e.clientY - rect.top) * sy;
+  const id = hitTest(cx, cy);
+  if (id !== hoveredMapId) {
+    hoveredMapId = id;
+    canvas.style.cursor = id ? 'pointer' : 'default';
+    render();
+  }
+});
+
+// ── Properties panel ───────────────────────────────────────────────
+function showProps(mapId) {
+  const map = blueprint.maps.find(m => m.id === mapId);
+  if (!map) return;
+
+  document.getElementById('propsTitle').textContent = map.name;
+
+  const body = document.getElementById('propsBody');
+  let html = '';
+
+  // Identity
+  html += `<div class="prop-group"><h4>Identity</h4>`;
+  html += propRow('ID', map.id);
+  html += propRow('Role', `<span class="prop-badge ${ROLE_BADGES[map.role] || ''}">${map.role}</span>`);
+  html += propRow('Biome', map.biome);
+  html += propRow('Size', `${map.width} x ${map.height} tiles`);
+  html += propRow('Grid', `(${map.gridX}, ${map.gridY})`);
+  html += propRow('Act', map.storyAct);
+  if (map.handcrafted) html += propRow('Source', '<span style="color:#f472b6">Handcrafted</span>');
+  html += `</div>`;
+
+  // Density
+  html += `<div class="prop-group"><h4>Density</h4>`;
+  html += propRow('Ground', pct(map.density.ground));
+  html += propRow('Objects', pct(map.density.objects));
+  html += propRow('Decor', pct(map.density.decorations));
+  html += `</div>`;
+
+  // Features
+  html += `<div class="prop-group"><h4>Features</h4>`;
+  html += `<div>${(map.features || []).map(f => `<span class="prop-tag">${f}</span>`).join('')}</div>`;
+  html += `</div>`;
+
+  // Landmark
+  if (map.landmark) {
+    html += `<div class="prop-group"><h4>Landmark</h4>`;
+    html += propRow('Type', map.landmark.type);
+    html += propRow('', `<span style="color:#8b949e;font-size:10px">${map.landmark.description}</span>`);
+    html += `</div>`;
+  }
+
+  // Connections
+  const conns = blueprint.connections.filter(c => c.from === mapId || c.to === mapId);
+  if (conns.length > 0) {
+    html += `<div class="prop-group"><h4>Connections (${conns.length})</h4>`;
+    for (const c of conns) {
+      const other = c.from === mapId ? c.to : c.from;
+      const dir = c.from === mapId ? c.fromEdge : c.toEdge;
+      const otherMap = blueprint.maps.find(m => m.id === other);
+      html += `<div class="conn-card">${dir.toUpperCase()} \u2192 ${otherMap ? otherMap.name : other} <span style="color:#484f58">${c.marker}</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // NPCs in this map
+  const mapNpcs = Object.entries(blueprint.npcs || {}).filter(([, n]) => n.homeMap === mapId);
+  if (mapNpcs.length > 0) {
+    html += `<div class="prop-group"><h4>NPCs (${mapNpcs.length})</h4>`;
+    for (const [id, npc] of mapNpcs) {
+      html += `<div class="npc-card">
+        <div class="npc-name">${npc.name}</div>
+        <div class="npc-trait">${npc.personality} | ${npc.trait}</div>
+        <div style="font-size:10px;color:#6e7681;margin-top:2px">Silly: ${npc.sillyBehavior} | Wander: ${npc.wanderRadius} tiles</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Quests in this map
+  const mapQuests = Object.entries(blueprint.quests || {}).filter(([, q]) => q.spansMaps.includes(mapId));
+  if (mapQuests.length > 0) {
+    html += `<div class="prop-group"><h4>Quests (${mapQuests.length})</h4>`;
+    for (const [id, q] of mapQuests) {
+      const valueColor = getValueColor(q.value);
+      html += `<div class="quest-card" style="border-left-color:${valueColor}">
+        <div class="quest-name">${q.name}</div>
+        <div class="quest-value">${q.value} | ${q.stages.length} stages | ${q.difficulty}</div>
+        <div class="quest-stages">${q.stages.map(s => s.type).join(' \u2192 ')}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Interiors
+  const interiors = (blueprint.interiors || []).filter(i => i.parentMap === mapId);
+  if (interiors.length > 0) {
+    html += `<div class="prop-group"><h4>Interiors (${interiors.length})</h4>`;
+    for (const i of interiors) {
+      html += `<div class="conn-card">${i.name} (${i.width}x${i.height}) \u2014 ${i.features.join(', ')}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function propRow(label, value) {
+  return `<div class="prop-row"><span class="prop-label">${label}</span><span class="prop-value">${value}</span></div>`;
+}
+
+function pct(v) {
+  return Math.round(v * 100) + '%';
+}
+
+function getValueColor(value) {
+  const colors = {
+    sharing: '#ff4444', kindness: '#ffaa00', helping: '#ffdd00',
+    empathy: '#44cc44', patience: '#4488ff', cooperation: '#8844ff',
+  };
+  return colors[value] || '#8b949e';
+}
+
+// ── Export ──────────────────────────────────────────────────────────
+function exportJSON() {
+  if (!blueprint) return;
+  const json = JSON.stringify(blueprint, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'world-blueprint.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('statusText').textContent = 'Exported!';
+}
+
+// ── Init ───────────────────────────────────────────────────────────
+loadBlueprint();
+</script>
+</body>
+</html>

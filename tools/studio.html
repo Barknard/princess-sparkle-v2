@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Princess Sparkle V2 - Game Studio</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0d1117;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top Bar ─────────────────────────────────────────────────── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    background: #161b22;
+    border-bottom: 2px solid #a855f7;
+    padding: 0 16px;
+    height: 44px;
+    flex-shrink: 0;
+    gap: 8px;
+    user-select: none;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+    margin-right: 16px;
+  }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #f472b6, #a855f7, #60a5fa);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .logo-text {
+    font-size: 15px; font-weight: 700;
+    background: linear-gradient(90deg, #f472b6, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    white-space: nowrap;
+  }
+
+  /* ── Tabs ─────────────────────────────────────────────────────── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    height: 100%;
+    align-items: stretch;
+  }
+  .tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 16px;
+    font-size: 12px; font-weight: 500;
+    color: #8b949e;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .tab:hover {
+    color: #c9d1d9;
+    background: #1c2129;
+  }
+  .tab.active {
+    color: #f0f0f0;
+    border-bottom-color: #a855f7;
+    background: #1c2129;
+  }
+  .tab-icon {
+    font-size: 14px;
+    width: 18px; text-align: center;
+  }
+  .tab-badge {
+    font-size: 9px;
+    background: #30363d;
+    padding: 1px 5px;
+    border-radius: 8px;
+    color: #8b949e;
+  }
+  .tab.active .tab-badge {
+    background: #a855f7;
+    color: white;
+  }
+
+  /* ── Spacer + Right Controls ──────────────────────────────────── */
+  .spacer { flex: 1; }
+  .top-right {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; color: #8b949e;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #238636;
+    display: inline-block;
+  }
+  .top-right a {
+    color: #58a6ff; text-decoration: none; font-size: 11px;
+  }
+  .top-right a:hover { text-decoration: underline; }
+
+  /* ── Content ──────────────────────────────────────────────────── */
+  .content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .content iframe {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: none;
+    display: none;
+  }
+  .content iframe.active {
+    display: block;
+  }
+
+  /* ── Keyboard hint ──────────────────────────────────────────── */
+  .kbd-hint {
+    position: fixed;
+    bottom: 8px; right: 12px;
+    font-size: 10px; color: #484f58;
+    pointer-events: none;
+    z-index: 100;
+  }
+  kbd {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: monospace;
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">
+    <div class="logo-icon">&#10024;</div>
+    <div class="logo-text">Princess Sparkle V2</div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="sprites" onclick="switchTab('sprites')">
+      <span class="tab-icon">&#127918;</span>
+      <span>Sprites</span>
+    </div>
+    <div class="tab" data-tab="tiles" onclick="switchTab('tiles')">
+      <span class="tab-icon">&#129513;</span>
+      <span>Tile Catalog</span>
+    </div>
+    <div class="tab" data-tab="painter" onclick="switchTab('painter')">
+      <span class="tab-icon">&#127912;</span>
+      <span>Map Painter</span>
+    </div>
+    <div class="tab" data-tab="annotator" onclick="switchTab('annotator')">
+      <span class="tab-icon">&#127991;</span>
+      <span>Tile Tagger</span>
+    </div>
+    <div class="tab" data-tab="trainer" onclick="switchTab('trainer')">
+      <span class="tab-icon">&#129504;</span>
+      <span>Map Trainer</span>
+    </div>
+    <div class="tab" data-tab="world" onclick="switchTab('world')">
+      <span class="tab-icon">&#127758;</span>
+      <span>World</span>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="top-right">
+    <span class="status-dot"></span>
+    <span>Game Studio</span>
+    <a href="/" target="_blank">Play Game</a>
+  </div>
+</div>
+
+<div class="content" id="content">
+  <iframe id="frame-sprites" class="active" data-src="sprite-viewer.html"></iframe>
+  <iframe id="frame-tiles" data-src="tile-viewer.html"></iframe>
+  <iframe id="frame-painter" data-src="map-trainer/v2/v2-painter.html"></iframe>
+  <iframe id="frame-annotator" data-src="map-trainer/v2/v2-annotator.html"></iframe>
+  <iframe id="frame-trainer" data-src="map-trainer/v2/v2-dashboard.html"></iframe>
+  <iframe id="frame-world" data-src="world-editor.html"></iframe>
+</div>
+
+<div class="kbd-hint">
+  <kbd>1</kbd>-<kbd>6</kbd> switch tabs &middot; <kbd>Alt</kbd>+<kbd>&#8592;&#8594;</kbd> prev/next
+</div>
+
+<script>
+const TAB_IDS = ['sprites', 'tiles', 'painter', 'annotator', 'trainer', 'world'];
+let activeTab = 'sprites';
+const loaded = new Set();
+
+function switchTab(tabId) {
+  if (activeTab === tabId) return;
+  activeTab = tabId;
+
+  // Update tab styles
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabId);
+  });
+
+  // Show/hide iframes
+  document.querySelectorAll('.content iframe').forEach(f => {
+    const id = f.id.replace('frame-', '');
+    f.classList.toggle('active', id === tabId);
+  });
+
+  // Lazy-load iframe on first visit
+  const frame = document.getElementById('frame-' + tabId);
+  if (frame && !loaded.has(tabId)) {
+    frame.src = frame.dataset.src;
+    loaded.add(tabId);
+  }
+
+  // Save last tab
+  try { localStorage.setItem('studio-tab', tabId); } catch(e) {}
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Don't capture if typing in an input inside an iframe
+  if (document.activeElement.tagName === 'IFRAME') return;
+
+  // Number keys 1-6
+  if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    const idx = parseInt(e.key) - 1;
+    if (idx < TAB_IDS.length) { switchTab(TAB_IDS[idx]); e.preventDefault(); }
+  }
+  // Alt+Left/Right
+  if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const cur = TAB_IDS.indexOf(activeTab);
+    const next = e.key === 'ArrowRight'
+      ? (cur + 1) % TAB_IDS.length
+      : (cur - 1 + TAB_IDS.length) % TAB_IDS.length;
+    switchTab(TAB_IDS[next]);
+    e.preventDefault();
+  }
+});
+
+// Restore last tab
+try {
+  const saved = localStorage.getItem('studio-tab');
+  if (saved && TAB_IDS.includes(saved)) {
+    switchTab(saved);
+  } else {
+    // Load default tab
+    const frame = document.getElementById('frame-sprites');
+    frame.src = frame.dataset.src;
+    loaded.add('sprites');
+  }
+} catch(e) {
+  const frame = document.getElementById('frame-sprites');
+  frame.src = frame.dataset.src;
+  loaded.add('sprites');
+}
+</script>
+</body>
+</html>
