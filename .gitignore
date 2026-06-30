@@ -22,3 +22,7 @@ tools/map-trainer/logs/
 tools/map-trainer/batch-state.json
 tools/map-trainer/v2/results/
 tools/map-trainer/v2/learned-knowledge-v2.json
+
+# Python bytecode
+__pycache__/
+*.pyc

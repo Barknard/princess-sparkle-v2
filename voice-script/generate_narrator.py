@@ -6,7 +6,9 @@ from elevenlabs.client import ElevenLabs
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-API_KEY     = os.environ.get("ELEVENLABS_API_KEY", "sk_0ea4b9a0d2e47c44333e6099241e1a09fbc77e51249170e7")
+API_KEY     = os.environ.get("ELEVENLABS_API_KEY")
+if not API_KEY:
+    raise SystemExit("Set the ELEVENLABS_API_KEY environment variable")
 VOICE_ID    = "pDWh86SmPFCHZgOMElCB"  # Narrator
 MODEL_ID    = "eleven_v3"
 OUT_FORMAT  = "mp3_44100_128"
