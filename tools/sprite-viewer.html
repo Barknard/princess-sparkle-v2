@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprite Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar { width: 190px; background: #16213e; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar-header { padding: 10px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid #333; color: #aaa; }
+  .filter-bar { padding: 6px 8px; border-bottom: 1px solid #333; display: flex; gap: 3px; }
+  .fbtn { font-size: 9px; padding: 2px 7px; border-radius: 10px; border: 1px solid #333; background: transparent; color: #888; cursor: pointer; }
+  .fbtn.on { background: #a855f7; border-color: #a855f7; color: white; }
+  .sprite-list { flex: 1; overflow-y: auto; }
+  .spr-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; }
+  .spr-item:hover { background: #1c2a4a; }
+  .spr-item.active { background: #1c2a4a; border-left-color: #a855f7; }
+  .spr-item canvas { image-rendering: pixelated; flex-shrink: 0; }
+  .spr-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spr-role { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .spr-role.player { color: #fbbf24; }
+  .spr-role.npc { color: #60a5fa; }
+  .spr-role.creature { color: #4ade80; }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .toolbar { display: flex; align-items: center; gap: 12px; padding: 6px 14px; background: #16213e; border-bottom: 1px solid #333; flex-shrink: 0; font-size: 11px; }
+  .toolbar label { color: #888; }
+  .toolbar select, .toolbar input[type=number] { background: #0f3460; border: 1px solid #333; color: #e0e0e0; padding: 2px 5px; border-radius: 3px; font-size: 11px; }
+  .toolbar input[type=number] { width: 40px; text-align: center; }
+  .tbtn { background: none; border: 1px solid #333; color: #e0e0e0; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+  .tbtn.on { color: #4ade80; border-color: #4ade80; }
+  .tbtn:hover { border-color: #666; }
+  .save-btn { background: #a855f7; border: none; color: white; padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+  .save-btn:hover { background: #9333ea; }
+
+  .content { flex: 1; display: flex; gap: 20px; padding: 16px; overflow-y: auto; align-items: flex-start; }
+
+  /* Left: preview + controls */
+  .left-col { display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 200px; }
+  .preview-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .plabel { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+  #anim-canvas { image-rendering: pixelated; border: 2px solid #333; border-radius: 6px; }
+  .anim-tag { font-size: 12px; color: #a855f7; font-weight: 600; }
+  .anim-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+  .abtn { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid #333; background: transparent; color: #aaa; cursor: pointer; }
+  .abtn.on { background: #a855f7; border-color: #a855f7; color: white; }
+  .abtn:hover { border-color: #666; }
+
+  /* Frame editor */
+  .frame-editor { width: 100%; }
+  .fe-section { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 3px; margin-top: 8px; }
+  .fe-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; }
+  .fe-row label { width: 50px; color: #888; text-align: right; }
+  .fe-row input[type=number] { width: 44px; background: #0f3460; border: 1px solid #333; color: #e0e0e0; padding: 2px 4px; border-radius: 3px; font-size: 11px; text-align: center; }
+  .fe-row input[type=number]:focus { border-color: #a855f7; outline: none; }
+  .fe-row span { color: #666; font-size: 10px; }
+
+  /* Master override */
+  .master-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
+  .master-box .chk-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .master-box .chk-row input[type=checkbox] { accent-color: #a855f7; }
+  .master-box .chk-row label { font-size: 10px; color: #f59e0b; }
+
+  /* Right: frame strip */
+  .right-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .frames-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+  .fbox { display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; padding: 3px; border: 2px solid transparent; border-radius: 4px; }
+  .fbox:hover { border-color: #444; }
+  .fbox.cur { border-color: #a855f7; }
+  .fbox.idle-range { background: #1e3a1e; }
+  .fbox.walk-range { background: #1e2a4a; }
+  .fbox canvas { image-rendering: pixelated; }
+  .fbox .fnum { font-size: 8px; color: #555; }
+
+  /* Info */
+  .info-tbl { font-size: 11px; margin-top: 4px; }
+  .info-tbl td { padding: 2px 6px; }
+  .info-tbl td:first-child { color: #666; }
+
+  /* Legend */
+  .legend { display: flex; gap: 12px; font-size: 10px; color: #888; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .legend-dot.idle { background: #1e3a1e; border: 1px solid #2d5a27; }
+  .legend-dot.walk { background: #1e2a4a; border: 1px solid #3b82f6; }
+
+  .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #444; font-size: 14px; }
+  .saved-toast { position: fixed; top: 12px; right: 12px; background: #22c55e; color: white; padding: 6px 16px; border-radius: 6px; font-size: 12px; z-index: 999; display: none; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header" id="sh">Sprites</div>
+  <div class="filter-bar">
+    <button class="fbtn on" data-f="all" onclick="setFilter('all')">All</button>
+    <button class="fbtn" data-f="player" onclick="setFilter('player')">Player</button>
+    <button class="fbtn" data-f="npc" onclick="setFilter('npc')">NPC</button>
+    <button class="fbtn" data-f="creature" onclick="setFilter('creature')">Creature</button>
+  </div>
+  <div class="sprite-list" id="slist"></div>
+</div>
+
+<div class="main">
+  <div class="toolbar">
+    <label>Scale</label>
+    <select id="scl" onchange="scl=+this.value;rp()"><option value="4">4x</option><option value="6" selected>6x</option><option value="8">8x</option></select>
+    <label>BG</label>
+    <select id="bgc" onchange="bgc=this.value;rp()"><option value="#0f3460">Blue</option><option value="#2d5a27">Grass</option><option value="#1a1a2e">Dark</option><option value="#fff">White</option></select>
+    <button class="tbtn on" id="pbtn" onclick="playing=!playing;this.textContent=playing?'\u25B6 Play':'\u23F8 Pause';this.classList.toggle('on',playing)">&#9654; Play</button>
+    <span style="color:#666" id="spd-txt">150ms</span>
+    <div style="flex:1"></div>
+    <button class="save-btn" onclick="saveAnims()">Save Changes</button>
+  </div>
+  <div class="content" id="content"><div class="empty-state">Select a sprite</div></div>
+</div>
+
+<div class="saved-toast" id="toast">Saved!</div>
+
+<script>
+const FW = 16, FH = 16;
+let scl = 6, bgc = '#0f3460', playing = true;
+let data = {}, sheets = {}, sel = null, selAnim = 0, intv = null, curFrame = 0, filter = 'all';
+let masterOn = false, masterIdle = [0, 1], masterWalk = [4, 7], masterSpeed = [500, 150];
+
+function setFilter(f) {
+  filter = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  renderList();
+}
+
+async function init() {
+  const r = await fetch('../sprites/sprite-anims.json');
+  data = await r.json();
+  const ps = [];
+  for (const [n, s] of Object.entries(data.sprites)) {
+    ps.push(new Promise(res => {
+      const img = new Image();
+      img.onload = () => { sheets[n] = img; res(); };
+      img.onerror = res;
+      img.src = '../' + s.sheet;
+    }));
+  }
+  await Promise.all(ps);
+  renderList();
+  const first = Object.keys(data.sprites)[0];
+  if (first) selectSprite(first);
+}
+
+function renderList() {
+  const el = document.getElementById('slist');
+  el.innerHTML = '';
+  let c = 0;
+  for (const [n, s] of Object.entries(data.sprites)) {
+    const role = s.role || 'npc';
+    if (filter !== 'all' && role !== filter) continue;
+    c++;
+    const d = document.createElement('div');
+    d.className = 'spr-item' + (sel === n ? ' active' : '');
+    d.onclick = () => selectSprite(n);
+    const cv = document.createElement('canvas');
+    cv.width = 28; cv.height = 28;
+    const cx = cv.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    if (sheets[n]) cx.drawImage(sheets[n], 0, 0, FW, FH, 0, 0, 28, 28);
+    const info = document.createElement('div');
+    info.innerHTML = '<div class="spr-name">' + n.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) + '</div><div class="spr-role '+role+'">' + role + '</div>';
+    d.appendChild(cv); d.appendChild(info); el.appendChild(d);
+  }
+  document.getElementById('sh').textContent = 'Sprites (' + c + ')';
+}
+
+function selectSprite(n) { sel = n; selAnim = 0; renderList(); rp(); }
+function rp() { renderPreview(); }
+
+function renderPreview() {
+  if (intv) { clearInterval(intv); intv = null; }
+  const sp = data.sprites[sel], sh = sheets[sel];
+  if (!sp || !sh) return;
+  const tag = sp.frameTags[selAnim] || sp.frameTags[0];
+  const spd = tag.speed || 150;
+  document.getElementById('spd-txt').textContent = spd + 'ms';
+  const pw = FW * scl, ph = FH * scl;
+  const idleTag = sp.frameTags.find(t => t.name === 'idle') || sp.frameTags[0];
+  const walkTag = sp.frameTags.find(t => t.name === 'walk') || sp.frameTags[1] || sp.frameTags[0];
+
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <div class="left-col">
+      <div class="preview-wrap">
+        <div class="plabel">Preview</div>
+        <canvas id="anim-canvas" width="${pw}" height="${ph}" style="width:${pw}px;height:${ph}px;background:${bgc};"></canvas>
+        <div class="anim-tag" id="atag">${tag.name} (${tag.from}-${tag.to})</div>
+      </div>
+      <div class="anim-btns" id="abtns"></div>
+
+      <div class="frame-editor">
+        <div class="fe-section">Frame Ranges</div>
+        <div class="fe-row"><label>Idle</label>
+          <input type="number" id="idle-from" value="${idleTag.from}" min="0" max="${sp.frameCount-1}" onchange="updateTag('idle','from',+this.value)">
+          <span>to</span>
+          <input type="number" id="idle-to" value="${idleTag.to}" min="0" max="${sp.frameCount-1}" onchange="updateTag('idle','to',+this.value)">
+          <span>@</span>
+          <input type="number" id="idle-spd" value="${idleTag.speed||500}" min="50" max="2000" step="50" onchange="updateTag('idle','speed',+this.value)">
+          <span>ms</span>
+        </div>
+        <div class="fe-row"><label>Walk</label>
+          <input type="number" id="walk-from" value="${walkTag.from}" min="0" max="${sp.frameCount-1}" onchange="updateTag('walk','from',+this.value)">
+          <span>to</span>
+          <input type="number" id="walk-to" value="${walkTag.to}" min="0" max="${sp.frameCount-1}" onchange="updateTag('walk','to',+this.value)">
+          <span>@</span>
+          <input type="number" id="walk-spd" value="${walkTag.speed||150}" min="50" max="2000" step="50" onchange="updateTag('walk','speed',+this.value)">
+          <span>ms</span>
+        </div>
+
+        <div class="master-box">
+          <div class="chk-row">
+            <input type="checkbox" id="master-chk" ${masterOn?'checked':''} onchange="masterOn=this.checked">
+            <label for="master-chk">Master Override (apply to ALL sprites)</label>
+          </div>
+          <div class="fe-row"><label>Idle</label>
+            <input type="number" id="m-idle-from" value="${masterIdle[0]}" min="0" onchange="masterIdle[0]=+this.value">
+            <span>to</span>
+            <input type="number" id="m-idle-to" value="${masterIdle[1]}" min="0" onchange="masterIdle[1]=+this.value">
+            <span>@</span>
+            <input type="number" id="m-idle-spd" value="${masterSpeed[0]}" min="50" step="50" onchange="masterSpeed[0]=+this.value">
+            <span>ms</span>
+          </div>
+          <div class="fe-row"><label>Walk</label>
+            <input type="number" id="m-walk-from" value="${masterWalk[0]}" min="0" onchange="masterWalk[0]=+this.value">
+            <span>to</span>
+            <input type="number" id="m-walk-to" value="${masterWalk[1]}" min="0" onchange="masterWalk[1]=+this.value">
+            <span>@</span>
+            <input type="number" id="m-walk-spd" value="${masterSpeed[1]}" min="50" step="50" onchange="masterSpeed[1]=+this.value">
+            <span>ms</span>
+          </div>
+        </div>
+      </div>
+
+      <table class="info-tbl">
+        <tr><td>Name</td><td>${sel}</td></tr>
+        <tr><td>Role</td><td>${sp.role}</td></tr>
+        <tr><td>Frames</td><td>${sp.frameCount}</td></tr>
+        <tr><td>Sheet</td><td>${sp.sheet.split('/').pop()}</td></tr>
+      </table>
+    </div>
+
+    <div class="right-col">
+      <div class="fe-section">All Frames</div>
+      <div class="legend">
+        <span><span class="legend-dot idle"></span> Idle range</span>
+        <span><span class="legend-dot walk"></span> Walk range</span>
+      </div>
+      <div class="frames-grid" id="fgrid"></div>
+    </div>
+  `;
+
+  // Anim buttons
+  const btns = document.getElementById('abtns');
+  sp.frameTags.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'abtn' + (i === selAnim ? ' on' : '');
+    b.textContent = t.name;
+    b.onclick = () => { selAnim = i; rp(); };
+    btns.appendChild(b);
+  });
+
+  // Frame grid
+  const grid = document.getElementById('fgrid');
+  for (let f = 0; f < sp.frameCount; f++) {
+    const box = document.createElement('div');
+    box.className = 'fbox';
+    if (f >= idleTag.from && f <= idleTag.to) box.classList.add('idle-range');
+    if (f >= walkTag.from && f <= walkTag.to) box.classList.add('walk-range');
+
+    const fc = document.createElement('canvas');
+    fc.width = FW * 3; fc.height = FH * 3;
+    const fx = fc.getContext('2d');
+    fx.imageSmoothingEnabled = false;
+    fx.fillStyle = bgc;
+    fx.fillRect(0, 0, fc.width, fc.height);
+    fx.drawImage(sh, f * FW, 0, FW, FH, 0, 0, fc.width, fc.height);
+    box.appendChild(fc);
+
+    const num = document.createElement('div');
+    num.className = 'fnum';
+    num.textContent = f;
+    box.appendChild(num);
+    box.onclick = () => { document.querySelectorAll('.fbox').forEach(b => b.classList.remove('cur')); box.classList.add('cur'); drawMain(f); };
+    grid.appendChild(box);
+  }
+
+  curFrame = tag.from;
+  drawMain(curFrame);
+  intv = setInterval(() => {
+    if (!playing) return;
+    curFrame++;
+    if (curFrame > tag.to) curFrame = tag.from;
+    drawMain(curFrame);
+    document.querySelectorAll('.fbox').forEach((b, i) => b.classList.toggle('cur', i === curFrame));
+  }, spd);
+}
+
+function drawMain(f) {
+  const cv = document.getElementById('anim-canvas');
+  if (!cv) return;
+  const cx = cv.getContext('2d');
+  cx.imageSmoothingEnabled = false;
+  cx.fillStyle = bgc;
+  cx.fillRect(0, 0, cv.width, cv.height);
+  if (sheets[sel]) cx.drawImage(sheets[sel], f * FW, 0, FW, FH, 0, 0, cv.width, cv.height);
+}
+
+function updateTag(animName, field, val) {
+  const sp = data.sprites[sel];
+  if (!sp) return;
+  const tag = sp.frameTags.find(t => t.name === animName);
+  if (tag) tag[field] = val;
+  rp();
+}
+
+async function saveAnims() {
+  // Apply master override if checked
+  if (masterOn) {
+    for (const sp of Object.values(data.sprites)) {
+      const idle = sp.frameTags.find(t => t.name === 'idle');
+      const walk = sp.frameTags.find(t => t.name === 'walk');
+      if (idle) { idle.from = masterIdle[0]; idle.to = masterIdle[1]; idle.speed = masterSpeed[0]; }
+      if (walk) { walk.from = masterWalk[0]; walk.to = masterWalk[1]; walk.speed = masterSpeed[1]; }
+    }
+  }
+
+  const json = JSON.stringify(data, null, 2);
+  const toast = document.getElementById('toast');
+
+  try {
+    const resp = await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: 'sprites/sprite-anims.json', content: json })
+    });
+    const result = await resp.json();
+    if (result.ok) {
+      toast.textContent = 'Saved to sprite-anims.json';
+      toast.style.background = '#22c55e';
+    } else {
+      toast.textContent = 'Error: ' + (result.error || 'Unknown');
+      toast.style.background = '#ef4444';
+    }
+  } catch (e) {
+    // Fallback: download if dev server isn't running
+    toast.textContent = 'Server not available — downloading file';
+    toast.style.background = '#f59e0b';
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sprite-anims.json';
+    a.click();
+  }
+  toast.style.display = 'block';
+  setTimeout(() => toast.style.display = 'none', 2500);
+}
+
+init();
+</script>
+</body>
+</html>

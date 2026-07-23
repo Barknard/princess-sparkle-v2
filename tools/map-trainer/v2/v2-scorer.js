@@ -12,10 +12,10 @@
  *   Tile Match:      0-30 (only when target provided)
  */
 // Tile ID Sets — calibrated to user's painted map tile vocabulary
-// Paths: user uses 25 (cobblestone) + 13,14,24,36,37,38 as ground variation near paths
-const PATH_TILES = new Set([25, 39, 40, 41, 13, 14, 24, 36, 37, 38]);
+// Paths: 43 (white flowers) is PRIMARY path tile per painted map, with variety from 25,36,37,38
+const PATH_TILES = new Set([43, 25, 36, 37, 38, 39, 40, 41, 13, 14, 24]);
 const COBBLE_TILES = new Set([25, 44, 45]);
-const GRASS_TILES = new Set([0, 1, 2, 43]); // tile 0 (sparkle) is user's primary ground
+const GRASS_TILES = new Set([0, 1, 2]); // tile 0 (sparkle) is user's primary ground
 // Roofs — catalog verified: red(63-65), blue(51-53), peak/chimney(55,67)
 const ROOF_TILES = new Set([51, 52, 53, 55, 63, 64, 65, 67]);
 // Mid-row overhang — brick(60-62), stone(48-50)
@@ -199,6 +199,17 @@ class V2Scorer {
       const connectRatio = connected / pathCount;
       score += connectRatio > 0.8 ? 2 : (connectRatio > 0.5 ? 1 : 0);
       if (connectRatio < 0.5) violations.push(`Path network fragmented: only ${(connectRatio * 100).toFixed(0)}% connected`);
+
+      // Path tile variety bonus — painted map uses 5+ distinct tiles for paths
+      const pathTileTypes = new Set();
+      for (let i = 0; i < W * H; i++) {
+        if (PATH_TILES.has(ground[i])) pathTileTypes.add(ground[i]);
+      }
+      const variety = pathTileTypes.size;
+      if (variety >= 4) score += 2;
+      else if (variety >= 2) score += 1;
+      if (variety <= 1) violations.push(`Path uses only ${variety} tile type (painted map uses 5+)`);
+      details.push(`Path variety: ${variety} distinct tiles`);
     }
 
     if (pathCount === 0) violations.push('No path tiles found');

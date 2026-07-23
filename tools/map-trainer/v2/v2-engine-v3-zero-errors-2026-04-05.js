@@ -405,7 +405,7 @@ function generateFence(rng, width) {
   const pick = (arr) => arr && arr.length ? arr[Math.floor(rng() * arr.length)] : 81;
 
   const w = width || (3 + Math.floor(rng() * 6));
-  const isTall = rng() < 0.85 && byPos.top.L; // 85% tall fences (single-row rails look flat)
+  const isTall = rng() < 0.4 && byPos.top.L; // 40% chance of tall fence
 
   const makeRow = (pos) => {
     const p = byPos[pos] || byPos.single;
@@ -1370,11 +1370,11 @@ class V2Engine {
     };
     const numFences = 1 + Math.floor(rng() * 2);
     for (let fi = 0; fi < numFences; fi++) {
-      const isTall = rng() < 0.85; // 85% tall fences (match target — single-row rails look flat)
+      const isTall = rng() < 0.35; // 35% tall fences
       const fenceH = isTall ? 2 : 1;
       const fy = 2 + Math.floor(rng() * (this.H - 4 - fenceH));
       const startX = 1 + Math.floor(rng() * (this.W / 2));
-      const fenceLen = 3 + Math.floor(rng() * 3); // 3-5 tiles (shorter, like target)
+      const fenceLen = 4 + Math.floor(rng() * 5);
 
       // Check fence placement — must be away from buildings AND castle (2-tile margin)
       const CASTLE_CHECK = new Set([96,97,98,99,100,101,102,104,108,109,110,111,112,113,114,120,121,122,123,124,204,205]);
@@ -1906,10 +1906,50 @@ class V2Engine {
       }
     }
 
-    // STEP 5: Water — DISABLED
-    // The Kenney Tiny Town tileset does NOT have water tiles.
-    // Tiles 109-123 are castle/arch tiles, NOT water.
-    // Water was a tile ID mistake. Do not place water.
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 5: Water feature (small pond, 60% chance — painted map has water)
+    // Reference map style: 3x2 or 4x3 water area with proper edge tiles
+    // ═══════════════════════════════════════════════════════════════════
+    if (rng() < 0.6) {
+      const ww = 2 + Math.floor(rng() * 3); // 2-4 wide
+      const wh = 2 + Math.floor(rng() * 2); // 2-3 tall
+      // Try to place in an open area
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const wx = 3 + Math.floor(rng() * (this.W - ww - 6));
+        const wy = 3 + Math.floor(rng() * (this.H - wh - 6));
+        let canPlace = true;
+        for (let dy = -1; dy <= wh && canPlace; dy++) {
+          for (let dx = -1; dx <= ww && canPlace; dx++) {
+            const cx = wx + dx, cy = wy + dy;
+            if (!this.inBounds(cx, cy)) { canPlace = false; break; }
+            const ci = this.idx(cx, cy);
+            if (objects[ci] !== T.EMPTY || buildingBuffer.has(ci) || pathCells.has(ci)) canPlace = false;
+          }
+        }
+        if (!canPlace) continue;
+        // Place water with proper edge tiles (9-tile system)
+        for (let dy = 0; dy < wh; dy++) {
+          for (let dx = 0; dx < ww; dx++) {
+            const ci = this.idx(wx + dx, wy + dy);
+            const isTop = dy === 0, isBot = dy === wh - 1;
+            const isLeft = dx === 0, isRight = dx === ww - 1;
+            let tile;
+            if (isTop && isLeft) tile = T.WATER_NW;
+            else if (isTop && isRight) tile = T.WATER_NE;
+            else if (isBot && isLeft) tile = T.WATER_SW;
+            else if (isBot && isRight) tile = T.WATER_SE;
+            else if (isTop) tile = T.WATER_N;
+            else if (isBot) tile = T.WATER_S;
+            else if (isLeft) tile = T.WATER_W;
+            else if (isRight) tile = T.WATER_E;
+            else tile = T.WATER_CENTER;
+            objects[ci] = tile;
+            collision[ci] = 1;
+          }
+        }
+        break; // placed successfully
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 6: Repair pass (best practice: fix structural defects)
@@ -1989,14 +2029,9 @@ class V2Engine {
     // Multiple passes until stable (removals can create new orphans).
     // ═══════════════════════════════════════════════════════════════════
     {
-      // IMPORTANT: Edge tiles must NOT appear in canopy/trunk sets — they have different rules
-      // Canopy: tiles that MUST have their trunk partner directly below (standalone tree tops)
-      const CANOPY_TILES = new Set([3, 4]);      // green canopy, light autumn canopy ONLY
-      // Trunk: tiles that MUST have canopy directly above (standalone tree trunks)
-      const TRUNK_TILES = new Set([15, 16]);      // green trunk, light autumn trunk ONLY
-      const DENSE_BODY = new Set([19, 22]);       // cluster center tiles (exempt from canopy/trunk rules)
-      // Edge tiles: surround dense body, checked by adjacency not pair rules
-      // Includes: 7(top-A),10(top-B), 18(left-A),21(left-B), 20(right-A),23(right-B), 31(bot-A),34(bot-B)
+      const CANOPY_TILES = new Set([3, 4, 6, 7, 10]);
+      const TRUNK_TILES = new Set([15, 16, 18, 19, 22]);
+      const DENSE_BODY = new Set([19, 22]);  // cluster center tiles
       const EDGE_TILES = new Set([7, 10, 18, 20, 21, 23, 31, 34]);
       const DENSE2_TILES = new Set([6, 8, 9, 11, 30, 32, 33, 35]);
       let changed = true;

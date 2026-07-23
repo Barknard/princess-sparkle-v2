@@ -15,6 +15,7 @@
 
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from '../engine/Renderer.js';
 import DialogueBox from '../ui/DialogueBox.js';
+import SubtitleBar from '../ui/SubtitleBar.js';
 import { playVoice } from '../data/voiceIndex.js';
 
 // ---- Constants --------------------------------------------------------------
@@ -35,6 +36,9 @@ export default class DialogueScene {
 
     // Dialogue box UI component
     this._dialogueBox = new DialogueBox();
+
+    // Subtitle bar for parent-readable text
+    this._subtitleBar = new SubtitleBar();
 
     // Current dialogue sequence
     /** @type {Array<{voiceId: string, portrait: HTMLImageElement|null, portraitSrc: object|null, choices: Array|null, onComplete: Function|null}>} */
@@ -105,6 +109,7 @@ export default class DialogueScene {
 
   exit() {
     this._dialogueBox.hideImmediate();
+    this._subtitleBar.hide();
     this._lines = [];
   }
 
@@ -115,6 +120,7 @@ export default class DialogueScene {
    */
   update(dt) {
     this._dialogueBox.update(dt);
+    this._subtitleBar.update(dt);
 
     if (this._lineIndex >= this._lines.length) return;
 
@@ -179,6 +185,13 @@ export default class DialogueScene {
 
     // Show dialogue box with portrait
     this._dialogueBox.show(line.portrait || null, line.portraitSrc || null);
+
+    // Show subtitle text for parents (standard RPG text box)
+    if (line.text) {
+      this._subtitleBar.show(line.text, line.speaker || '');
+    } else {
+      this._subtitleBar.hide();
+    }
 
     // Play voice
     this._voicePlaying = true;
@@ -298,6 +311,9 @@ export default class DialogueScene {
 
     // Dialogue box
     this._dialogueBox.draw(renderer);
+
+    // Subtitle bar (parent-readable text, above the dialogue box)
+    this._subtitleBar.draw(ctx);
   }
 
   // ---- Public API for external dialogue setup -------------------------------

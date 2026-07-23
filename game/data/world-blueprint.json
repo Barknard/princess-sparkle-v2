@@ -30,7 +30,7 @@
       "gridX": 1,
       "gridY": 2,
       "density": { "ground": 0.90, "objects": 0.30, "decorations": 0.15 },
-      "features": ["flower-field", "butterfly-clearing"],
+      "features": ["flower-field", "butterfly-clearing", "return-portal"],
       "landmark": { "type": "giant-sunflower", "description": "Huge sunflower visible from the village" },
       "storyAct": 1,
       "bgm": "bgm-village"
@@ -271,7 +271,7 @@
     "lily": {
       "name": "Lily",
       "sprite": "townsfolk-female",
-      "personality": "cheerful",
+      "personality": "jolly",
       "trait": "Loves flowers, always pointing at butterflies",
       "homeMap": "sparkle-village",
       "homeX": 25,
@@ -313,7 +313,7 @@
     "daisy": {
       "name": "Daisy",
       "sprite": "fairy",
-      "personality": "bubbly",
+      "personality": "silly",
       "trait": "Giggles constantly, leaves sparkle trails",
       "homeMap": "rainbow-garden",
       "homeX": 25,
@@ -328,7 +328,7 @@
 
   "quests": {
     "sharing-is-caring": {
-      "name": "Sharing is Caring",
+      "name": "Grandma's Cookies",
       "value": "sharing",
       "heartReward": 3,
       "giverNpcId": "grandma-rose",
@@ -381,7 +381,7 @@
     "finn-lost-acorn": {
       "name": "Finn's Lost Acorn",
       "value": "kindness",
-      "heartReward": 4,
+      "heartReward": 3,
       "giverNpcId": "finn",
       "spansMaps": ["whisper-path"],
       "storyAct": 1,
@@ -410,7 +410,7 @@
       "value": "empathy",
       "heartReward": 5,
       "giverNpcId": "elder-oak",
-      "spansMaps": ["whisper-forest", "sparkle-village"],
+      "spansMaps": ["whisper-forest"],
       "storyAct": 1,
       "difficulty": "mid",
       "stages": [
@@ -438,7 +438,7 @@
     "bakers-dozen": {
       "name": "Baker's Dozen",
       "value": "cooperation",
-      "heartReward": 4,
+      "heartReward": 3,
       "giverNpcId": "baker-ben",
       "spansMaps": ["sparkle-village"],
       "storyAct": 1,

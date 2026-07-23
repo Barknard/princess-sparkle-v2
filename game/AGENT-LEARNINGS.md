@@ -31,6 +31,13 @@ Every agent should read this before starting work.
 - **Fix**: Every decoration tile must be compared to the actual tilemap PNG
 - **Rule**: Before placing ANY tile, look at what it actually IS in the image
 
+### Lesson 5: There are NO water tiles in Kenney Tiny Town
+- **Mistake**: Engine defined tiles 109-123 as WATER_NW, WATER_N, etc. and placed "ponds"
+- **Root cause**: Assumed the tileset had water tiles based on naming convention
+- **Reality**: Tiles 109-123 are castle arch/gate tiles (111=gate-top-L, 112=gate-top-R, etc.)
+- **Fix**: Removed all water placement from the engine. No water features until a tileset with actual water tiles is added.
+- **Rule**: The Kenney Tiny Town tileset has: grass, paths, buildings, trees, fences, castle, decorations. NO water.
+
 ---
 
 ## CODE WIRING MISTAKES (Critical — caused broken features)

@@ -3,7 +3,7 @@
 **The single source of truth.** Read this first when returning to the project.
 Everything you need to get back up to speed in 5 minutes.
 
-**Last Updated**: 2026-03-20
+**Last Updated**: 2026-04-05
 **Repo**: https://github.com/Barknard/princess-sparkle-v2 (public)
 **Live URL**: https://barknard.github.io/princess-sparkle-v2/
 **Platform**: iPad PWA (GitHub Pages, auto-updates via service worker)
@@ -359,21 +359,124 @@ She can also play **offline** — the service worker caches everything.
 - [x] 3 custom agents: child-psychologist, game-art-director, map-builder
 - [x] MAP-DESIGN-RULES.md from research (Pokemon/Stardew analysis)
 
+### v2.1.0 (2026-04-05) — Map Trainer V2 + Game Studio
+
+**Map Trainer V2** — Full procedural village map generation system:
+- [x] V2 engine: zone grammar + composite building placement
+- [x] V2 learner: adjacency rules + cross-layer + layer-aware learning from training data
+- [x] V2 scorer: 8-dimension scoring (paths, buildings, trees, decorations, ground, composition, water, village feel)
+- [x] V2 structural scorer: local structural similarity comparing building positions, path networks, vegetation zones, composition (no API calls)
+- [x] Painted map tool (v2-painter.html) with layers, custom tiles, selection, groups
+- [x] Tile annotator/tagger tool (v2-annotator.html) with grid calibration
+- [x] Training dashboard (v2-dashboard.html) with real-time radar chart, score history, heatmap, live log
+- [x] Genetic evolution + simulated annealing for map optimization
+- [x] 686 learned adjacency rules from 9 training maps (js13k-level1 through level8 + painted map)
+- [x] Anti-stall: adaptive mutation scaling based on stagnation
+- [x] Memory optimized: reusable buffers, Uint8Array lookups, periodic GC
+- [x] Two castle styles: custom 204-based (compact) + tileset-based (repeating tower+arch sections)
+- [x] Building materials derived from tile tags (gray/red roofs, wood/stone walls)
+- [x] Foreground vegetation: frequency-weighted scatter, adjacency-aware placement, cross-layer relationships
+- [x] Tree quality fixes: orphan canopy/trunk removal, edge validation, Dense2 block cleanup
+- [x] Houses minimum 3 tiles wide (doors never cut off)
+- [x] Best V1 saved: `v2-engine-best-v1-2026-04-05.js` (score 72%)
+- [x] Best V2 saved: `v2-engine-v2-moderate-2026-04-05.js` (score 68%, cleaner trees)
+
+**Game Studio** — Unified tool interface:
+- [x] `tools/studio.html` — tab-based shell combining all editors
+- [x] Sprite Viewer with animation preview, frame range editor, master override
+- [x] Keyboard shortcuts: 1-6 for tabs, Alt+arrows for prev/next
+- [x] Lazy-loading iframes preserve each tool's state
+
+**Sprite System**:
+- [x] 17 character/creature spritesheets (128x16, 8 frames each at 16x16)
+- [x] `sprite-anims.json` — animation definitions with idle/walk frame ranges and speeds
+- [x] Sprite viewer: per-sprite frame range editing, animation preview, scale/BG controls
+- [x] Master override checkbox applies idle/walk settings to all sprites at once
+- [x] Roles: player (princess), NPCs (merchant, townsfolk, queen, alchemist, blacksmith, knight, elf-female, elf-princess, ranger), creatures (wolf, fairy, bear, mushroom, ent, forest-guardian)
+
 ### TODO
 - [ ] Eddie: Create BGM tracks in Suno (village theme, forest theme, lullaby)
 - [ ] Eddie: Continue recording voice lines from SCRIPT.md
 - [ ] Eddie: Download animated unicorn/dragon/bunny via PixelLab or PixelBox
 - [ ] Test on physical iPad
-- [ ] Build Whisper Forest level (use map-builder agent)
+- [ ] Build Whisper Forest level (use map trainer V2 with new target map)
 - [ ] Wire Superdark princess walk animation into overworld (spritesheet ready)
 - [ ] Add companion evolution visuals
 - [ ] Add dress-up/accessory system
 - [ ] Add garden system
 - [ ] Add rainbow return portal mechanic
 - [ ] Add kindness encounter random events
-- [ ] Tile polish: path edge transitions, grass variety blobs
 - [ ] Performance audit on iPad
-- [ ] Visual level editor (future)
+- [ ] Run map trainer with more training maps for richer adjacency rules
+- [ ] Integrate generated maps back into game levels
+- [ ] Add level selection/world map screen
+
+---
+
+## Map Trainer V2
+
+The procedural map generator lives in `tools/map-trainer/v2/`. It learns from example maps and evolves new villages.
+
+### How to Run
+```bash
+cd princess-sparkle-v2
+
+# Quick run (200 gens, good for testing changes)
+node --max-old-space-size=8192 --expose-gc tools/map-trainer/v2/v2-server.js --target=99 --max-gens=200 --pop=20
+
+# Full training run (2000+ gens)
+node --max-old-space-size=8192 --expose-gc tools/map-trainer/v2/v2-server.js --target=99 --max-gens=5000 --pop=20
+
+# Dashboard at http://localhost:3456
+```
+
+### Key Files
+| File | Purpose |
+|------|---------|
+| `v2-engine.js` | Map generator: ground fill, building placement, paths, trees, decorations, water, collision |
+| `v2-scorer.js` | 8-dimension quality scorer (0-100) |
+| `v2-structural-scorer.js` | Structural similarity to target map (buildings, paths, vegetation, composition) |
+| `v2-learner.js` | Learns adjacency + cross-layer rules from maps |
+| `v2-server.js` | Express server + genetic evolution loop + simulated annealing |
+| `v2-dashboard.html` | Real-time training monitor |
+| `v2-painter.html` | Hand-paint reference maps for training |
+| `v2-annotator.html` | Tag tiles with metadata (roof, wall, door, fence, etc.) |
+| `learned-knowledge-v2.json` | 686 adjacency rules learned from 9 training maps |
+| `tile-tags.json` | 120 tiles tagged with position/material/type metadata |
+| `painted-map.json` | Eddie's hand-painted 24x14 reference village |
+| `js13k-level1.json` | 36x24 training map (dense village, castle, fences) |
+
+### Saved Engine Versions
+| Version | File | Score | Notes |
+|---------|------|-------|-------|
+| V1 Best | `v2-engine-best-v1-2026-04-05.js` | 72% | Before tree/foreground fixes |
+| V2 Moderate | `v2-engine-v2-moderate-2026-04-05.js` | 68% | Clean trees, frequency-weighted scatter, edge validation |
+
+### Fitness Formula
+```
+fitness = design_quality * 0.4 + structural_match * 0.3 + tile_match * 0.3
+```
+
+---
+
+## Game Studio
+
+Unified editor interface at `tools/studio.html`. Serves from any HTTP server:
+
+```bash
+npx http-server . -p 3456 -c-1 --cors
+# Then open http://localhost:3456/tools/studio.html
+```
+
+### Tabs
+| # | Tab | Tool | Purpose |
+|---|-----|------|---------|
+| 1 | Sprites | `sprite-viewer.html` | View/edit character animations, set idle/walk frame ranges |
+| 2 | Tile Catalog | `tile-viewer.html` | Browse all 132 Kenney Tiny Town tiles with tags |
+| 3 | Map Painter | `v2-painter.html` | Hand-paint maps on 3 layers (ground/objects/foreground) |
+| 4 | Tile Tagger | `v2-annotator.html` | Tag tiles with metadata for the engine |
+| 5 | Map Trainer | `v2-dashboard.html` | Monitor evolution training in real-time |
+| 6 | Trainer V1 | `trainer-ui.html` | Legacy trainer interface |
 
 ---
 
@@ -381,10 +484,12 @@ She can also play **offline** — the service worker caches everything.
 
 1. Read this file (PROJECT-BIBLE.md)
 2. Check the TODO list above
-3. For game design questions → read GAME-DESIGN.md
-4. For "what does the player experience" → read OPENING-STORYBOARD.md
-5. For world interactivity details → read WORLD-LIFE.md
-6. For adding content → read CONTENT-GUIDE.md
-7. For voice recording → read voice-script/SCRIPT.md
-8. For child psychology guidance → invoke child-psychologist agent
-9. For code architecture → look at game/ directory structure above
+3. Open the Game Studio: `npx http-server . -p 3456 && open http://localhost:3456/tools/studio.html`
+4. For game design questions → read GAME-DESIGN.md
+5. For "what does the player experience" → read OPENING-STORYBOARD.md
+6. For world interactivity details → read WORLD-LIFE.md
+7. For adding content → read CONTENT-GUIDE.md
+8. For voice recording → read voice-script/SCRIPT.md
+9. For child psychology guidance → invoke child-psychologist agent
+10. For map generation → run the map trainer (see Map Trainer V2 section above)
+11. For code architecture → look at game/ directory structure above

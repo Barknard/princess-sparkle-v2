@@ -160,6 +160,7 @@ export default class DialogueBox {
       id: c.id,
       icon: c.icon || null,
       iconSrc: c.iconSrc || null,
+      label: c.label || null,
       x: (startX + i * (btnW + gap)) | 0,
       y: btnY,
       w: btnW,
@@ -381,13 +382,26 @@ export default class DialogueBox {
       this._roundRect(ctx, c.x, c.y, c.w, c.h, 10);
       ctx.stroke();
 
-      // Icon inside button (64x64 rendered size)
+      // Icon inside button (if available)
       if (c.icon && c.iconSrc) {
         const is = c.iconSrc;
-        const iconSize = 64;
+        const iconSize = c.label ? 32 : 64; // smaller icon when label present
         const ix = (c.x + (c.w - iconSize) / 2) | 0;
-        const iy = (c.y + (c.h - iconSize) / 2) | 0;
+        const iy = (c.y + 6) | 0;
         ctx.drawImage(c.icon, is.sx, is.sy, is.sw, is.sh, ix, iy, iconSize, iconSize);
+      }
+
+      // Text label below icon (for parent readability + RPG feel)
+      if (c.label) {
+        ctx.save();
+        ctx.font = '8px "Segoe UI", "Arial Rounded MT Bold", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#5a3060';
+        const labelY = c.icon ? (c.y + c.h - 14) : (c.y + c.h / 2);
+        ctx.fillText(c.label, cx, labelY | 0);
+        ctx.restore();
+        ctx.globalAlpha = alpha;
       }
 
       // Restore nudge pulse transform

@@ -307,6 +307,10 @@
 
   <!-- KPI CARDS -->
   <div class="kpi-col" style="grid-area: kpis;">
+    <div class="kpi-card" style="border-left:3px solid #ef4444;">
+      <div class="kpi-value" id="kpi-errors" style="color:#ef4444;">--</div>
+      <div class="kpi-label">Errors</div>
+    </div>
     <div class="kpi-card kpi-purple">
       <div class="kpi-value" id="kpi-best">0.0</div>
       <div class="kpi-label">Best Score</div>
@@ -318,6 +322,10 @@
     <div class="kpi-card kpi-white">
       <div class="kpi-value" id="kpi-gen">0</div>
       <div class="kpi-label">Generation</div>
+    </div>
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-value" id="kpi-struct">--</div>
+      <div class="kpi-label">Structural</div>
     </div>
     <div class="kpi-card kpi-gray">
       <div class="kpi-value" id="kpi-speed">0.0</div>
@@ -340,11 +348,11 @@
   <!-- RIGHT TOP: Best Map + Reference stacked -->
   <div class="panel" style="grid-area: right-top; display:flex; flex-direction:column; gap:3px; overflow:hidden;">
     <div style="flex:1; min-height:0;">
-      <div class="panel-title">Generated (24×14)</div>
+      <div class="panel-title" id="gen-title">Generated</div>
       <img id="best-map" src="/api/best-map" alt="Best map" onclick="openLightbox(this.src)" style="width:100%; height:calc(100% - 16px); object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
     </div>
     <div style="flex:1; min-height:0; position:relative;">
-      <div class="panel-title">Target (24×14) <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;">336 tiles × 3 layers</span></div>
+      <div class="panel-title" id="target-title">Target <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;"></span></div>
       <div style="position:relative; width:100%; height:calc(100% - 16px);">
         <img id="ref-map" src="/reference" alt="Reference" onclick="openLightbox(this.src)" style="width:100%; height:100%; object-fit:contain; image-rendering:pixelated; cursor:zoom-in;">
         <canvas id="grid-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; image-rendering:pixelated;"></canvas>
@@ -428,7 +436,7 @@ function drawGridOverlay() {
     ctx.stroke();
   }
 
-  document.getElementById('grid-count').textContent = '24×14 = 336 tiles (3 layers)';
+  // grid-count updated dynamically from API status
 }
 
 // Draw grid once ref image loads, and on resize
@@ -463,30 +471,37 @@ function openLightbox() {
   flaggedTiles = [];
   localStorage.setItem('flaggedTiles', JSON.stringify(flaggedTiles));
 
-  // Load BOTH the server PNG (for display) and raw data (for inspection)
+  // Freeze the current best-map PNG at this exact moment, then wait for BOTH
+  // the image to fully load AND the tile data to arrive before rendering.
+  var frozenUrl = '/api/best-map?t=' + Date.now();
+
   Promise.all([
     fetch('/api/best-map-data').then(function(r) { return r.json(); }),
     new Promise(function(resolve) {
       var img = new Image();
       img.onload = function() { resolve(img); };
       img.onerror = function() { resolve(null); };
-      img.src = '/api/best-map?t=' + Date.now(); // cache-bust to match thumbnail
+      img.src = frozenUrl;
     })
   ]).then(function(results) {
     inspectorData = results[0];
     inspectorBaseImg = results[1];
-    var canvas = document.getElementById('inspector-canvas');
-    var W = inspectorData.width, H = inspectorData.height;
 
-    // Size canvas to fit screen
+    // Also update the thumbnail to this exact same snapshot
+    document.getElementById('best-map').src = frozenUrl;
+
+    var canvas = document.getElementById('inspector-canvas');
+    var natW = inspectorBaseImg ? inspectorBaseImg.naturalWidth : inspectorData.width * 16;
+    var natH = inspectorBaseImg ? inspectorBaseImg.naturalHeight : inspectorData.height * 16;
+
     inspectorScale = 4;
     var maxW = window.innerWidth - 380;
     var maxH = window.innerHeight - 60;
-    while (W * 16 * inspectorScale > maxW || H * 16 * inspectorScale > maxH) {
+    while (natW * inspectorScale > maxW || natH * inspectorScale > maxH) {
       inspectorScale = Math.max(1, inspectorScale - 1);
     }
-    canvas.width = W * 16 * inspectorScale;
-    canvas.height = H * 16 * inspectorScale;
+    canvas.width = natW * inspectorScale;
+    canvas.height = natH * inspectorScale;
     canvas.style.width = canvas.width + 'px';
     canvas.style.height = canvas.height + 'px';
 
@@ -1023,6 +1038,14 @@ function escHtml(s) {
 function updateKPIs(s) {
   document.getElementById('kpi-best').textContent = (s.bestScore || 0).toFixed(1);
   document.getElementById('kpi-tile').textContent = (s.tileMatch || 0).toFixed(1) + '%';
+  document.getElementById('kpi-struct').textContent = s.structuralScore ? s.structuralScore.total.toFixed(1) : '--';
+  var errEl = document.getElementById('kpi-errors');
+  if (s.errorCount !== null && s.errorCount !== undefined) {
+    errEl.textContent = s.errorCount;
+    errEl.style.color = s.errorCount === 0 ? '#22c55e' : s.errorCount < 10 ? '#f59e0b' : '#ef4444';
+  } else {
+    errEl.textContent = '--';
+  }
   document.getElementById('kpi-gen').textContent = s.generation + ' / ' + s.maxGenerations;
 
   var speed = s.elapsed > 0 ? (s.generation / (s.elapsed / 1000)) : 0;
@@ -1091,7 +1114,10 @@ async function poll() {
     updateKPIs(s);
     drawChart(chartCanvas, s.history, s.target);
     drawRadar(radarCanvas, s.breakdown);
-    drawHeatmap(heatmapCanvas, s.matchGrid, 24, 14);
+    var mw = s.mapWidth || 24, mh = s.mapHeight || 14;
+    drawHeatmap(heatmapCanvas, s.matchGrid, mw, mh);
+    document.getElementById('gen-title').textContent = 'Generated (' + mw + '×' + mh + ')';
+    document.getElementById('target-title').innerHTML = 'Target (' + mw + '×' + mh + ') <span id="grid-count" style="color:#a855f7; margin-left:6px; font-size:9px;">' + mw + '×' + mh + ' = ' + (mw*mh) + ' tiles (3 layers)</span>';
     updateLog(s.log);
     updateBestMap(s);
   } catch (e) {

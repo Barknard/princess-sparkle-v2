@@ -3,6 +3,16 @@
  *
  * Used by SubtitleBar to display parent read-along text
  * while voice lines play.
+ *
+ * Each entry may be a plain string (no timing) or an object with:
+ *   { text, speaker, duration }
+ *   - text:     The subtitle string
+ *   - speaker:  Speaker name shown in gold (optional)
+ *   - duration: Voice audio duration in seconds — enables karaoke word
+ *               highlighting in SubtitleBar when showWithTiming() is used.
+ *               Omit if the line has no timed voice asset yet.
+ *
+ * Helper: getSubtitle(id) returns { text, speaker, duration } always.
  */
 
 export const SUBTITLES = {
@@ -169,9 +179,21 @@ export const SUBTITLES = {
   narrator_village_quest_hint_01: 'See that sparkle? That means someone needs help!',
   narrator_tutorial_walk_01: 'Tap where you want to walk!',
   narrator_tutorial_help_01: "Let's go help someone!",
-  voice_grandma_sharing_01: 'Would you like to help me deliver cookies?',
-  voice_grandma_sharing_02: 'Lily lives just down the path!',
-  voice_companion_sharing_01: "Let's bring the cookies to Lily!",
+  voice_grandma_sharing_01: {
+    text: 'Would you like to help me deliver cookies?',
+    speaker: 'Grandma Rose',
+    duration: 2.8
+  },
+  voice_grandma_sharing_02: {
+    text: 'Lily lives just down the path!',
+    speaker: 'Grandma Rose',
+    duration: 2.0
+  },
+  voice_companion_sharing_01: {
+    text: "Let's bring the cookies to Lily!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
   narrator_companion_story_01: 'Every princess needs a special friend...',
   narrator_companion_bonding_shimmer: 'You and Shimmer are going to have an amazing adventure!',
   narrator_companion_bonding_ember: 'You and Ember are going to have an amazing adventure!',
@@ -186,4 +208,206 @@ export const SUBTITLES = {
   npc_owl_intro_01: 'Whooo goes there?',
   npc_owl_intro_02: 'A princess! How wonderful!',
   npc_owl_intro_03: 'The forest needs your kindness, dear one.',
+
+  // ---- Navigation voice lines (companion navigation hints) ------------------
+  // These lines are triggered by WaypointSystem's onNoProgress callback and
+  // quest stage transitions. All have timing for karaoke highlighting.
+
+  // Quest accepted — companion names the target NPC
+  nav_quest_accept_generic: {
+    text: "Let's go find them! Follow the sparkles!",
+    speaker: 'Companion',
+    duration: 2.6
+  },
+  nav_quest_accept_grandma: {
+    text: "Let's go find Grandma Rose!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_quest_accept_baker: {
+    text: "Let's go find Baker Ben!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_quest_accept_lily: {
+    text: "Let's go find Lily!",
+    speaker: 'Companion',
+    duration: 1.8
+  },
+  nav_quest_accept_finn: {
+    text: "Let's go find Finn the Fox!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_quest_accept_elder: {
+    text: "Let's go find Elder Oak!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_quest_accept_daisy: {
+    text: "Let's go find Daisy!",
+    speaker: 'Companion',
+    duration: 1.8
+  },
+
+  // Goal off-screen — companion names a landmark
+  nav_goal_offscreen_tree: {
+    text: "I see the Big Tree! This way!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_goal_offscreen_well: {
+    text: "I see the village well! This way!",
+    speaker: 'Companion',
+    duration: 2.4
+  },
+  nav_goal_offscreen_cottage: {
+    text: "I see Grandma's cottage! This way!",
+    speaker: 'Companion',
+    duration: 2.4
+  },
+  nav_goal_offscreen_bakery: {
+    text: "I see the bakery! This way!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_goal_offscreen_flowers: {
+    text: "I see the flower garden! This way!",
+    speaker: 'Companion',
+    duration: 2.4
+  },
+  nav_goal_offscreen_crystals: {
+    text: "I see the sparkling crystals! This way!",
+    speaker: 'Companion',
+    duration: 2.6
+  },
+
+  // Near exit archway — cross-map transition cue
+  nav_near_exit_arch: {
+    text: "Through the arch! Let's go!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_near_exit_gate: {
+    text: "Through the gate! This way!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_near_exit_cave: {
+    text: "Into the cave! Let's go!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+  nav_near_exit_forest: {
+    text: "Into the forest! Follow me!",
+    speaker: 'Companion',
+    duration: 2.0
+  },
+
+  // After map transition — companion announces new area
+  nav_map_arrive_sparkle_village: {
+    text: "Here we are in Sparkle Village!",
+    speaker: 'Companion',
+    duration: 2.4
+  },
+  nav_map_arrive_meadow_trail: {
+    text: "Here we are in Meadow Trail!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_map_arrive_whisper_path: {
+    text: "Here we are in Whisper Path!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_map_arrive_whisper_forest: {
+    text: "Here we are in Whisper Forest!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_map_arrive_blossom_bridge: {
+    text: "Here we are in Blossom Bridge!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_map_arrive_rainbow_garden: {
+    text: "Here we are in Rainbow Garden!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_map_arrive_crystal_path: {
+    text: "Here we are in Crystal Path!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_map_arrive_crystal_cave: {
+    text: "Here we are in Crystal Cave!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+
+  // No-progress hint — companion bounces and suggests direction
+  nav_no_progress_generic: {
+    text: "Try going this way!",
+    speaker: 'Companion',
+    duration: 1.8
+  },
+  nav_no_progress_follow_sparkles: {
+    text: "Follow the golden sparkles! They know the way!",
+    speaker: 'Companion',
+    duration: 2.8
+  },
+  nav_no_progress_butterfly: {
+    text: "See my butterfly friend? She knows the way!",
+    speaker: 'Companion',
+    duration: 2.8
+  },
+
+  // Stage complete — companion names the next task
+  nav_stage_complete_generic: {
+    text: "We did it! Let's keep going!",
+    speaker: 'Companion',
+    duration: 2.2
+  },
+  nav_stage_complete_cookies: {
+    text: "We did it! Now let's find Baker Ben!",
+    speaker: 'Companion',
+    duration: 2.6
+  },
+  nav_stage_complete_petals: {
+    text: "We did it! Let's bring the petals to Lily!",
+    speaker: 'Companion',
+    duration: 3.0
+  },
+  nav_stage_complete_bread: {
+    text: "We did it! Now let's bring the bread to Grandma!",
+    speaker: 'Companion',
+    duration: 3.0
+  },
+  nav_stage_complete_acorn: {
+    text: "Found it! Let's give the acorn to Finn!",
+    speaker: 'Companion',
+    duration: 2.8
+  },
 };
+
+/**
+ * Get a subtitle entry by voice ID.
+ * Always returns { text, speaker, duration } — duration is 0 if not set.
+ * @param {string} id
+ * @returns {{ text: string, speaker: string, duration: number }|null}
+ */
+export function getSubtitle(id) {
+  const entry = SUBTITLES[id];
+  if (!entry) return null;
+  if (typeof entry === 'string') {
+    return { text: entry, speaker: '', duration: 0 };
+  }
+  return {
+    text: entry.text || '',
+    speaker: entry.speaker || '',
+    duration: entry.duration || 0,
+  };
+}
+
+export default SUBTITLES;

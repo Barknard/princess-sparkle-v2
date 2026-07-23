@@ -20,18 +20,14 @@
  * @type {Array<{id: string, name: string, bgm?: string, description?: string}>}
  */
 export const KNOWN_LEVELS = [
-  {
-    id: 'sparkle-village',
-    name: 'Sparkle Village',
-    bgm: 'bgm-village',
-    description: 'A cozy village where kindness blooms',
-  },
-  {
-    id: 'whisper-forest',
-    name: 'Whisper Forest',
-    bgm: 'bgm-forest',
-    description: 'A mysterious forest full of gentle secrets',
-  },
+  { id: 'sparkle-village', name: 'Sparkle Village', bgm: 'bgm-village', description: 'A cozy village where kindness blooms' },
+  { id: 'meadow-trail',    name: 'Meadow Trail',    bgm: 'bgm-village', description: 'A sunny trail through flower fields' },
+  { id: 'whisper-path',    name: 'Whisper Path',    bgm: 'bgm-forest',  description: 'A mysterious path through the forest edge' },
+  { id: 'whisper-forest',  name: 'Whisper Forest',  bgm: 'bgm-forest',  description: 'A deep forest full of gentle secrets' },
+  { id: 'blossom-bridge',  name: 'Blossom Bridge',  bgm: 'bgm-meadow',  description: 'A flower-lined path to new adventures' },
+  { id: 'rainbow-garden',  name: 'Rainbow Garden',  bgm: 'bgm-meadow',  description: 'A magical garden bursting with color' },
+  { id: 'crystal-path',    name: 'Crystal Path',    bgm: 'bgm-mountain', description: 'A rocky trail up the mountain' },
+  { id: 'crystal-cave',    name: 'Crystal Cave',    bgm: 'bgm-mountain', description: 'A sparkling cave at the mountain peak' },
 ];
 
 /**

@@ -8,6 +8,14 @@
  * Care system: occasionally shows emote (heart, sleepy Z, playful star).
  * Evolves at level milestones (visual change at levels 4 and 7).
  *
+ * Navigation voice lines:
+ *   sayNavHint(trigger, context) — companion speaks a navigation hint.
+ *   Triggers: 'quest-accepted', 'goal-offscreen', 'near-exit', 'map-arrived',
+ *             'no-progress', 'stage-complete'
+ *   Context object carries landmark/npc/mapName strings to personalize the line.
+ *   Fires onSpeech(voiceId, subtitleKey) callback so the scene can play audio
+ *   and show the timed subtitle.
+ *
  * Subclasses override: getParticleConfig(), getSillyIdleBehavior(), companion-specific SFX.
  */
 
@@ -42,11 +50,29 @@ const CARE_EMOTE_MAX_INTERVAL = 90.0;  // seconds
 // Evolution levels
 const EVOLUTION_LEVELS = [4, 7];
 
+// Navigation bounce — companion hops toward goal when no-progress fires
+const NAV_BOUNCE_DURATION = 2.0;  // seconds the bounce animation plays
+const NAV_BOUNCE_SPEED    = 8.0;  // rad/s for the bounce sine wave
+const NAV_BOUNCE_AMP      = 4;    // pixels
+
 /** Emote types */
 export const EmoteType = {
   HEART: 'heart',
   SLEEPY: 'sleepy',
   PLAYFUL: 'playful'
+};
+
+/**
+ * Navigation trigger types.
+ * Passed as the first argument to sayNavHint().
+ */
+export const NavTrigger = {
+  QUEST_ACCEPTED:  'quest-accepted',   // Quest just accepted — name the target NPC
+  GOAL_OFFSCREEN:  'goal-offscreen',   // Goal went off-screen — name a landmark
+  NEAR_EXIT:       'near-exit',        // Player is near an exit archway
+  MAP_ARRIVED:     'map-arrived',      // Map transition completed — name new map
+  NO_PROGRESS:     'no-progress',      // 15s with no movement toward goal
+  STAGE_COMPLETE:  'stage-complete',   // Quest stage done — name the next task
 };
 
 export default class Companion {
@@ -100,6 +126,17 @@ export default class Companion {
 
     // Movement state for animation (set in update)
     this._isMoving = false;
+
+    // Navigation bounce — triggered by sayNavHint('no-progress')
+    this._navBouncing = false;
+    this._navBounceTimer = 0;
+    this._navBounceTowardX = 0;  // world-space direction to bounce toward
+    this._navBounceTowardY = 0;
+
+    // Speech callback — set externally by the scene
+    // Called as onSpeech(voiceId, subtitleKey) whenever companion speaks a nav line.
+    // The scene should: play audio for voiceId, call subtitleBar.showWithTiming(...)
+    this.onSpeech = null;
   }
 
   /**
@@ -184,6 +221,19 @@ export default class Companion {
       this._calculateFollowTarget(player);
     }
 
+    // Navigation bounce: override target to hop toward goal direction
+    if (this._navBouncing) {
+      this._navBounceTimer -= dt;
+      if (this._navBounceTimer <= 0) {
+        this._navBouncing = false;
+      }
+      // Bounce motion: oscillate toward the goal direction
+      const bounceProgress = 1.0 - (this._navBounceTimer / NAV_BOUNCE_DURATION);
+      const bounceDist = Math.sin(bounceProgress * Math.PI * 3) * 8; // 3 small hops
+      this._targetX += this._navBounceTowardX * bounceDist;
+      this._targetY += this._navBounceTowardY * bounceDist;
+    }
+
     // Lerp toward target
     this.x += (this._targetX - this.x) * LERP_FACTOR;
     this.y += (this._targetY - this.y) * LERP_FACTOR;
@@ -228,6 +278,149 @@ export default class Companion {
     // Care emote system
     this._updateCareEmote(dt);
   }
+
+  // ── Navigation Voice Lines ─────────────────────────────────────────────────
+
+  /**
+   * Speak a navigation hint appropriate to the trigger context.
+   * Fires this.onSpeech(voiceId, subtitleKey) so the scene can play audio
+   * and show the karaoke subtitle.
+   *
+   * Context fields (all optional):
+   *   npcName    {string}  Name of target NPC (e.g. 'Baker Ben')
+   *   npcId      {string}  NPC id key (e.g. 'baker-ben')
+   *   landmark   {string}  Visible landmark name (e.g. 'Big Tree')
+   *   mapName    {string}  Display name of the new map
+   *   exitType   {string}  'arch', 'gate', 'cave', 'forest'
+   *   nextTask   {string}  Short description of next stage task
+   *   goalX      {number}  World X of goal (used for bounce direction)
+   *   goalY      {number}  World Y of goal (used for bounce direction)
+   *
+   * @param {string} trigger  One of NavTrigger.*
+   * @param {object} [context]
+   */
+  sayNavHint(trigger, context = {}) {
+    let subtitleKey = null;
+
+    switch (trigger) {
+      case NavTrigger.QUEST_ACCEPTED: {
+        subtitleKey = this._navKeyForNpc(context.npcId) || 'nav_quest_accept_generic';
+        break;
+      }
+
+      case NavTrigger.GOAL_OFFSCREEN: {
+        subtitleKey = this._navKeyForLandmark(context.landmark) || 'nav_goal_offscreen_tree';
+        break;
+      }
+
+      case NavTrigger.NEAR_EXIT: {
+        const exitMap = {
+          arch:   'nav_near_exit_arch',
+          gate:   'nav_near_exit_gate',
+          cave:   'nav_near_exit_cave',
+          forest: 'nav_near_exit_forest',
+        };
+        subtitleKey = exitMap[context.exitType] || 'nav_near_exit_arch';
+        break;
+      }
+
+      case NavTrigger.MAP_ARRIVED: {
+        subtitleKey = this._navKeyForMap(context.mapId) || 'nav_map_arrive_sparkle_village';
+        break;
+      }
+
+      case NavTrigger.NO_PROGRESS: {
+        // Rotate through the three no-progress lines
+        const noProgressKeys = [
+          'nav_no_progress_generic',
+          'nav_no_progress_follow_sparkles',
+          'nav_no_progress_butterfly',
+        ];
+        this._noProgressCycle = ((this._noProgressCycle || 0) + 1) % noProgressKeys.length;
+        subtitleKey = noProgressKeys[this._noProgressCycle];
+
+        // Trigger bounce animation toward goal
+        if (context.goalX !== undefined && context.goalY !== undefined) {
+          const dx = context.goalX - this.x;
+          const dy = context.goalY - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          this._navBounceTowardX = dx / dist;
+          this._navBounceTowardY = dy / dist;
+          this._navBouncing = true;
+          this._navBounceTimer = NAV_BOUNCE_DURATION;
+        }
+        break;
+      }
+
+      case NavTrigger.STAGE_COMPLETE: {
+        subtitleKey = this._navKeyForStageComplete(context.npcId, context.nextTask)
+          || 'nav_stage_complete_generic';
+        break;
+      }
+
+      default:
+        subtitleKey = 'nav_no_progress_generic';
+    }
+
+    if (subtitleKey && this.onSpeech) {
+      // voiceId mirrors the subtitleKey — audio files should be named accordingly
+      this.onSpeech(subtitleKey, subtitleKey);
+    }
+  }
+
+  /** Map NPC id to a specific quest-accept subtitle key */
+  _navKeyForNpc(npcId) {
+    const map = {
+      'grandma-rose': 'nav_quest_accept_grandma',
+      'baker-ben':    'nav_quest_accept_baker',
+      'lily':         'nav_quest_accept_lily',
+      'finn':         'nav_quest_accept_finn',
+      'elder-oak':    'nav_quest_accept_elder',
+      'daisy':        'nav_quest_accept_daisy',
+    };
+    return npcId ? map[npcId] : null;
+  }
+
+  /** Map landmark name to an offscreen navigation subtitle key */
+  _navKeyForLandmark(landmark) {
+    if (!landmark) return null;
+    const l = landmark.toLowerCase();
+    if (l.includes('tree')) return 'nav_goal_offscreen_tree';
+    if (l.includes('well')) return 'nav_goal_offscreen_well';
+    if (l.includes('cottage') || l.includes('grandma')) return 'nav_goal_offscreen_cottage';
+    if (l.includes('baker') || l.includes('bakery')) return 'nav_goal_offscreen_bakery';
+    if (l.includes('flower') || l.includes('garden')) return 'nav_goal_offscreen_flowers';
+    if (l.includes('crystal')) return 'nav_goal_offscreen_crystals';
+    return null;
+  }
+
+  /** Map map id to an arrival subtitle key */
+  _navKeyForMap(mapId) {
+    const map = {
+      'sparkle-village': 'nav_map_arrive_sparkle_village',
+      'meadow-trail':    'nav_map_arrive_meadow_trail',
+      'whisper-path':    'nav_map_arrive_whisper_path',
+      'whisper-forest':  'nav_map_arrive_whisper_forest',
+      'blossom-bridge':  'nav_map_arrive_blossom_bridge',
+      'rainbow-garden':  'nav_map_arrive_rainbow_garden',
+      'crystal-path':    'nav_map_arrive_crystal_path',
+      'crystal-cave':    'nav_map_arrive_crystal_cave',
+    };
+    return mapId ? map[mapId] : null;
+  }
+
+  /** Map stage complete context to a subtitle key */
+  _navKeyForStageComplete(npcId, nextTask) {
+    if (!nextTask) return null;
+    const t = nextTask.toLowerCase();
+    if (t.includes('cookie')) return 'nav_stage_complete_cookies';
+    if (t.includes('petal')) return 'nav_stage_complete_petals';
+    if (t.includes('bread')) return 'nav_stage_complete_bread';
+    if (t.includes('acorn')) return 'nav_stage_complete_acorn';
+    return null;
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
 
   /**
    * Calculate the follow target position based on player facing direction.
@@ -377,6 +570,12 @@ export default class Companion {
     // Silly idle visual override
     if (this.sillying) {
       yOffset += Math.sin(this.sillyTimer * 6) * 2;
+    }
+
+    // Navigation bounce — extra vertical bounce toward goal
+    if (this._navBouncing) {
+      const bounceProgress = 1.0 - (this._navBounceTimer / NAV_BOUNCE_DURATION);
+      yOffset += -Math.abs(Math.sin(bounceProgress * Math.PI * NAV_BOUNCE_SPEED)) * NAV_BOUNCE_AMP;
     }
 
     // Draw companion sprite using SpriteSheetManager

@@ -405,7 +405,7 @@ function generateFence(rng, width) {
   const pick = (arr) => arr && arr.length ? arr[Math.floor(rng() * arr.length)] : 81;
 
   const w = width || (3 + Math.floor(rng() * 6));
-  const isTall = rng() < 0.85 && byPos.top.L; // 85% tall fences (single-row rails look flat)
+  const isTall = rng() < 0.4 && byPos.top.L; // 40% chance of tall fence
 
   const makeRow = (pos) => {
     const p = byPos[pos] || byPos.single;
@@ -470,35 +470,9 @@ class V2Engine {
     this.H = opts.height || 40;
     this.size = this.W * this.H;
     this.knowledge = null;
-    this.rewardTable = opts.rewardTable || null; // RewardTable instance for bias
     if (opts.knowledgePath && fs.existsSync(opts.knowledgePath)) {
       this.knowledge = JSON.parse(fs.readFileSync(opts.knowledgePath, 'utf8'));
     }
-  }
-
-  /** Pick from a weighted pool, biased by reward table. */
-  _rewardPick(pool, x, y, layer, ground, objects, foreground, rng) {
-    if (!this.rewardTable || pool.length === 0) return pool[Math.floor(rng() * pool.length)];
-    // Build lightweight context (avoid full buildContexts for performance)
-    const contexts = [];
-    const isEdge = x < 3 || x >= this.W - 3 || y < 3 || y >= this.H - 3;
-    contexts.push(isEdge ? 'zone:edge' : 'zone:interior');
-    if (layer) contexts.push('layer:' + layer);
-    const gi = y * this.W + x;
-    if (ground && ground[gi] >= 0) contexts.push('ontop:' + ground[gi]);
-    // Weighted selection
-    let totalW = 0;
-    const weights = new Float64Array(pool.length);
-    for (let i = 0; i < pool.length; i++) {
-      weights[i] = this.rewardTable.getWeight(pool[i], contexts);
-      totalW += weights[i];
-    }
-    let r = rng() * totalW;
-    for (let i = 0; i < pool.length; i++) {
-      r -= weights[i];
-      if (r <= 0) return pool[i];
-    }
-    return pool[pool.length - 1];
   }
 
   idx(x, y) { return y * this.W + x; }
@@ -702,268 +676,6 @@ class V2Engine {
     }
     console.log('V2Engine: loaded ' + Object.keys(this._columnPatterns).length + ' column patterns, ' +
       this._patterns2x2.ground.size + '/' + this._patterns2x2.objects.size + '/' + this._patterns2x2.foreground.size + ' 2x2 patterns (g/o/f)');
-
-    // ── Data-Driven Parameter Extraction ──────────────────────────────
-    // Derive ALL generation parameters from training data + tile tags.
-    // These replace hardcoded values in generate().
-
-    // 1. Single tree types: auto-discover canopy→trunk pairs from tile tags
-    //    Any tile tagged "canopy" + "top" pairs with the tile tagged "trunk" + "bottom"
-    //    that shares the same tileset column (canopyId % 12 === trunkId % 12)
-    this._derivedSingleTrees = [];
-    if (this._tileTags) {
-      const canopyTiles = []; // tiles tagged canopy but NOT dense1/dense2
-      const trunkTiles = [];  // tiles tagged trunk but NOT dense1/dense2
-      for (const [id, tags] of Object.entries(this._tileTags)) {
-        const tid = parseInt(id);
-        if (tags.has('canopy') && !tags.has('dense1') && !tags.has('dense2')) canopyTiles.push(tid);
-        if (tags.has('trunk') && !tags.has('dense1') && !tags.has('dense2')) trunkTiles.push(tid);
-      }
-      // Match canopy to trunk by same tileset column (id % 12)
-      for (const c of canopyTiles) {
-        const col = c % 12;
-        const matchingTrunk = trunkTiles.find(t => t % 12 === col);
-        if (matchingTrunk !== undefined) {
-          // Weight from training data: count how many times this canopy appears above this trunk
-          let weight = 1;
-          if (this._knowledge?.patterns?.vertical) {
-            const vKey = c + '→' + matchingTrunk;
-            weight = Math.max(1, this._knowledge.patterns.vertical[vKey] || 1);
-          }
-          // Also count from painted foreground
-          for (const fg of this._paintedForeground) {
-            if (fg.tile === c) {
-              const trunkBelow = this._paintedForeground.find(t => t.x === fg.x && t.y === fg.y + 1 && t.tile === matchingTrunk);
-              if (trunkBelow) weight += 2;
-            }
-          }
-          this._derivedSingleTrees.push({ canopy: c, trunk: matchingTrunk, weight });
-        }
-      }
-      if (this._derivedSingleTrees.length > 0) {
-        console.log('V2Engine: derived ' + this._derivedSingleTrees.length + ' single tree types from tags: ' +
-          this._derivedSingleTrees.map(t => t.canopy + '→' + t.trunk + '(w' + t.weight + ')').join(', '));
-      }
-    }
-
-    // 2. Dense cluster color groups: auto-discover from dense1/dense2 tags + position tags
-    this._derivedDense1Groups = [];
-    this._derivedDense2Groups = [];
-    if (this._tileTags) {
-      // Dense1: tiles tagged dense1, grouped by tileset column range
-      // Each group has: top (canopy+dense1), left, center, right, bottom (trunk+dense1)
-      const dense1Tiles = {};
-      const dense2Tiles = {};
-      for (const [id, tags] of Object.entries(this._tileTags)) {
-        const tid = parseInt(id);
-        if (tags.has('dense1')) {
-          const pos = tags.has('top') ? 'top' : tags.has('bottom') ? 'bottom' :
-                      tags.has('left') ? 'left' : tags.has('right') ? 'right' :
-                      (tags.has('center') || tags.has('middle')) ? 'center' : 'center';
-          // Group by tileset column (tiles in same column group share visual style)
-          const col = tid % 12;
-          if (!dense1Tiles[col]) dense1Tiles[col] = {};
-          dense1Tiles[col][pos] = tid;
-        }
-        if (tags.has('dense2')) {
-          const isTop = tags.has('top') || tags.has('canopy');
-          const isLeft = tags.has('left');
-          const isRight = tags.has('right');
-          const pos = isTop ? (isLeft ? 'topL' : 'topR') : (isLeft ? 'botL' : 'botR');
-          const col = tid % 12;
-          if (!dense2Tiles[col]) dense2Tiles[col] = {};
-          dense2Tiles[col][pos] = tid;
-        }
-      }
-      // Build dense1 groups: find columns that have at least top+center+bottom
-      // Group adjacent columns into color sets
-      const dense1Cols = Object.keys(dense1Tiles).map(Number).sort((a, b) => a - b);
-      const dense1Groups = [];
-      let currentGroup = {};
-      let lastCol = -99;
-      for (const col of dense1Cols) {
-        if (col - lastCol > 1 && Object.keys(currentGroup).length >= 2) {
-          dense1Groups.push(currentGroup);
-          currentGroup = {};
-        }
-        Object.assign(currentGroup, dense1Tiles[col]);
-        lastCol = col;
-      }
-      if (Object.keys(currentGroup).length >= 2) dense1Groups.push(currentGroup);
-      // Only keep groups with at least a center tile
-      for (const g of dense1Groups) {
-        if (g.center) this._derivedDense1Groups.push(g);
-      }
-
-      // Build dense2 groups: need topL+topR+botL+botR as 2x2 blocks
-      const dense2Cols = Object.keys(dense2Tiles).map(Number).sort((a, b) => a - b);
-      for (let i = 0; i < dense2Cols.length - 1; i++) {
-        const leftCol = dense2Cols[i], rightCol = dense2Cols[i + 1];
-        if (rightCol - leftCol > 2) continue; // not adjacent pair
-        const left = dense2Tiles[leftCol], right = dense2Tiles[rightCol];
-        if (left.topL && right.topR && left.botL && right.botR) {
-          this._derivedDense2Groups.push({ topL: left.topL, topR: right.topR, botL: left.botL, botR: right.botR });
-          i++; // skip rightCol
-        }
-      }
-
-      if (this._derivedDense1Groups.length > 0 || this._derivedDense2Groups.length > 0) {
-        console.log('V2Engine: derived dense groups — dense1: ' + this._derivedDense1Groups.length +
-          ' groups, dense2: ' + this._derivedDense2Groups.length + ' groups');
-      }
-    }
-
-    // 3. Standalone foreground tiles: any foreground tile NOT part of a structural pair
-    this._derivedStandaloneFg = new Set();
-    if (this._tileTags) {
-      const structuralTags = new Set(['canopy', 'trunk', 'dense1', 'dense2']);
-      for (const [id, tags] of Object.entries(this._tileTags)) {
-        const tid = parseInt(id);
-        if (!tags.has('foreground')) continue;
-        // Skip tiles that are part of canopy/trunk/dense structures
-        let isStructural = false;
-        for (const st of structuralTags) {
-          if (tags.has(st)) { isStructural = true; break; }
-        }
-        if (!isStructural) this._derivedStandaloneFg.add(tid);
-      }
-      if (this._derivedStandaloneFg.size > 0) {
-        console.log('V2Engine: derived ' + this._derivedStandaloneFg.size + ' standalone fg tiles: [' +
-          [...this._derivedStandaloneFg].join(', ') + ']');
-      }
-    }
-
-    // 4. Building row positions: extract from _paintedBuildings (where buildings actually appear)
-    this._derivedBuildingRows = [];
-    if (this._paintedBuildings && this._paintedBuildings.length > 0) {
-      const rowSet = new Set();
-      for (const b of this._paintedBuildings) {
-        rowSet.add(b.origY);
-      }
-      this._derivedBuildingRows = [...rowSet].sort((a, b) => a - b);
-      console.log('V2Engine: derived building rows from painted map: [' + this._derivedBuildingRows.join(', ') + ']');
-    }
-
-    // 5. Foreground density: compute from painted map (ratio of fg tiles to total tiles)
-    this._derivedFgDensity = this._paintedForeground.length / (W * H);
-    console.log('V2Engine: derived fg density = ' + this._derivedFgDensity.toFixed(4) +
-      ' (' + this._paintedForeground.length + '/' + (W * H) + ')');
-
-    // 6. Tree cluster count and sizes: analyze clusters in painted foreground
-    //    Count connected groups of dense/tree foreground tiles
-    this._derivedClusterCount = 0;
-    this._derivedClusterSizes = [];
-    {
-      const fgVisited = new Set();
-      const denseBodyTiles = new Set();
-      // Identify dense body tiles from tags
-      if (this._tileTags) {
-        for (const [id, tags] of Object.entries(this._tileTags)) {
-          if ((tags.has('dense1') || tags.has('dense2')) && (tags.has('center') || tags.has('middle') ||
-              tags.has('top') || tags.has('bottom') || tags.has('left') || tags.has('right'))) {
-            denseBodyTiles.add(parseInt(id));
-          }
-        }
-      }
-      for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const key = x + ',' + y;
-          if (fgVisited.has(key)) continue;
-          const ft = painted.foreground[y * W + x];
-          if (ft < 0 || !denseBodyTiles.has(ft)) continue;
-          // Flood-fill this cluster
-          let clusterSize = 0;
-          const queue = [{x, y}];
-          while (queue.length) {
-            const {x: cx, y: cy} = queue.shift();
-            const k = cx + ',' + cy;
-            if (fgVisited.has(k) || cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
-            const t = painted.foreground[cy * W + cx];
-            if (t < 0 || !denseBodyTiles.has(t)) continue;
-            fgVisited.add(k);
-            clusterSize++;
-            queue.push({x:cx+1,y:cy},{x:cx-1,y:cy},{x:cx,y:cy+1},{x:cx,y:cy-1});
-          }
-          if (clusterSize >= 2) {
-            this._derivedClusterCount++;
-            this._derivedClusterSizes.push(clusterSize);
-          }
-        }
-      }
-      console.log('V2Engine: derived ' + this._derivedClusterCount + ' tree clusters from painted map, sizes: [' +
-        this._derivedClusterSizes.join(', ') + ']');
-    }
-
-    // 7. Castle frequency: count training maps with castle tiles
-    //    For single map: check if it has castle tiles (presence = 1.0, absence = 0.0)
-    this._derivedCastleFreq = 0;
-    {
-      const castleIds = new Set();
-      if (this._tileTags) {
-        for (const [id, tags] of Object.entries(this._tileTags)) {
-          if (tags.has('castle')) castleIds.add(parseInt(id));
-        }
-      }
-      let hasCastle = false;
-      for (let i = 0; i < W * H; i++) {
-        if (castleIds.has(painted.objects[i])) { hasCastle = true; break; }
-      }
-      // Use knowledge stats if available (multi-map learning)
-      if (this._knowledge?.stats?.maps > 1) {
-        // Estimate from how many maps contributed castle adjacency rules
-        let castleRuleCount = 0;
-        for (const id of castleIds) {
-          if (this._knowledge.adjacency?.[String(id)]) castleRuleCount++;
-        }
-        // If castle rules exist in adjacency data, castles appear in some maps
-        this._derivedCastleFreq = castleRuleCount > 0 ? Math.min(0.5, castleRuleCount / (castleIds.size || 1)) : 0;
-      } else {
-        this._derivedCastleFreq = hasCastle ? 1.0 : 0.0;
-      }
-      console.log('V2Engine: derived castle frequency = ' + this._derivedCastleFreq.toFixed(2));
-    }
-
-    // 8. Path material frequency: derive rock vs dirt ratio from training ground tiles
-    this._derivedRockPathChance = 0.5; // default 50/50
-    {
-      const ROCK_TILES = new Set([44, 45]); // cobblestone
-      const DIRT_TILES = new Set([39, 40, 41, 42]); // dirt path variants
-      let rockCount = 0, dirtCount = 0;
-      for (let i = 0; i < W * H; i++) {
-        const t = painted.ground[i];
-        if (ROCK_TILES.has(t)) rockCount++;
-        if (DIRT_TILES.has(t)) dirtCount++;
-      }
-      const totalPath = rockCount + dirtCount;
-      if (totalPath > 0) {
-        this._derivedRockPathChance = rockCount / totalPath;
-      }
-      console.log('V2Engine: derived rock path chance = ' + this._derivedRockPathChance.toFixed(2) +
-        ' (rock:' + rockCount + ' dirt:' + dirtCount + ')');
-    }
-
-    // 9. Grass distribution: derive from training map instead of hardcoded 60/25/10/5
-    this._derivedGrassPool = [];
-    {
-      const grassCounts = {};
-      const GRASS_IDS = new Set([0, 1, 2, 43]);
-      let grassTotal = 0;
-      for (let i = 0; i < W * H; i++) {
-        const t = painted.ground[i];
-        if (GRASS_IDS.has(t)) {
-          grassCounts[t] = (grassCounts[t] || 0) + 1;
-          grassTotal++;
-        }
-      }
-      if (grassTotal > 0) {
-        // Build pool of 100 entries weighted by actual frequency
-        for (const [tile, count] of Object.entries(grassCounts)) {
-          const slots = Math.max(1, Math.round(count / grassTotal * 100));
-          for (let i = 0; i < slots; i++) this._derivedGrassPool.push(parseInt(tile));
-        }
-        console.log('V2Engine: derived grass pool (' + this._derivedGrassPool.length + ' entries) from ' + grassTotal + ' grass tiles');
-      }
-    }
   }
 
   /** Generate a map from DNA parameters. Returns { width, height, ground[], objects[], foreground[], collision[] } */
@@ -994,10 +706,12 @@ class V2Engine {
     // STEP 1: Ground — multi-octave noise for natural variation
     // Reference map has: ~60% plain grass(1), ~25% flower grass(2), ~15% sparkle(0)/white(43)
     // ═══════════════════════════════════════════════════════════════════
-    // Build a weighted grass pool — derived from training data, fallback to defaults
-    const grassPool = (this._derivedGrassPool && this._derivedGrassPool.length > 0)
-      ? this._derivedGrassPool
-      : (() => { const p = []; for (let i = 0; i < 60; i++) p.push(1); for (let i = 0; i < 25; i++) p.push(2); for (let i = 0; i < 10; i++) p.push(0); for (let i = 0; i < 5; i++) p.push(43); return p; })();
+    // Build a weighted grass pool matching reference distribution
+    const grassPool = [];
+    for (let i = 0; i < 60; i++) grassPool.push(1);  // 60% plain grass
+    for (let i = 0; i < 25; i++) grassPool.push(2);  // 25% flower grass
+    for (let i = 0; i < 10; i++) grassPool.push(0);  // 10% sparkle grass
+    for (let i = 0; i < 5; i++) grassPool.push(43);  // 5% white grass
     
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
@@ -1055,8 +769,7 @@ class V2Engine {
     // Path material — each map picks rock or dirt majority
     const ROCK_PATH = 44;  // Light Cobblestone (was 25=autumn trunk - WRONG!)
     const DIRT_PATH = 40;  // Dirt Path Center (was 43=grass flowers - WRONG!)
-    const derivedRockChance = this._derivedRockPathChance !== undefined ? this._derivedRockPathChance : 0.6;
-    const pathMaterial = rng() < (d.rockPathChance || derivedRockChance) ? ROCK_PATH : DIRT_PATH;
+    const pathMaterial = rng() < (d.rockPathChance || 0.6) ? ROCK_PATH : DIRT_PATH;
     const pathCells = new Set();
 
     // Paths are laid AFTER buildings, connecting doors.
@@ -1076,11 +789,8 @@ class V2Engine {
       // Find building rows from layout
       let buildingRows = rowLayout.filter(r => r.type === 'building').map(r => r.row);
       
-      // Use rows derived from painted map analysis, then layout rules, then hardcoded fallback
-      if (buildingRows.length === 0 && this._derivedBuildingRows && this._derivedBuildingRows.length > 0) {
-        // Add some jitter (+-2 rows) around learned positions for variety
-        buildingRows = this._derivedBuildingRows.map(r => r + Math.floor(rng() * 5) - 2);
-      }
+      // If no learned rows, use fixed distribution for proper village layout
+      // Reference map has buildings at roughly: top third (rows 2-8), middle (rows 12-18), lower (rows 22-28)
       if (buildingRows.length === 0) {
         buildingRows = [
           2 + Math.floor(rng() * 4),   // top row: 2-5
@@ -1167,8 +877,7 @@ class V2Engine {
     }
 
     // Place ONE castle LAST (so nothing overwrites it)
-    const castleChance = this._derivedCastleFreq !== undefined ? this._derivedCastleFreq : 0.3;
-    if (rng() < castleChance) { // castle chance derived from training data
+    if (rng() < 0.3) { // 30% chance of a castle per map
       const castle = generateCastle(rng);
       for (let attempt = 0; attempt < 60; attempt++) {
         const by = Math.floor(rng() * Math.max(1, this.H - castle.h));
@@ -1370,11 +1079,11 @@ class V2Engine {
     };
     const numFences = 1 + Math.floor(rng() * 2);
     for (let fi = 0; fi < numFences; fi++) {
-      const isTall = rng() < 0.85; // 85% tall fences (match target — single-row rails look flat)
+      const isTall = rng() < 0.35; // 35% tall fences
       const fenceH = isTall ? 2 : 1;
       const fy = 2 + Math.floor(rng() * (this.H - 4 - fenceH));
       const startX = 1 + Math.floor(rng() * (this.W / 2));
-      const fenceLen = 3 + Math.floor(rng() * 3); // 3-5 tiles (shorter, like target)
+      const fenceLen = 4 + Math.floor(rng() * 5);
 
       // Check fence placement — must be away from buildings AND castle (2-tile margin)
       const CASTLE_CHECK = new Set([96,97,98,99,100,101,102,104,108,109,110,111,112,113,114,120,121,122,123,124,204,205]);
@@ -1403,7 +1112,7 @@ class V2Engine {
           let tile;
           if (dx === 0) tile = style.L;
           else if (dx === fenceLen - 1) tile = style.R;
-          else if (dx % 2 === 0) tile = style.post;
+          else if (dx % 3 === 0) tile = style.post;
           else tile = style.M;
           objects[this.idx(fx, rowY)] = tile;
           collision[this.idx(fx, rowY)] = 1;
@@ -1414,35 +1123,6 @@ class V2Engine {
         placeFenceRow(fy + 1, FENCE_BOT);
       } else {
         placeFenceRow(fy, FENCE_SINGLE);
-      }
-    }
-
-    // Post-fence cleanup: remove any fence tiles that overlap or are adjacent to path cells
-    // This catches fences that ended up next to paths regardless of placement order
-    const ALL_FENCE_TILES = new Set();
-    [FENCE_SINGLE, FENCE_TOP, FENCE_BOT].forEach(s => {
-      [s.L, s.M, s.R, s.post].forEach(t => { if (t !== undefined) ALL_FENCE_TILES.add(t); });
-    });
-    if (this._tagLookup && this._tagLookup.fence) {
-      for (const t of this._tagLookup.fence) ALL_FENCE_TILES.add(t);
-    }
-    for (let y = 0; y < this.H; y++) {
-      for (let x = 0; x < this.W; x++) {
-        const ci = this.idx(x, y);
-        if (!ALL_FENCE_TILES.has(objects[ci])) continue;
-        // Check if this fence cell overlaps or is adjacent to any path cell
-        let nearPath = false;
-        for (let dy = -1; dy <= 1 && !nearPath; dy++) {
-          for (let dx = -1; dx <= 1 && !nearPath; dx++) {
-            const nx = x + dx, ny = y + dy;
-            if (!this.inBounds(nx, ny)) continue;
-            if (pathCells.has(this.idx(nx, ny))) nearPath = true;
-          }
-        }
-        if (nearPath) {
-          objects[ci] = T.EMPTY;
-          collision[ci] = 0;
-        }
       }
     }
 
@@ -1535,15 +1215,14 @@ class V2Engine {
     //   Row 2: 19 19 19 19 (dense body)
     //   Edge:  32 20 31 32 (closed border of ground-level bushes/stones)
 
-    // Dense tree color groups — derived from tile tags, fallback to hardcoded
-    const derivedD1 = this._derivedDense1Groups && this._derivedDense1Groups.length >= 2
-      ? this._derivedDense1Groups : null;
-    const derivedD2 = this._derivedDense2Groups && this._derivedDense2Groups.length >= 2
-      ? this._derivedDense2Groups : null;
-    const dense1_A = derivedD1 ? derivedD1[0] : { top: 7, left: 18, center: 19, right: 20, bottom: 31 };
-    const dense1_B = derivedD1 ? derivedD1[1] : { top: 10, left: 21, center: 22, right: 23, bottom: 34 };
-    const dense2_A = derivedD2 ? derivedD2[0] : { topL: 6, topR: 8, botL: 30, botR: 32 };
-    const dense2_B = derivedD2 ? derivedD2[1] : { topL: 9, topR: 11, botL: 33, botR: 35 };
+    // Build dense tree color groups from tags
+    // Dense1 has 2 color groups: A (cols 6-8: tiles 7,18,19,20,31) and B (cols 9-11: tiles 10,21,22,23,34)
+    // Dense2 has 2 color groups: A (cols 6,8: tiles 6,8,30,32) and B (cols 9,11: tiles 9,11,33,35)
+    // Each cluster picks ONE color group to avoid mixing
+    const dense1_A = { top: 7, left: 18, center: 19, right: 20, bottom: 31 };
+    const dense1_B = { top: 10, left: 21, center: 22, right: 23, bottom: 34 };
+    const dense2_A = { topL: 6, topR: 8, botL: 30, botR: 32 };
+    const dense2_B = { topL: 9, topR: 11, botL: 33, botR: 35 };
     const pickArr = (arr, fb) => arr.length ? arr[Math.floor(rng() * arr.length)] : fb;
 
     const placeTreeCluster = (cx, cy, w, h) => {
@@ -1593,17 +1272,14 @@ class V2Engine {
     //   4→16 (7 occurrences, 100% match) — green canopy + trunk
     //   7→19 (5 occurrences, 100% match) — autumn canopy + dense body
     //   3→15 (3 occurrences, 100% match) — light autumn pair
-    // Single tree types — derived from tile tags, fallback to hardcoded
-    const SINGLE_TREES = (this._derivedSingleTrees && this._derivedSingleTrees.length > 0)
-      ? this._derivedSingleTrees
-      : [
-          { canopy: 4, trunk: 16, weight: 7 },   // green (most common)
-          { canopy: 7, trunk: 19, weight: 5 },   // autumn canopy + dense
-          { canopy: 3, trunk: 15, weight: 3 },   // light autumn
-        ];
+    const SINGLE_TREES = [
+      { canopy: 4, trunk: 16, weight: 7 },   // green (most common in painted map)
+      { canopy: 7, trunk: 19, weight: 5 },   // autumn canopy + dense
+      { canopy: 3, trunk: 15, weight: 3 },   // light autumn
+    ];
     const singlePool = [];
     for (const tt of SINGLE_TREES) {
-      for (let i = 0; i < (tt.weight || 1); i++) singlePool.push(tt);
+      for (let i = 0; i < tt.weight; i++) singlePool.push(tt);
     }
 
     // PHASE A: Dense tree clusters concentrated at edges (matching reference map's forest border)
@@ -1612,12 +1288,7 @@ class V2Engine {
     const isSmallMap = this.W <= 30 || this.H <= 20;
     const maxClusterW = isSmallMap ? Math.min(4, Math.floor(this.W / 6)) : 6;
     const maxClusterH = isSmallMap ? Math.min(3, Math.floor(this.H / 5)) : 4;
-    // Cluster count — derived from training data, scaled to map size ratio, fallback to defaults
-    const derivedClusterBase = (this._derivedClusterCount && this._derivedClusterCount > 0)
-      ? this._derivedClusterCount : null;
-    const numClusters = derivedClusterBase
-      ? Math.max(2, Math.round(derivedClusterBase * (this.W * this.H) / ((this._painted?.width || this.W) * (this._painted?.height || this.H))) + Math.floor(rng() * 3) - 1)
-      : (isSmallMap ? (3 + Math.floor(rng() * 2)) : (5 + Math.floor(rng() * 3)));
+    const numClusters = isSmallMap ? (3 + Math.floor(rng() * 2)) : (5 + Math.floor(rng() * 3));
     const clusterZones = [];
 
     // Corner offsets scale to map size — leave room for buildings in center
@@ -1715,8 +1386,7 @@ class V2Engine {
 
     // PHASE B2: Edge repair — ONLY for dense cluster body tiles (19)
     // Do NOT trigger edges from edge tiles themselves (prevents cascading)
-    // Dense1 center tiles — derived from dense1 groups
-    const CLUSTER_BODY = new Set([dense1_A.center, dense1_B.center].filter(Boolean));
+    const CLUSTER_BODY = new Set([19, 22]); // dense1 center tiles (A=19, B=22)
     // Edge repair: determine color group from the body tile (19=A, 22=B)
     // Then use matching edges from that group
     const edgePlaced = new Set(); // track edge placements to prevent chaining
@@ -1777,14 +1447,13 @@ class V2Engine {
     }
 
     // PHASE B3b: Validate cluster edges — remove any edge tile whose body tile is missing
-    // Build EDGE_TO_BODY_DIR dynamically from the dense1 groups
-    const EDGE_TO_BODY_DIR = {};
-    for (const d1 of [dense1_A, dense1_B]) {
-      if (d1.top) EDGE_TO_BODY_DIR[d1.top] = [0, 1];       // top edge expects body below
-      if (d1.bottom) EDGE_TO_BODY_DIR[d1.bottom] = [0, -1]; // bottom edge expects body above
-      if (d1.left) EDGE_TO_BODY_DIR[d1.left] = [1, 0];      // left edge expects body to the right
-      if (d1.right) EDGE_TO_BODY_DIR[d1.right] = [-1, 0];   // right edge expects body to the left
-    }
+    const EDGE_TO_BODY_DIR = {
+      // dense1_A: top(7)→south, bottom(31)→north, left(18)→east, right(20)→west
+      7: [0, 1], 10: [0, 1],     // top edges expect body below
+      31: [0, -1], 34: [0, -1],  // bottom edges expect body above
+      18: [1, 0], 21: [1, 0],    // left edges expect body to the right
+      20: [-1, 0], 23: [-1, 0],  // right edges expect body to the left
+    };
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
         const ci = this.idx(x, y);
@@ -1794,8 +1463,8 @@ class V2Engine {
         const bx = x + dir[0], by = y + dir[1];
         if (!this.inBounds(bx, by)) { foreground[ci] = T.EMPTY; continue; }
         const bodyTile = foreground[this.idx(bx, by)];
-        // Body must be a cluster center tile
-        if (!CLUSTER_BODY.has(bodyTile)) {
+        // Body must be a cluster center tile (19=dense1_A, 22=dense1_B)
+        if (bodyTile !== 19 && bodyTile !== 22) {
           foreground[ci] = T.EMPTY; // orphan edge — remove
         }
       }
@@ -1805,14 +1474,11 @@ class V2Engine {
     // Use painted map's actual foreground tile frequencies to weight choices
     // Use actual painted template density, or 10% default (target maps are sparser than 19%)
     const templateFgDensity = this._paintedForeground ? this._paintedForeground.length / this.size : 0.10;
-    const derivedDensity = this._derivedFgDensity > 0 ? this._derivedFgDensity : templateFgDensity;
-    const targetFg = Math.round(this.size * (d.fgDensity || Math.min(derivedDensity, templateFgDensity)));
+    const targetFg = Math.round(this.size * (d.fgDensity || Math.min(0.12, templateFgDensity)));
     let currentFg = 0;
     for (let i = 0; i < this.size; i++) { if (foreground[i] !== T.EMPTY) currentFg++; }
     // Build frequency-weighted pool from painted map's foreground tiles (standalone only)
-    // Standalone fg tiles — derived from tile tags, fallback to hardcoded
-    const standaloneFg = (this._derivedStandaloneFg && this._derivedStandaloneFg.size > 0)
-      ? this._derivedStandaloneFg : new Set([28, 17, 27]);
+    const standaloneFg = new Set([28, 17, 27]); // only true standalone bushes (not cluster edges or tree parts)
     let fgScatterPool = [];
     if (this._targetFreqs && this._targetFreqs.foreground) {
       for (const [tileStr, freq] of Object.entries(this._targetFreqs.foreground)) {
@@ -1906,27 +1572,57 @@ class V2Engine {
       }
     }
 
-    // STEP 5: Water — DISABLED
-    // The Kenney Tiny Town tileset does NOT have water tiles.
-    // Tiles 109-123 are castle/arch tiles, NOT water.
-    // Water was a tile ID mistake. Do not place water.
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 5: Water feature (small pond, 60% chance — painted map has water)
+    // Reference map style: 3x2 or 4x3 water area with proper edge tiles
+    // ═══════════════════════════════════════════════════════════════════
+    if (rng() < 0.6) {
+      const ww = 2 + Math.floor(rng() * 3); // 2-4 wide
+      const wh = 2 + Math.floor(rng() * 2); // 2-3 tall
+      // Try to place in an open area
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const wx = 3 + Math.floor(rng() * (this.W - ww - 6));
+        const wy = 3 + Math.floor(rng() * (this.H - wh - 6));
+        let canPlace = true;
+        for (let dy = -1; dy <= wh && canPlace; dy++) {
+          for (let dx = -1; dx <= ww && canPlace; dx++) {
+            const cx = wx + dx, cy = wy + dy;
+            if (!this.inBounds(cx, cy)) { canPlace = false; break; }
+            const ci = this.idx(cx, cy);
+            if (objects[ci] !== T.EMPTY || buildingBuffer.has(ci) || pathCells.has(ci)) canPlace = false;
+          }
+        }
+        if (!canPlace) continue;
+        // Place water with proper edge tiles (9-tile system)
+        for (let dy = 0; dy < wh; dy++) {
+          for (let dx = 0; dx < ww; dx++) {
+            const ci = this.idx(wx + dx, wy + dy);
+            const isTop = dy === 0, isBot = dy === wh - 1;
+            const isLeft = dx === 0, isRight = dx === ww - 1;
+            let tile;
+            if (isTop && isLeft) tile = T.WATER_NW;
+            else if (isTop && isRight) tile = T.WATER_NE;
+            else if (isBot && isLeft) tile = T.WATER_SW;
+            else if (isBot && isRight) tile = T.WATER_SE;
+            else if (isTop) tile = T.WATER_N;
+            else if (isBot) tile = T.WATER_S;
+            else if (isLeft) tile = T.WATER_W;
+            else if (isRight) tile = T.WATER_E;
+            else tile = T.WATER_CENTER;
+            objects[ci] = tile;
+            collision[ci] = 1;
+          }
+        }
+        break; // placed successfully
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 6: Repair pass (best practice: fix structural defects)
     // ═══════════════════════════════════════════════════════════════════
-    // Canopy→trunk pairs on FOREGROUND layer — derived from tile tags, fallback to hardcoded
-    const FG_CANOPY_TO_TRUNK = {};
-    const FG_TRUNK_TO_CANOPY = {};
-    if (this._derivedSingleTrees && this._derivedSingleTrees.length > 0) {
-      for (const tt of this._derivedSingleTrees) {
-        FG_CANOPY_TO_TRUNK[tt.canopy] = tt.trunk;
-        FG_TRUNK_TO_CANOPY[tt.trunk] = tt.canopy;
-      }
-    } else {
-      // Hardcoded fallback
-      Object.assign(FG_CANOPY_TO_TRUNK, { 4: 16, 7: 19, 3: 15 });
-      Object.assign(FG_TRUNK_TO_CANOPY, { 16: 4, 19: 7, 15: 3 });
-    }
+    // Canopy→trunk pairs on FOREGROUND layer (matching placeTree function)
+    const FG_CANOPY_TO_TRUNK = { 4: 16, 7: 19, 3: 15 };
+    const FG_TRUNK_TO_CANOPY = { 16: 4, 19: 7, 15: 3 };
 
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
@@ -1980,97 +1676,6 @@ class V2Engine {
 
         // Ensure ground is always filled (never -1)
         if (ground[i] < 0) ground[i] = 1; // default to plain grass
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // FINAL TREE VALIDATION: Remove ANY orphan tree tile that lacks context
-    // This runs AFTER all placement + repairs to guarantee zero orphans.
-    // Multiple passes until stable (removals can create new orphans).
-    // ═══════════════════════════════════════════════════════════════════
-    {
-      // IMPORTANT: Edge tiles must NOT appear in canopy/trunk sets — they have different rules
-      // Canopy: tiles that MUST have their trunk partner directly below (standalone tree tops)
-      const CANOPY_TILES = new Set([3, 4]);      // green canopy, light autumn canopy ONLY
-      // Trunk: tiles that MUST have canopy directly above (standalone tree trunks)
-      const TRUNK_TILES = new Set([15, 16]);      // green trunk, light autumn trunk ONLY
-      const DENSE_BODY = new Set([19, 22]);       // cluster center tiles (exempt from canopy/trunk rules)
-      // Edge tiles: surround dense body, checked by adjacency not pair rules
-      // Includes: 7(top-A),10(top-B), 18(left-A),21(left-B), 20(right-A),23(right-B), 31(bot-A),34(bot-B)
-      const EDGE_TILES = new Set([7, 10, 18, 20, 21, 23, 31, 34]);
-      const DENSE2_TILES = new Set([6, 8, 9, 11, 30, 32, 33, 35]);
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (let y = 0; y < this.H; y++) {
-          for (let x = 0; x < this.W; x++) {
-            const ci = this.idx(x, y);
-            const ft = foreground[ci];
-            if (ft === T.EMPTY) continue;
-
-            // Rule 1: Canopy without trunk partner directly below → REMOVE
-            if (CANOPY_TILES.has(ft)) {
-              const hasTrunkBelow = (y + 1 < this.H) && TRUNK_TILES.has(foreground[this.idx(x, y + 1)]);
-              // Canopy tiles that are also dense body (19/22) are exempt — they're cluster centers
-              const isDenseBody = DENSE_BODY.has(ft);
-              if (!hasTrunkBelow && !isDenseBody) {
-                // Also exempt if adjacent to dense body (edge tile role takes priority below)
-                // But pure canopy with no trunk = orphan
-                foreground[ci] = T.EMPTY;
-                changed = true;
-                continue;
-              }
-            }
-
-            // Rule 2: Trunk NOT in dense cluster and no canopy above → REMOVE
-            if (TRUNK_TILES.has(ft) && !DENSE_BODY.has(ft)) {
-              const hasCanopyAbove = (y > 0) && CANOPY_TILES.has(foreground[this.idx(x, y - 1)]);
-              if (!hasCanopyAbove) {
-                foreground[ci] = T.EMPTY;
-                changed = true;
-                continue;
-              }
-            }
-
-            // Rule 3: Edge tile without dense body (19/22) adjacent → REMOVE
-            if (EDGE_TILES.has(ft)) {
-              let hasBody = false;
-              for (let dy = -1; dy <= 1 && !hasBody; dy++) {
-                for (let dx = -1; dx <= 1 && !hasBody; dx++) {
-                  if (dx === 0 && dy === 0) continue;
-                  const nx = x + dx, ny = y + dy;
-                  if (this.inBounds(nx, ny) && DENSE_BODY.has(foreground[this.idx(nx, ny)])) {
-                    hasBody = true;
-                  }
-                }
-              }
-              if (!hasBody) {
-                foreground[ci] = T.EMPTY;
-                changed = true;
-                continue;
-              }
-            }
-
-            // Rule 4: Dense2 tile without at least 1 other Dense2 adjacent → REMOVE
-            if (DENSE2_TILES.has(ft)) {
-              let hasNeighbor = false;
-              for (let dy = -1; dy <= 1 && !hasNeighbor; dy++) {
-                for (let dx = -1; dx <= 1 && !hasNeighbor; dx++) {
-                  if (dx === 0 && dy === 0) continue;
-                  const nx = x + dx, ny = y + dy;
-                  if (this.inBounds(nx, ny) && DENSE2_TILES.has(foreground[this.idx(nx, ny)])) {
-                    hasNeighbor = true;
-                  }
-                }
-              }
-              if (!hasNeighbor) {
-                foreground[ci] = T.EMPTY;
-                changed = true;
-                continue;
-              }
-            }
-          }
-        }
       }
     }
 

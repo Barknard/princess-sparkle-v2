@@ -598,7 +598,14 @@ function exportMap() {
     headers: { 'Content-Type': 'application/json' },
     body: jsonStr
   }).then(r => r.json()).then(() => {
-    showToast('Saved to server + downloaded');
+    // Auto-learn: rebuild adjacency knowledge from all maps including this one
+    return fetch('/api/learn', { method: 'POST' });
+  }).then(r => r ? r.json() : null).then(lr => {
+    if (lr && lr.ok) {
+      showToast('Saved + learned (' + lr.after + ' rules from ' + lr.maps.length + ' maps)');
+    } else {
+      showToast('Saved to server + downloaded');
+    }
   }).catch(() => {
     showToast('Server save failed — downloaded instead');
   });
